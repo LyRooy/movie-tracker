@@ -16,6 +16,7 @@
             </div>
             <ul class="nav-menu">
                 <li><a href="#dashboard" class="nav-link">Dashboard</a></li>
+                <li><a href="#my-list" class="nav-link">Moja Lista</a></li>
                 <li><a href="#search" class="nav-link">Wyszukaj</a></li>
                 <li><a href="#calendar" class="nav-link">Kalendarz</a></li>
                 <li><a href="#statistics" class="nav-link">Statystyki</a></li>
@@ -76,6 +77,65 @@
                     <div id="recent-list" class="activity-list">
                         <!-- Recent activities will be loaded here -->
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- My List Section -->
+        <section id="my-list" class="section">
+            <div class="container">
+                <h1>Moja Lista</h1>
+                
+                <div class="my-list-controls">
+                    <div class="list-tabs">
+                        <button class="tab-btn active" data-status="all">Wszystkie</button>
+                        <button class="tab-btn" data-status="watched">Obejrzane</button>
+                        <button class="tab-btn" data-status="watching">Obecnie oglądane</button>
+                        <button class="tab-btn" data-status="planning">Planowane</button>
+                        <button class="tab-btn" data-status="dropped">Porzucone</button>
+                    </div>
+                    
+                    <div class="list-filters">
+                        <select id="list-type-filter">
+                            <option value="">Wszystkie typy</option>
+                            <option value="movie">Filmy</option>
+                            <option value="series">Seriale</option>
+                        </select>
+                        <select id="list-genre-filter">
+                            <option value="">Wszystkie gatunki</option>
+                            <option value="action">Akcja</option>
+                            <option value="comedy">Komedia</option>
+                            <option value="drama">Dramat</option>
+                            <option value="horror">Horror</option>
+                            <option value="sci-fi">Sci-Fi</option>
+                        </select>
+                        <select id="list-sort">
+                            <option value="date-desc">Najnowsze</option>
+                            <option value="date-asc">Najstarsze</option>
+                            <option value="title-asc">Tytuł A-Z</option>
+                            <option value="title-desc">Tytuł Z-A</option>
+                            <option value="rating-desc">Najwyżej ocenione</option>
+                            <option value="rating-asc">Najniżej ocenione</option>
+                        </select>
+                    </div>
+                    
+                    <div class="view-controls">
+                        <button id="grid-view" class="view-btn active" title="Widok siatki">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button id="list-view" class="view-btn" title="Widok listy">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="list-stats">
+                    <span id="list-count">0 pozycji</span>
+                    <span id="list-hours">0 godzin</span>
+                </div>
+
+                <div id="my-list-content" class="my-list-grid">
+                    <!-- User's list will be displayed here -->
                 </div>
             </div>
         </section>
@@ -207,6 +267,16 @@
                         <span id="modal-genre"></span>
                         <span id="modal-duration"></span>
                     </div>
+                    <div class="status-section">
+                        <label>Status:</label>
+                        <select id="movie-status">
+                            <option value="">Wybierz status</option>
+                            <option value="watched">Obejrzane</option>
+                            <option value="watching">Obecnie oglądane</option>
+                            <option value="planning">Planowane</option>
+                            <option value="dropped">Porzucone</option>
+                        </select>
+                    </div>
                     <div class="rating-section">
                         <label>Twoja ocena:</label>
                         <div class="stars">
@@ -222,8 +292,9 @@
                         <textarea id="review-text" placeholder="Napisz swoją recenzję..."></textarea>
                     </div>
                     <div class="modal-actions">
-                        <button id="add-to-watched" class="btn btn-primary">Dodaj do obejrzanych</button>
-                        <button id="add-to-wishlist" class="btn btn-secondary">Dodaj do listy życzeń</button>
+                        <button id="add-to-list" class="btn btn-primary">Dodaj do listy</button>
+                        <button id="update-item" class="btn btn-primary" style="display: none;">Aktualizuj</button>
+                        <button id="remove-from-list" class="btn btn-secondary" style="display: none;">Usuń z listy</button>
                     </div>
                 </div>
             </div>

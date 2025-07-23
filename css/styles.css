@@ -841,3 +841,343 @@ h3 {
 * {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
+
+/* My List Styles */
+.my-list-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    background-color: var(--surface-color);
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+}
+
+.list-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background-color: var(--background-color);
+    color: var(--text-secondary);
+    border-radius: 25px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: 500;
+}
+
+.tab-btn.active {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.tab-btn:hover:not(.active) {
+    background-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.list-filters {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.list-filters select {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.list-filters select:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+}
+
+.view-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.view-btn {
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    background-color: var(--background-color);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.view-btn.active {
+    border-color: var(--secondary-color);
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.view-btn:hover:not(.active) {
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.list-stats {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.my-list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 2rem;
+}
+
+.my-list-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.list-item {
+    background-color: var(--surface-color);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+    cursor: pointer;
+    position: relative;
+}
+
+.list-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+.list-item-grid {
+    /* Grid view specific styles */
+}
+
+.list-item-list {
+    display: flex;
+    padding: 1rem;
+    align-items: center;
+    gap: 1rem;
+}
+
+.list-item-list img {
+    width: 80px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+
+.list-item-content {
+    padding: 1rem;
+    flex: 1;
+}
+
+.list-item-grid .list-item-content {
+    padding: 1rem;
+}
+
+.list-item img {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+}
+
+.list-item-list img {
+    width: 80px;
+    height: 120px;
+}
+
+.list-item h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
+
+.list-item p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+}
+
+.list-item-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.list-item-rating {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.list-item-rating .stars {
+    color: #f39c12;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+}
+
+.status-watched {
+    background-color: #27ae60;
+    color: white;
+}
+
+.status-watching {
+    background-color: #3498db;
+    color: white;
+}
+
+.status-planning {
+    background-color: #f39c12;
+    color: white;
+}
+
+.status-dropped {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.list-item-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.action-btn {
+    padding: 0.25rem 0.5rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: var(--transition);
+}
+
+.edit-btn {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.delete-btn {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.action-btn:hover {
+    opacity: 0.8;
+}
+
+.status-section {
+    margin-bottom: 1rem;
+}
+
+.status-section label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.status-section select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.status-section select:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+}
+
+.empty-list {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.empty-list i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-list h3 {
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+}
+
+/* Responsive adjustments for My List */
+@media (max-width: 768px) {
+    .my-list-controls {
+        padding: 1rem;
+    }
+    
+    .list-filters {
+        flex-direction: column;
+    }
+    
+    .list-filters select {
+        width: 100%;
+    }
+    
+    .view-controls {
+        margin-left: 0;
+        margin-top: 1rem;
+    }
+    
+    .list-stats {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .my-list-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+    
+    .list-item-list {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .list-item-list img {
+        width: 100px;
+        height: 150px;
+    }
+}

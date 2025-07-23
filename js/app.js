@@ -622,7 +622,7 @@ class MovieTracker {
         console.log('Change month:', direction);
     }
 
-    // Dodaj te metody do klasy MovieTracker
+       // Dodaj te metody do klasy MovieTracker
 
 // My List functionality
 showMyList(status = 'all') {
@@ -940,6 +940,7 @@ loadMockDataExtended() {
             description: 'Komedia o absurdach biurokracji',
             duration: 119
         }
+    }
     
 }
 

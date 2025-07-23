@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MovieTracker - Śledź swoje filmy i seriale</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="light-theme">
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-film"></i>
+                <span>MovieTracker</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#dashboard" class="nav-link">Dashboard</a></li>
+                <li><a href="#search" class="nav-link">Wyszukaj</a></li>
+                <li><a href="#calendar" class="nav-link">Kalendarz</a></li>
+                <li><a href="#statistics" class="nav-link">Statystyki</a></li>
+                <li><a href="#profile" class="nav-link">Profil</a></li>
+                <li>
+                    <button id="theme-toggle" class="theme-toggle">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="section active">
+            <div class="container">
+                <h1>Witaj, <span id="username">Użytkowniku</span>!</h1>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-film"></i>
+                        <div class="stat-info">
+                            <h3 id="movies-count">0</h3>
+                            <p>Obejrzane filmy</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-tv"></i>
+                        <div class="stat-info">
+                            <h3 id="series-count">0</h3>
+                            <p>Obejrzane seriale</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-clock"></i>
+                        <div class="stat-info">
+                            <h3 id="hours-count">0</h3>
+                            <p>Godzin oglądania</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-star"></i>
+                        <div class="stat-info">
+                            <h3 id="avg-rating">0.0</h3>
+                            <p>Średnia ocena</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h2>Ostatnie aktywności</h2>
+                    <div id="recent-list" class="activity-list">
+                        <!-- Recent activities will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search Section -->
+        <section id="search" class="section">
+            <div class="container">
+                <h1>Wyszukaj filmy i seriale</h1>
+                
+                <div class="search-container">
+                    <div class="search-bar">
+                        <input type="text" id="search-input" placeholder="Wpisz tytuł filmu lub serialu...">
+                        <button id="search-btn"><i class="fas fa-search"></i></button>
+                    </div>
+                    
+                    <div class="filters">
+                        <select id="type-filter">
+                            <option value="">Wszystkie</option>
+                            <option value="movie">Filmy</option>
+                            <option value="series">Seriale</option>
+                        </select>
+                        <select id="genre-filter">
+                            <option value="">Wszystkie gatunki</option>
+                            <option value="action">Akcja</option>
+                            <option value="comedy">Komedia</option>
+                            <option value="drama">Dramat</option>
+                            <option value="horror">Horror</option>
+                            <option value="sci-fi">Sci-Fi</option>
+                        </select>
+                        <select id="year-filter">
+                            <option value="">Wszystkie lata</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="search-results" class="results-grid">
+                    <!-- Search results will be displayed here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Calendar Section -->
+        <section id="calendar" class="section">
+            <div class="container">
+                <h1>Kalendarz premier</h1>
+                <div id="calendar-container" class="calendar">
+                    <!-- Calendar will be generated here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Section -->
+        <section id="statistics" class="section">
+            <div class="container">
+                <h1>Twoje statystyki</h1>
+                
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>Filmy vs Seriale</h3>
+                        <canvas id="typeChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Gatunki</h3>
+                        <canvas id="genreChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Aktywność w czasie</h3>
+                        <canvas id="timeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Profile Section -->
+        <section id="profile" class="section">
+            <div class="container">
+                <h1>Profil użytkownika</h1>
+                
+                <div class="profile-container">
+                    <div class="profile-info">
+                        <div class="avatar">
+                            <img id="user-avatar" src="images/default-avatar.png" alt="Avatar">
+                            <button class="change-avatar">Zmień avatar</button>
+                        </div>
+                        <div class="user-details">
+                            <h2 id="profile-username">Nazwa użytkownika</h2>
+                            <p id="profile-email">email@example.com</p>
+                            <p>Członek od: <span id="member-since">2024</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-settings">
+                        <h3>Ustawienia</h3>
+                        <div class="setting-item">
+                            <label>Powiadomienia email</label>
+                            <input type="checkbox" id="email-notifications">
+                        </div>
+                        <div class="setting-item">
+                            <label>Publiczny profil</label>
+                            <input type="checkbox" id="public-profile">
+                        </div>
+                        <div class="setting-item">
+                            <label>Motyw</label>
+                            <select id="theme-select">
+                                <option value="light">Jasny</option>
+                                <option value="dark">Ciemny</option>
+                                <option value="auto">Automatyczny</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Movie/Series Modal -->
+    <div id="movie-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <div class="movie-poster">
+                    <img id="modal-poster" src="" alt="Poster">
+                </div>
+                <div class="movie-details">
+                    <h2 id="modal-title"></h2>
+                    <p id="modal-description"></p>
+                    <div class="movie-meta">
+                        <span id="modal-year"></span>
+                        <span id="modal-genre"></span>
+                        <span id="modal-duration"></span>
+                    </div>
+                    <div class="rating-section">
+                        <label>Twoja ocena:</label>
+                        <div class="stars">
+                            <i class="fas fa-star" data-rating="1"></i>
+                            <i class="fas fa-star" data-rating="2"></i>
+                            <i class="fas fa-star" data-rating="3"></i>
+                            <i class="fas fa-star" data-rating="4"></i>
+                            <i class="fas fa-star" data-rating="5"></i>
+                        </div>
+                    </div>
+                    <div class="review-section">
+                        <label>Recenzja:</label>
+                        <textarea id="review-text" placeholder="Napisz swoją recenzję..."></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="add-to-watched" class="btn btn-primary">Dodaj do obejrzanych</button>
+                        <button id="add-to-wishlist" class="btn btn-secondary">Dodaj do listy życzeń</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

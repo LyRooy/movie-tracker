@@ -626,4 +626,3 @@ class MovieTracker {
 
 // Initialize the app
 const app = new MovieTracker();
-    ];

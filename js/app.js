@@ -25,6 +25,12 @@ class MovieTracker {
                 e.preventDefault();
                 const section = link.getAttribute('href').substring(1);
                 this.showSection(section);
+
+                // Zamknij menu mobilne po kliknięciu w link
+                const navMenu = document.querySelector('.nav-menu');
+                if (navMenu && navMenu.classList.contains('active')) {
+                    navMenu.classList.remove('active');
+                }
             });
         });
 
@@ -86,9 +92,13 @@ class MovieTracker {
         });
 
         // Mobile menu
-        document.querySelector('.hamburger').addEventListener('click', () => {
-            document.querySelector('.nav-menu').classList.toggle('active');
-        });
+        const hamburger = document.querySelector('.hamburger');
+        const navMenu = document.querySelector('.nav-menu');
+        if (hamburger && navMenu) {
+            hamburger.addEventListener('click', () => {
+                navMenu.classList.toggle('active');
+            });
+        }
 
         // Generate year options for filter
         this.generateYearOptions();

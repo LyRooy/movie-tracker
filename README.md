@@ -370,9 +370,14 @@ curl -X POST http://localhost:3000/api/login \
 - Hasła są hashowane za pomocą bcryptjs
 - API używa JWT do autoryzacji
 - Firebase Firestore ma reguły bezpieczeństwa
+- **Rate limiting** - API ma ograniczenia częstotliwości zapytań:
+  - 100 zapytań na 15 minut dla ogólnych endpoint
+  - 5 prób logowania/rejestracji na 15 minut
 - Nie commituj pliku `.env` do repozytorium
+- Nie commituj Firebase service account keys (pliki JSON)
 - Używaj silnych kluczy JWT w produkcji
 - Regularnie aktualizuj zależności
+- Statyczne pliki serwowane tylko z określonych katalogów (css, js, images, uploads)
 
 ## Licencja
 

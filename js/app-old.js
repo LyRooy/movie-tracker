@@ -1,48 +1,24 @@
-// MovieTracker App with Firebase Integration
+// MovieTracker App
 class MovieTracker {
     constructor() {
         this.currentUser = null;
-        this.token = null;
         this.watchedMovies = [];
         this.currentRating = 0;
         this.currentSection = 'dashboard';
-        this.apiUrl = ''; // Empty string since we're serving from same origin
         
         this.init();
     }
 
-    async init() {
+    init() {
         this.bindEvents();
-        await this.checkAuth();
-        this.setupTheme();
-        
-        if (this.token) {
-            await this.loadUserData();
-            await this.loadWatchedMovies();
-            this.updateStats();
-            this.displayRecentActivity();
-        }
-        
+        this.loadUserData();
         this.generateCalendar();
-        this.generateYearOptions();
+        this.loadMockData();
+        this.updateStats();
+        this.setupTheme();
     }
 
     bindEvents() {
-        // Check authentication on load
-        if (!this.token) {
-            window.location.href = 'login.html';
-            return;
-        }
-
-        // Logout button
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem('token');
-                window.location.href = 'login.html';
-            });
-        }
-
         // Navigation
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
@@ -50,7 +26,7 @@ class MovieTracker {
                 const section = link.getAttribute('href').substring(1);
                 this.showSection(section);
 
-                // Close mobile menu after click
+                // Zamknij menu mobilne po kliknięciu w link
                 const navMenu = document.querySelector('.nav-menu');
                 if (navMenu && navMenu.classList.contains('active')) {
                     navMenu.classList.remove('active');
@@ -110,13 +86,10 @@ class MovieTracker {
             this.highlightStars(this.currentRating);
         });
 
-        // Add to list button
-        const addToListBtn = document.getElementById('add-to-list');
-        if (addToListBtn) {
-            addToListBtn.addEventListener('click', () => {
-                this.addToWatched();
-            });
-        }
+        // Add to watched
+        document.getElementById('add-to-watched').addEventListener('click', () => {
+            this.addToWatched();
+        });
 
         // Mobile menu
         const hamburger = document.querySelector('.hamburger');
@@ -126,73 +99,9 @@ class MovieTracker {
                 navMenu.classList.toggle('active');
             });
         }
-    }
 
-    async checkAuth() {
-        this.token = localStorage.getItem('token');
-        if (this.token) {
-            try {
-                // Verify token by fetching user profile
-                const response = await fetch(`${this.apiUrl}/api/user/profile`, {
-                    headers: {
-                        'Authorization': `Bearer ${this.token}`
-                    }
-                });
-                
-                if (!response.ok) {
-                    // Token invalid, clear it
-                    localStorage.removeItem('token');
-                    this.token = null;
-                }
-            } catch (error) {
-                console.error('Auth check error:', error);
-                localStorage.removeItem('token');
-                this.token = null;
-            }
-        }
-    }
-
-    async loadUserData() {
-        try {
-            const response = await fetch(`${this.apiUrl}/api/user/profile`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-
-            if (response.ok) {
-                this.currentUser = await response.json();
-                
-                // Update UI with user data
-                document.getElementById('username').textContent = this.currentUser.nickname || 'User';
-                document.getElementById('profile-username').textContent = this.currentUser.nickname || 'User';
-                document.getElementById('profile-email').textContent = this.currentUser.email;
-                
-                if (this.currentUser.avatar_url) {
-                    document.getElementById('user-avatar').src = this.currentUser.avatar_url;
-                }
-            }
-        } catch (error) {
-            console.error('Load user data error:', error);
-        }
-    }
-
-    async loadWatchedMovies() {
-        try {
-            const response = await fetch(`${this.apiUrl}/api/watched`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-
-            if (response.ok) {
-                this.watchedMovies = await response.json();
-            }
-        } catch (error) {
-            console.error('Load watched movies error:', error);
-            // Fallback to empty array
-            this.watchedMovies = [];
-        }
+        // Generate year options for filter
+        this.generateYearOptions();
     }
 
     showSection(sectionName) {
@@ -209,10 +118,10 @@ class MovieTracker {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
         });
-        document.querySelector(`[href="#${sectionName}"]`)?.classList.add('active');
+        document.querySelector(`[href="#${sectionName}"]`).classList.add('active');
 
         // Load section-specific data
-        if (sectionName === 'statistics' && this.token) {
+        if (sectionName === 'statistics') {
             this.loadCharts();
         }
     }
@@ -239,56 +148,89 @@ class MovieTracker {
         
         const themeIcon = document.querySelector('#theme-toggle i');
         themeIcon.className = newTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
-
-        // Update backend if user is logged in
-        if (this.token) {
-            this.updateThemePreference(newTheme);
-        }
     }
 
-    async updateThemePreference(theme) {
-        try {
-            await fetch(`${this.apiUrl}/api/user/profile`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({
-                    nickname: this.currentUser.nickname,
-                    description: this.currentUser.description,
-                    theme_preference: theme
-                })
-            });
-        } catch (error) {
-            console.error('Update theme error:', error);
-        }
+    loadUserData() {
+        // Mock user data - in real app, this would come from API
+        this.currentUser = {
+            id: 1,
+            username: 'LyRooy',
+            email: 'lyrooy@example.com',
+            avatarUrl: 'images/default-avatar.png',
+            memberSince: '2024',
+            preferences: {
+                emailNotifications: true,
+                publicProfile: false,
+                theme: 'light'
+            }
+        };
+
+        // Update UI with user data
+        document.getElementById('username').textContent = this.currentUser.username;
+        document.getElementById('profile-username').textContent = this.currentUser.username;
+        document.getElementById('profile-email').textContent = this.currentUser.email;
+        document.getElementById('member-since').textContent = this.currentUser.memberSince;
+        document.getElementById('user-avatar').src = this.currentUser.avatarUrl;
+    }
+
+    loadMockData() {
+        // Mock watched movies data
+        this.watchedMovies = [
+            {
+                id: 1,
+                title: 'Incepcja',
+                type: 'movie',
+                year: 2010,
+                genre: 'Sci-Fi',
+                rating: 5,
+                watchedDate: '2024-01-15',
+                poster: 'https://via.placeholder.com/200x300/4CAF50/white?text=Incepcja',
+                duration: 148
+            },
+            {
+                id: 2,
+                title: 'Breaking Bad',
+                type: 'series',
+                year: 2008,
+                genre: 'Dramat',
+                rating: 5,
+                watchedDate: '2024-01-10',
+                poster: 'https://via.placeholder.com/200x300/2196F3/white?text=Breaking+Bad',
+                duration: 2940 // total minutes
+            },
+            {
+                id: 3,
+                title: 'Paragraf 22',
+                type: 'movie',
+                year: 2019,
+                genre: 'Komedia',
+                rating: 4,
+                watchedDate: '2024-01-05',
+                poster: 'https://via.placeholder.com/200x300/FF9800/white?text=Paragraf+22',
+                duration: 119
+            }
+        ];
+
+        this.displayRecentActivity();
     }
 
     displayRecentActivity() {
         const recentList = document.getElementById('recent-list');
         recentList.innerHTML = '';
 
-        if (this.watchedMovies.length === 0) {
-            recentList.innerHTML = '<p>Brak aktywności. Dodaj swój pierwszy film!</p>';
-            return;
-        }
-
         const recentItems = this.watchedMovies
-            .sort((a, b) => new Date(b.watched_date) - new Date(a.watched_date))
+            .sort((a, b) => new Date(b.watchedDate) - new Date(a.watchedDate))
             .slice(0, 5);
 
         recentItems.forEach(item => {
-            if (!item.movie) return;
-            
             const activityItem = document.createElement('div');
             activityItem.className = 'activity-item';
             activityItem.innerHTML = `
-                <img src="${item.movie.poster_url || 'https://via.placeholder.com/200x300/888/fff?text=No+Image'}" 
-                     alt="${item.movie.title}">
+                <img src="${item.poster}" alt="${item.title}">
                 <div class="activity-info">
-                    <h4>${item.movie.title}</h4>
-                    <p>Obejrzano: ${this.formatDate(item.watched_date)}</p>
+                    <h4>${item.title}</h4>
+                    <p>Obejrzano: ${this.formatDate(item.watchedDate)}</p>
+                    <p>Ocena: ${'★'.repeat(item.rating)}${'☆'.repeat(5-item.rating)}</p>
                 </div>
             `;
             recentList.appendChild(activityItem);
@@ -296,61 +238,81 @@ class MovieTracker {
     }
 
     updateStats() {
-        const movies = this.watchedMovies.filter(item => item.movie && item.movie.type === 'movie');
-        const series = this.watchedMovies.filter(item => item.movie && item.movie.type === 'series');
-        
+        const movies = this.watchedMovies.filter(item => item.type === 'movie');
+        const series = this.watchedMovies.filter(item => item.type === 'series');
+        const totalHours = Math.round(this.watchedMovies.reduce((total, item) => total + item.duration, 0) / 60);
+        const avgRating = this.watchedMovies.length > 0 
+            ? (this.watchedMovies.reduce((total, item) => total + item.rating, 0) / this.watchedMovies.length).toFixed(1)
+            : 0;
+
         document.getElementById('movies-count').textContent = movies.length;
         document.getElementById('series-count').textContent = series.length;
-        
-        // For hours, we'd need duration data - placeholder for now
-        document.getElementById('hours-count').textContent = Math.round(this.watchedMovies.length * 2);
-        
-        // Calculate average rating from reviews
-        if (this.token) {
-            this.loadAverageRating();
-        }
+        document.getElementById('hours-count').textContent = totalHours;
+        document.getElementById('avg-rating').textContent = avgRating;
     }
 
-    async loadAverageRating() {
-        try {
-            const response = await fetch(`${this.apiUrl}/api/user/statistics`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-
-            if (response.ok) {
-                const stats = await response.json();
-                document.getElementById('avg-rating').textContent = stats.average_rating.toFixed(1);
-            }
-        } catch (error) {
-            console.error('Load rating error:', error);
-        }
-    }
-
-    async performSearch() {
+    performSearch() {
         const query = document.getElementById('search-input').value.toLowerCase();
         const typeFilter = document.getElementById('type-filter').value;
         const genreFilter = document.getElementById('genre-filter').value;
         const yearFilter = document.getElementById('year-filter').value;
 
-        try {
-            const params = new URLSearchParams();
-            if (query) params.append('query', query);
-            if (typeFilter) params.append('type', typeFilter);
-            if (genreFilter) params.append('genre', genreFilter);
-            if (yearFilter) params.append('year', yearFilter);
-
-            const response = await fetch(`${this.apiUrl}/api/movies/search?${params}`);
-            
-            if (response.ok) {
-                const results = await response.json();
-                this.displaySearchResults(results);
+        // Mock search results - in real app, this would be API call
+        const mockResults = [
+            {
+                id: 101,
+                title: 'Matrix',
+                type: 'movie',
+                year: 1999,
+                genre: 'sci-fi',
+                poster: 'https://via.placeholder.com/200x300/9C27B0/white?text=Matrix',
+                description: 'Programista komputerowy zostaje wciągnięty w rewolucję przeciwko maszynom.',
+                rating: 4.5
+            },
+            {
+                id: 102,
+                title: 'Stranger Things',
+                type: 'series',
+                year: 2016,
+                genre: 'horror',
+                poster: 'https://via.placeholder.com/200x300/F44336/white?text=Stranger+Things',
+                description: 'Grupa dzieci walczy z nadprzyrodzonymi siłami w małym miasteczku.',
+                rating: 4.8
+            },
+            {
+                id: 103,
+                title: 'Avengers: Endgame',
+                type: 'movie',
+                year: 2019,
+                genre: 'action',
+                poster: 'https://via.placeholder.com/200x300/3F51B5/white?text=Endgame',
+                description: 'Superbohaterowie próbują odwrócić skutki działań Thanosa.',
+                rating: 4.7
             }
-        } catch (error) {
-            console.error('Search error:', error);
-            this.displaySearchResults([]);
+        ];
+
+        let filteredResults = mockResults;
+
+        // Apply filters
+        if (query) {
+            filteredResults = filteredResults.filter(item => 
+                item.title.toLowerCase().includes(query)
+            );
         }
+
+        if (typeFilter) {
+            filteredResults = filteredResults.filter(item => item.type === typeFilter);
+        }
+
+        if (genreFilter) {
+            filteredResults = filteredResults.filter(item => item.genre === genreFilter);
+        }
+
+        if (yearFilter) {
+            filteredResults = filteredResults.filter(item => item.year.toString() === yearFilter);
+        }
+
+        this.displaySearchResults(filteredResults);
     }
 
     displaySearchResults(results) {
@@ -366,11 +328,14 @@ class MovieTracker {
             const movieCard = document.createElement('div');
             movieCard.className = 'movie-card';
             movieCard.innerHTML = `
-                <img src="${item.poster_url || 'https://via.placeholder.com/200x300/888/fff?text=No+Image'}" 
-                     alt="${item.title}">
+                <img src="${item.poster}" alt="${item.title}">
                 <div class="movie-card-content">
                     <h3>${item.title}</h3>
-                    <p>${item.description || 'Brak opisu'}</p>
+                    <p>${item.description}</p>
+                    <div class="movie-rating">
+                        <span class="stars">${'★'.repeat(Math.floor(item.rating))}${'☆'.repeat(5-Math.floor(item.rating))}</span>
+                        <span>${item.rating}</span>
+                    </div>
                 </div>
             `;
 
@@ -385,15 +350,12 @@ class MovieTracker {
     openMovieModal(movie) {
         const modal = document.getElementById('movie-modal');
         
-        document.getElementById('modal-poster').src = movie.poster_url || 'https://via.placeholder.com/200x300';
+        document.getElementById('modal-poster').src = movie.poster;
         document.getElementById('modal-title').textContent = movie.title;
-        document.getElementById('modal-description').textContent = movie.description || 'Brak opisu';
-        document.getElementById('modal-genre').textContent = movie.genre || '';
-        
-        if (movie.release_date) {
-            const date = new Date(movie.release_date);
-            document.getElementById('modal-year').textContent = date.getFullYear();
-        }
+        document.getElementById('modal-description').textContent = movie.description;
+        document.getElementById('modal-year').textContent = movie.year;
+        document.getElementById('modal-genre').textContent = movie.genre;
+        document.getElementById('modal-duration').textContent = movie.duration ? `${movie.duration} min` : '';
 
         // Reset rating
         this.currentRating = 0;
@@ -423,61 +385,26 @@ class MovieTracker {
         });
     }
 
-    async addToWatched() {
-        if (!this.token) {
-            this.showNotification('Musisz być zalogowany, aby dodać film do listy!');
-            return;
-        }
-
+    addToWatched() {
         const modal = document.getElementById('movie-modal');
         const movie = modal.currentMovie;
         const reviewText = document.getElementById('review-text').value;
 
-        try {
-            // Add to watched list
-            const watchedResponse = await fetch(`${this.apiUrl}/api/watched`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({
-                    movie_id: movie.id,
-                    watched_date: new Date().toISOString()
-                })
-            });
+        const watchedItem = {
+            ...movie,
+            rating: this.currentRating,
+            review: reviewText,
+            watchedDate: new Date().toISOString().split('T')[0],
+            duration: movie.duration || 120
+        };
 
-            if (!watchedResponse.ok) {
-                throw new Error('Failed to add to watched list');
-            }
+        this.watchedMovies.push(watchedItem);
+        this.updateStats();
+        this.displayRecentActivity();
+        this.closeModal();
 
-            // Add review if rating is provided
-            if (this.currentRating > 0) {
-                await fetch(`${this.apiUrl}/api/reviews`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.token}`
-                    },
-                    body: JSON.stringify({
-                        movie_id: movie.id,
-                        content: reviewText || null,
-                        rating: this.currentRating
-                    })
-                });
-            }
-
-            // Reload data
-            await this.loadWatchedMovies();
-            this.updateStats();
-            this.displayRecentActivity();
-            this.closeModal();
-
-            this.showNotification('Film został dodany do listy obejrzanych!');
-        } catch (error) {
-            console.error('Add to watched error:', error);
-            this.showNotification('Wystąpił błąd podczas dodawania filmu.');
-        }
+        // Show success message
+        this.showNotification('Film został dodany do listy obejrzanych!');
     }
 
     showNotification(message) {
@@ -518,6 +445,13 @@ class MovieTracker {
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
+        // Mock upcoming premieres
+        const premieres = [
+            { date: '2024-02-15', title: 'Nowy film Marvel' },
+            { date: '2024-02-20', title: 'Sezon 2 popularnego serialu' },
+            { date: '2024-02-28', title: 'Długo oczekiwany sequel' }
+        ];
+
         const calendarHTML = `
             <div class="calendar-header">
                 <h3>${this.getMonthName(currentMonth)} ${currentYear}</h3>
@@ -527,7 +461,7 @@ class MovieTracker {
                 </div>
             </div>
             <div class="calendar-grid">
-                ${this.generateCalendarDays(currentYear, currentMonth, [])}
+                ${this.generateCalendarDays(currentYear, currentMonth, premieres)}
             </div>
         `;
 
@@ -570,36 +504,23 @@ class MovieTracker {
         return html;
     }
 
-    async loadCharts() {
-        if (!this.token) return;
-
-        try {
-            const response = await fetch(`${this.apiUrl}/api/user/statistics`, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-
-            if (response.ok) {
-                const stats = await response.json();
-                this.loadTypeChart(stats.movies_count, stats.series_count);
-                this.loadGenreChart(stats.genres);
-                this.loadTimeChart();
-            }
-        } catch (error) {
-            console.error('Load charts error:', error);
-        }
+    loadCharts() {
+        this.loadTypeChart();
+        this.loadGenreChart();
+        this.loadTimeChart();
     }
 
-    loadTypeChart(moviesCount, seriesCount) {
+    loadTypeChart() {
         const ctx = document.getElementById('typeChart').getContext('2d');
-        
+        const movies = this.watchedMovies.filter(item => item.type === 'movie').length;
+        const series = this.watchedMovies.filter(item => item.type === 'series').length;
+
         new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Filmy', 'Seriale'],
                 datasets: [{
-                    data: [moviesCount, seriesCount],
+                    data: [movies, series],
                     backgroundColor: ['#3498db', '#e74c3c']
                 }]
             },
@@ -614,9 +535,14 @@ class MovieTracker {
         });
     }
 
-    loadGenreChart(genres) {
+    loadGenreChart() {
         const ctx = document.getElementById('genreChart').getContext('2d');
+        const genres = {};
         
+        this.watchedMovies.forEach(item => {
+            genres[item.genre] = (genres[item.genre] || 0) + 1;
+        });
+
         new Chart(ctx, {
             type: 'bar',
             data: {
@@ -643,7 +569,7 @@ class MovieTracker {
         const monthlyData = {};
         
         this.watchedMovies.forEach(item => {
-            const month = item.watched_date.substring(0, 7);
+            const month = item.watchedDate.substring(0, 7);
             monthlyData[month] = (monthlyData[month] || 0) + 1;
         });
 
@@ -705,6 +631,7 @@ class MovieTracker {
         // Implementation for month navigation
         console.log('Change month:', direction);
     }
+    
 }
 
 // Initialize the app

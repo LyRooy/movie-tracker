@@ -1,4 +1,4 @@
-// MovieTracker App with Firebase Integration
+// MovieTracker App with Cloudflare Workers Integration
 class MovieTracker {
     constructor() {
         this.currentUser = null;
@@ -6,7 +6,11 @@ class MovieTracker {
         this.watchedMovies = [];
         this.currentRating = 0;
         this.currentSection = 'dashboard';
-        this.apiUrl = ''; // Empty string since we're serving from same origin
+        // For local development with wrangler dev, use http://localhost:8787
+        // For production, use your Worker URL or empty string if serving from same origin
+        this.apiUrl = window.location.hostname === 'localhost' && window.location.port !== '8787' 
+            ? 'http://localhost:8787' 
+            : '';
         
         this.init();
     }

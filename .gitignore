@@ -3,10 +3,9 @@
 .env.local
 .env.*.local
 
-# Firebase service account keys
-*-firebase-adminsdk-*.json
-serviceAccountKey.json
-firebase-service-account.json
+# Wrangler
+.wrangler/
+.dev.vars
 
 # Dependencies
 node_modules/
@@ -67,12 +66,11 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# Firebase
-.firebase/
-firebase-debug.log
-firestore-debug.log
+# Cloudflare
+.wrangler/
+wrangler.toml.backup
 
-# Uploads
+# Uploads (if using R2)
 public/uploads/*
 !public/uploads/.gitkeep
 

@@ -1,13 +1,13 @@
-# MovieTracker - Firebase Edition
+# MovieTracker - Cloudflare D1 Edition
 
-MovieTracker to aplikacja do śledzenia obejrzanych filmów i seriali, zbudowana z użyciem Firebase jako backendu.
+MovieTracker to aplikacja do śledzenia obejrzanych filmów i seriali, zbudowana z użyciem Cloudflare D1 jako bazy danych i Cloudflare Workers jako backendu.
 
 ## Spis treści
 - [Funkcje](#funkcje)
 - [Technologie](#technologie)
 - [Schemat bazy danych](#schemat-bazy-danych)
 - [Instalacja](#instalacja)
-- [Konfiguracja Firebase](#konfiguracja-firebase)
+- [Konfiguracja Cloudflare](#konfiguracja-cloudflare)
 - [Uruchomienie](#uruchomienie)
 - [API Endpoints](#api-endpoints)
 
@@ -29,248 +29,300 @@ MovieTracker to aplikacja do śledzenia obejrzanych filmów i seriali, zbudowana
 ### Frontend
 - HTML5, CSS3, JavaScript (Vanilla JS)
 - Chart.js - wizualizacja statystyk
-- Firebase Client SDK
 
 ### Backend
-- Node.js
-- Express.js
-- Firebase Admin SDK
-- Firestore Database
+- Cloudflare Workers - serverless compute
+- Cloudflare D1 - serverless SQL database (SQLite)
+- Cloudflare R2 - object storage (dla uploadów)
+- Hono.js - szybki framework webowy dla Workers
 - JWT Authentication
 - bcryptjs - hashowanie haseł
-- Multer - upload plików
 
 ## Schemat bazy danych
 
-Aplikacja wykorzystuje Firebase Firestore z następującymi kolekcjami:
+Aplikacja wykorzystuje Cloudflare D1 (SQLite) z następującymi tabelami:
 
 ### Users
-- id (auto-generated)
-- nickname (string)
-- email (string, unique)
-- password_hash (string)
-- avatar_url (string, nullable)
-- description (text, nullable)
-- role (enum: 'admin', 'user', 'guest')
-- theme_preference (enum: 'light', 'dark')
+```sql
+CREATE TABLE Users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nickname TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  avatar_url TEXT,
+  description TEXT,
+  role TEXT CHECK(role IN ('admin', 'user', 'guest')) DEFAULT 'user',
+  theme_preference TEXT CHECK(theme_preference IN ('light', 'dark')) DEFAULT 'light',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 ### Movies
-- id (auto-generated)
-- title (string)
-- release_date (timestamp)
-- type (enum: 'movie', 'series')
-- genre (string)
-- description (text)
-- poster_url (string)
-- trailer_url (string)
+```sql
+CREATE TABLE Movies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  release_date DATE,
+  type TEXT CHECK(type IN ('movie', 'series')) NOT NULL,
+  genre TEXT,
+  description TEXT,
+  poster_url TEXT,
+  trailer_url TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 ### Watched
-- id (auto-generated)
-- user_id (reference → Users)
-- movie_id (reference → Movies)
-- watched_date (timestamp)
+```sql
+CREATE TABLE Watched (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  movie_id INTEGER NOT NULL,
+  watched_date DATE NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+  FOREIGN KEY (movie_id) REFERENCES Movies(id) ON DELETE CASCADE
+);
+```
 
 ### Reviews
-- id (auto-generated)
-- user_id (reference → Users)
-- movie_id (reference → Movies)
-- content (text, nullable)
-- rating (number, 1-5)
-- created_at (timestamp)
+```sql
+CREATE TABLE Reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  movie_id INTEGER NOT NULL,
+  content TEXT,
+  rating INTEGER CHECK(rating >= 1 AND rating <= 5) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+  FOREIGN KEY (movie_id) REFERENCES Movies(id) ON DELETE CASCADE
+);
+```
 
 ### Challenges
-- id (auto-generated)
-- title (string)
-- description (text)
-- type (string)
-- criteria_value (string)
-- target_count (number)
-- start_date (timestamp)
-- end_date (timestamp)
-- badge_id (reference → Badges)
+```sql
+CREATE TABLE Challenges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT,
+  type TEXT NOT NULL,
+  criteria_value TEXT,
+  target_count INTEGER NOT NULL,
+  start_date DATETIME NOT NULL,
+  end_date DATETIME,
+  badge_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (badge_id) REFERENCES Badges(id)
+);
+```
 
 ### Challenge_Participants
-- id (auto-generated)
-- challenge_id (reference → Challenges)
-- user_id (reference → Users)
-- joined_at (timestamp)
-- completed_at (timestamp, nullable)
-- progress (number)
+```sql
+CREATE TABLE Challenge_Participants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  challenge_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
+  progress INTEGER DEFAULT 0,
+  FOREIGN KEY (challenge_id) REFERENCES Challenges(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+```
 
 ### Challenge_Watched
-- id (auto-generated)
-- challenge_participant_id (reference → Challenge_Participants)
-- movie_id (reference → Movies)
-- watched_date (timestamp)
+```sql
+CREATE TABLE Challenge_Watched (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  challenge_participant_id INTEGER NOT NULL,
+  movie_id INTEGER NOT NULL,
+  watched_date DATE NOT NULL,
+  FOREIGN KEY (challenge_participant_id) REFERENCES Challenge_Participants(id) ON DELETE CASCADE,
+  FOREIGN KEY (movie_id) REFERENCES Movies(id) ON DELETE CASCADE
+);
+```
 
 ### Badges
-- id (auto-generated)
-- name (string)
-- description (text)
-- image_url (string)
+```sql
+CREATE TABLE Badges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 ### User_Badges
-- id (auto-generated)
-- user_id (reference → Users)
-- badge_id (reference → Badges)
-- challenge_participant_id (reference → Challenge_Participants)
-- level (enum: 'silver', 'gold', 'platinum', 'none')
-- earned_at (timestamp)
+```sql
+CREATE TABLE User_Badges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  badge_id INTEGER NOT NULL,
+  challenge_participant_id INTEGER,
+  level TEXT CHECK(level IN ('silver', 'gold', 'platinum', 'none')) DEFAULT 'none',
+  earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+  FOREIGN KEY (badge_id) REFERENCES Badges(id) ON DELETE CASCADE,
+  FOREIGN KEY (challenge_participant_id) REFERENCES Challenge_Participants(id)
+);
+```
 
 ### Friends
-- id (auto-generated)
-- user1_id (reference → Users)
-- user2_id (reference → Users)
-- status (enum: 'pending', 'accepted', 'rejected', 'blocked')
-- requested_at (timestamp)
-- responded_at (timestamp, nullable)
+```sql
+CREATE TABLE Friends (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user1_id INTEGER NOT NULL,
+  user2_id INTEGER NOT NULL,
+  status TEXT CHECK(status IN ('pending', 'accepted', 'rejected', 'blocked')) DEFAULT 'pending',
+  requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  responded_at DATETIME,
+  FOREIGN KEY (user1_id) REFERENCES Users(id) ON DELETE CASCADE,
+  FOREIGN KEY (user2_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+```
 
 ## Instalacja
 
-1. Sklonuj repozytorium:
+1. Zainstaluj Wrangler CLI (narzędzie Cloudflare):
+```bash
+npm install -g wrangler
+```
+
+2. Zaloguj się do Cloudflare:
+```bash
+wrangler login
+```
+
+3. Sklonuj repozytorium:
 ```bash
 git clone https://github.com/LyRooy/movie-tracker.git
 cd movie-tracker
+git checkout copilot/cloudflare-database-config
 ```
 
-2. Zainstaluj zależności:
+4. Zainstaluj zależności:
 ```bash
 npm install
 ```
 
-3. Utwórz folder dla uploadów:
+## Konfiguracja Cloudflare
+
+### 1. Utwórz bazę danych D1
+
 ```bash
-mkdir -p public/uploads
+# Utwórz bazę danych D1
+wrangler d1 create movie-tracker-db
+
+# Skopiuj database_id i database_name do wrangler.toml
 ```
 
-## Konfiguracja Firebase
+### 2. Uruchom migracje bazy danych
 
-### 1. Utwórz projekt Firebase
-
-1. Przejdź do [Firebase Console](https://console.firebase.google.com/)
-2. Kliknij "Add project" (Dodaj projekt)
-3. Podaj nazwę projektu (np. "movie-tracker")
-4. Postępuj zgodnie z instrukcjami, aby dokończyć tworzenie projektu
-
-### 2. Skonfiguruj Firestore Database
-
-1. W Firebase Console, przejdź do "Firestore Database"
-2. Kliknij "Create database"
-3. Wybierz tryb "Start in production mode" lub "Start in test mode" (dla rozwoju)
-4. Wybierz lokalizację najbliższą Twojemu regionowi
-
-### 3. Pobierz dane uwierzytelniające
-
-#### Dla backendu (Firebase Admin SDK):
-
-1. W Firebase Console, przejdź do Project Settings → Service Accounts
-2. Kliknij "Generate new private key"
-3. Pobierz plik JSON z kluczem
-
-#### Dla frontendu (Firebase Web SDK):
-
-1. W Firebase Console, przejdź do Project Settings → General
-2. W sekcji "Your apps", kliknij na ikonę web (</>)
-3. Zarejestruj swoją aplikację
-4. Skopiuj configuration object
-
-### 4. Skonfiguruj zmienne środowiskowe
-
-1. Skopiuj plik `.env.example` do `.env`:
 ```bash
-cp .env.example .env
+# Zastosuj schemat bazy danych
+wrangler d1 execute movie-tracker-db --local --file=./cloudflare/schema.sql
+
+# Dla produkcji (bez --local):
+wrangler d1 execute movie-tracker-db --file=./cloudflare/schema.sql
 ```
 
-2. Edytuj plik `.env` i uzupełnij wartości z pobranych danych:
+### 3. Dodaj przykładowe dane
 
-```env
-# Z pobranego pliku JSON (Service Account):
-FIREBASE_PROJECT_ID=twoj-project-id
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@twoj-project-id.iam.gserviceaccount.com
+```bash
+# Lokalne
+wrangler d1 execute movie-tracker-db --local --file=./cloudflare/seed.sql
 
-# Z Firebase Web Config:
-FIREBASE_API_KEY=twoj-api-key
-FIREBASE_AUTH_DOMAIN=twoj-project-id.firebaseapp.com
-FIREBASE_STORAGE_BUCKET=twoj-project-id.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=twoj-sender-id
-FIREBASE_APP_ID=twoj-app-id
-
-# Wygeneruj własny silny klucz JWT:
-JWT_SECRET=twoj-bardzo-bezpieczny-losowy-klucz
-
-# Opcjonalnie:
-PORT=3000
+# Produkcja
+wrangler d1 execute movie-tracker-db --file=./cloudflare/seed.sql
 ```
 
-### 5. Zaktualizuj konfigurację frontendu
+### 4. Skonfiguruj R2 (dla uploadów)
 
-Edytuj plik `js/firebase-config.js` i zastąp wartości placeholder własnymi danymi z Firebase Console:
-
-```javascript
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+```bash
+# Utwórz bucket R2 dla uploadów
+wrangler r2 bucket create movie-tracker-uploads
 ```
 
-### 6. Skonfiguruj reguły bezpieczeństwa Firestore (opcjonalnie)
+### 5. Skonfiguruj zmienne środowiskowe
 
-W Firebase Console → Firestore Database → Rules, możesz ustawić reguły bezpieczeństwa. Przykładowe reguły:
+Edytuj `wrangler.toml` i uzupełnij wartości:
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users collection
-    match /Users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Movies collection
-    match /Movies/{movieId} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-    
-    // Watched collection
-    match /Watched/{watchedId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.resource.data.user_id == request.auth.uid;
-    }
-    
-    // Reviews collection
-    match /Reviews/{reviewId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.resource.data.user_id == request.auth.uid;
-    }
-    
-    // Other collections - adjust as needed
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
+```toml
+name = "movie-tracker"
+main = "cloudflare/worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+JWT_SECRET = "twoj-bardzo-bezpieczny-losowy-klucz"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "movie-tracker-db"
+database_id = "twoje-database-id"
+
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "movie-tracker-uploads"
 ```
 
 ## Uruchomienie
 
-### Tryb rozwojowy (z automatycznym restartowaniem):
+### Tryb lokalny (development):
 ```bash
-npm run dev
+npm run dev:cloudflare
+# lub
+wrangler dev
 ```
 
-### Tryb produkcyjny:
+### Deploy do Cloudflare Workers:
 ```bash
-npm start
+npm run deploy:cloudflare
+# lub
+wrangler deploy
 ```
 
-Aplikacja będzie dostępna pod adresem `http://localhost:3000`
+Po deploymencie aplikacja będzie dostępna pod adresem:
+```
+https://movie-tracker.twoja-subdomena.workers.dev
+```
+
+## Zalety Cloudflare D1
+
+### 🚀 Wydajność
+- **Edge computing** - Worker uruchamia się w ponad 300 lokalizacjach na świecie
+- **Niskie opóźnienia** - baza danych D1 jest replikowana globalnie
+- **Auto-scaling** - automatyczne skalowanie bez konfiguracji
+
+### 💰 Koszty
+- **Free tier**:
+  - 100,000 zapytań dziennie
+  - 5 GB storage
+  - 10 GB transfer
+- **Paid tier** - bardzo konkurencyjne ceny pay-as-you-go
+
+### 🔒 Bezpieczeństwo
+- **DDoS protection** wbudowana
+- **Rate limiting** na poziomie Cloudflare
+- **WAF** (Web Application Firewall) dostępny
+
+### 🛠️ Developer Experience
+- **SQL** - standardowy SQL (SQLite)
+- **Wrangler CLI** - świetne narzędzie deweloperskie
+- **Local development** - pełne środowisko lokalne
+- **Git integration** - łatwe CI/CD
+
+## Porównanie: Firebase vs Cloudflare D1
+
+| Feature | Firebase Firestore | Cloudflare D1 |
+|---------|-------------------|---------------|
+| **Typ bazy** | NoSQL (dokumentowa) | SQL (SQLite) |
+| **Lokalizacja** | Multi-region | Global edge |
+| **Cold start** | ~100-500ms | ~0-10ms |
+| **Koszty** | $0.06/100k reads | $0.001/1k queries |
+| **Query** | Limited queries | Full SQL |
+| **Transactions** | Limited | ACID compliant |
+| **Learning curve** | Średnia | Niska (SQL) |
+| **Offline support** | Tak (SDK) | Nie (edge only) |
 
 ## API Endpoints
 
@@ -289,95 +341,103 @@ Aplikacja będzie dostępna pod adresem `http://localhost:3000`
 ### Movies
 - `GET /api/movies/search` - Wyszukiwanie filmów
 - `GET /api/movies/:id` - Szczegóły filmu
-- `POST /api/movies` - Dodanie filmu (wymaga autoryzacji)
+- `POST /api/movies` - Dodanie filmu
 
 ### Watched
-- `GET /api/watched` - Lista obejrzanych (wymaga autoryzacji)
-- `POST /api/watched` - Dodanie do obejrzanych (wymaga autoryzacji)
-- `DELETE /api/watched/:id` - Usunięcie z obejrzanych (wymaga autoryzacji)
+- `GET /api/watched` - Lista obejrzanych
+- `POST /api/watched` - Dodanie do obejrzanych
+- `DELETE /api/watched/:id` - Usunięcie z obejrzanych
 
 ### Reviews
 - `GET /api/reviews/movie/:movieId` - Recenzje filmu
-- `POST /api/reviews` - Dodanie recenzji (wymaga autoryzacji)
-- `PUT /api/reviews/:id` - Aktualizacja recenzji (wymaga autoryzacji)
-- `DELETE /api/reviews/:id` - Usunięcie recenzji (wymaga autoryzacji)
+- `POST /api/reviews` - Dodanie recenzji
+- `PUT /api/reviews/:id` - Aktualizacja recenzji
+- `DELETE /api/reviews/:id` - Usunięcie recenzji
 
 ### Challenges
 - `GET /api/challenges` - Lista wyzwań
 - `GET /api/challenges/:id` - Szczegóły wyzwania
-- `POST /api/challenges` - Utworzenie wyzwania (wymaga autoryzacji)
-- `POST /api/challenges/:id/join` - Dołączenie do wyzwania (wymaga autoryzacji)
+- `POST /api/challenges` - Utworzenie wyzwania
+- `POST /api/challenges/:id/join` - Dołączenie do wyzwania
 - `GET /api/challenges/:id/participants` - Uczestnicy wyzwania
 
 ### Badges
 - `GET /api/badges` - Lista odznak
 
 ### Friends
-- `GET /api/friends` - Lista znajomych (wymaga autoryzacji)
-- `POST /api/friends/request` - Wysłanie zaproszenia (wymaga autoryzacji)
-- `PUT /api/friends/:id/respond` - Odpowiedź na zaproszenie (wymaga autoryzacji)
-- `DELETE /api/friends/:id` - Usunięcie znajomego (wymaga autoryzacji)
+- `GET /api/friends` - Lista znajomych
+- `POST /api/friends/request` - Wysłanie zaproszenia
+- `PUT /api/friends/:id/respond` - Odpowiedź na zaproszenie
+- `DELETE /api/friends/:id` - Usunięcie znajomego
 
 ## Struktura projektu
 
 ```
 movie-tracker/
+├── cloudflare/
+│   ├── worker.js          # Główny Worker (API)
+│   ├── schema.sql         # Schemat bazy danych
+│   ├── seed.sql           # Przykładowe dane
+│   └── migrations/        # Migracje bazy danych
 ├── css/
-│   └── styles.css          # Style aplikacji
+│   └── styles.css
 ├── js/
-│   ├── app.js             # Główna logika frontendu
-│   └── firebase-config.js  # Konfiguracja Firebase dla frontendu
-├── public/
-│   └── uploads/           # Folder na uploady (avatary, etc.)
-├── .env                   # Zmienne środowiskowe (nie commitowane)
-├── .env.example           # Przykład konfiguracji
-├── .gitignore            # Pliki ignorowane przez Git
-├── firebase-admin.js      # Konfiguracja Firebase Admin SDK
-├── server.js             # Serwer Express z API
-├── package.json          # Zależności projektu
-├── index.html            # Główna strona HTML
-└── README.md             # Ten plik
-
+│   └── app.js
+├── wrangler.toml          # Konfiguracja Cloudflare
+├── package.json
+└── index.html
 ```
 
-## Rozwój
+## Monitoring i Debugging
 
-### Dodawanie nowych funkcji
-
-1. Zdefiniuj endpoint w `server.js`
-2. Dodaj odpowiednią kolekcję w Firestore (jeśli potrzebna)
-3. Zaktualizuj frontend w `js/app.js`
-4. Zaktualizuj dokumentację w README.md
-
-### Testowanie
-
-Możesz użyć narzędzi takich jak Postman lub curl do testowania API:
-
+### Logi
 ```bash
-# Przykład: Rejestracja użytkownika
-curl -X POST http://localhost:3000/api/register \
-  -H "Content-Type: application/json" \
-  -d '{"nickname":"testuser","email":"test@example.com","password":"password123"}'
+# Podgląd logów w czasie rzeczywistym
+wrangler tail
+```
 
-# Przykład: Logowanie
-curl -X POST http://localhost:3000/api/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
+### Metryki
+Dostępne w Cloudflare Dashboard:
+- Request count
+- Response time
+- Error rate
+- Database queries
+
+### Local debugging
+```bash
+# Uruchom z debuggerem
+wrangler dev --local --inspect
 ```
 
 ## Bezpieczeństwo
 
 - Hasła są hashowane za pomocą bcryptjs
 - API używa JWT do autoryzacji
-- Firebase Firestore ma reguły bezpieczeństwa
-- **Rate limiting** - API ma ograniczenia częstotliwości zapytań:
-  - 100 zapytań na 15 minut dla ogólnych endpoint
-  - 5 prób logowania/rejestracji na 15 minut
-- Nie commituj pliku `.env` do repozytorium
-- Nie commituj Firebase service account keys (pliki JSON)
-- Używaj silnych kluczy JWT w produkcji
-- Regularnie aktualizuj zależności
-- Statyczne pliki serwowane tylko z określonych katalogów (css, js, images, uploads)
+- Rate limiting na poziomie Cloudflare Workers
+- CORS skonfigurowany
+- SQL injection protection (prepared statements)
+- XSS protection
+
+## Migracja z Firebase
+
+Jeśli migrujesz z wersji Firebase:
+
+1. **Export danych z Firestore**:
+```bash
+# Użyj Firebase Admin SDK do exportu
+node firebase-export.js
+```
+
+2. **Import do D1**:
+```bash
+# Konwertuj JSON na SQL
+node convert-to-sql.js
+wrangler d1 execute movie-tracker-db --file=./import.sql
+```
+
+3. **Aktualizuj frontend**:
+- Zmień URL API na Cloudflare Worker
+- Pozostała logika pozostaje bez zmian
 
 ## Licencja
 
@@ -389,4 +449,7 @@ LyRooy
 
 ## Wsparcie
 
-W razie problemów, utwórz issue na GitHubie.
+W razie problemów:
+- GitHub Issues
+- Cloudflare Community: https://community.cloudflare.com
+- Cloudflare Discord: https://discord.gg/cloudflaredev

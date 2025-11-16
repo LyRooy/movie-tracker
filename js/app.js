@@ -1141,7 +1141,7 @@ class MovieTracker {
                 <td>${movie.id}</td>
                 <td>${movie.title}</td>
                 <td>${movie.media_type === 'movie' ? 'Film' : 'Serial'}</td>
-                <td>${movie.year || '-'}</td>
+                <td>${movie.release_date || '-'}</td>
                 <td>${movie.genre || '-'}</td>
                 <td>
                     <button class="action-btn btn-edit" onclick="app.editAdminMovie(${movie.id})">

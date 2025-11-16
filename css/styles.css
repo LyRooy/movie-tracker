@@ -600,6 +600,13 @@ h3 {
     gap: 2rem;
 }
 
+#admin-password-modal .modal-body,
+#admin-movie-modal .modal-body,
+#admin-challenge-modal .modal-body,
+#admin-badge-modal .modal-body {
+    display: block;
+}
+
 .movie-poster img {
     width: 250px;
     height: 375px;

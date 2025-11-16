@@ -28,8 +28,12 @@ class MovieTracker {
 
                 // Zamknij menu mobilne po kliknięciu w link
                 const navMenu = document.querySelector('.nav-menu');
+                const hamburger = document.querySelector('.hamburger');
                 if (navMenu && navMenu.classList.contains('active')) {
                     navMenu.classList.remove('active');
+                    if (hamburger) {
+                        hamburger.classList.remove('active');
+                    }
                 }
             });
         });
@@ -40,55 +44,109 @@ class MovieTracker {
         });
 
         // Search functionality
-        document.getElementById('search-btn').addEventListener('click', () => {
-            this.performSearch();
-        });
-
-        document.getElementById('search-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        const searchBtn = document.getElementById('search-btn');
+        const searchInput = document.getElementById('search-input');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
                 this.performSearch();
-            }
-        });
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.performSearch();
+                }
+            });
+        }
 
         // Filters
-        document.getElementById('type-filter').addEventListener('change', () => {
-            this.performSearch();
-        });
-        document.getElementById('genre-filter').addEventListener('change', () => {
-            this.performSearch();
-        });
-        document.getElementById('year-filter').addEventListener('change', () => {
-            this.performSearch();
-        });
+        const typeFilter = document.getElementById('type-filter');
+        const genreFilter = document.getElementById('genre-filter');
+        const yearFilter = document.getElementById('year-filter');
+        
+        if (typeFilter) {
+            typeFilter.addEventListener('change', () => {
+                this.performSearch();
+            });
+        }
+        if (genreFilter) {
+            genreFilter.addEventListener('change', () => {
+                this.performSearch();
+            });
+        }
+        if (yearFilter) {
+            yearFilter.addEventListener('change', () => {
+                this.performSearch();
+            });
+        }
 
         // Modal events
-        document.querySelector('.close').addEventListener('click', () => {
-            this.closeModal();
-        });
+        const closeBtn = document.querySelector('.close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeModal();
+            });
+        }
 
         window.addEventListener('click', (e) => {
-            if (e.target === document.getElementById('movie-modal')) {
+            const modal = document.getElementById('movie-modal');
+            if (modal && e.target === modal) {
                 this.closeModal();
             }
         });
 
         // Rating stars
-        document.querySelectorAll('.stars i').forEach((star, index) => {
-            star.addEventListener('click', () => {
-                this.setRating(index + 1);
+        const starsContainer = document.querySelector('.stars');
+        if (starsContainer) {
+            starsContainer.querySelectorAll('i').forEach((star, index) => {
+                star.addEventListener('click', () => {
+                    this.setRating(index + 1);
+                });
+                star.addEventListener('mouseenter', () => {
+                    this.highlightStars(index + 1);
+                });
             });
-            star.addEventListener('mouseenter', () => {
-                this.highlightStars(index + 1);
+
+            starsContainer.addEventListener('mouseleave', () => {
+                this.highlightStars(this.currentRating);
+            });
+        }
+
+        // Add to list button (zmienione z add-to-watched na add-to-list)
+        const addToListBtn = document.getElementById('add-to-list');
+        if (addToListBtn) {
+            addToListBtn.addEventListener('click', () => {
+                this.addToWatched();
+            });
+        }
+
+        // Tab buttons for My List section
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active class from all tab buttons
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                e.target.classList.add('active');
+                
+                // Filter list based on selected tab
+                const status = e.target.dataset.status;
+                this.filterMyList(status);
             });
         });
 
-        document.querySelector('.stars').addEventListener('mouseleave', () => {
-            this.highlightStars(this.currentRating);
-        });
-
-        // Add to watched
-        document.getElementById('add-to-watched').addEventListener('click', () => {
-            this.addToWatched();
+        // View control buttons (grid/list view)
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active class from all view buttons
+                document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                e.target.classList.add('active');
+                
+                // Change view mode
+                const viewMode = e.target.dataset.view;
+                this.changeViewMode(viewMode);
+            });
         });
 
         // Mobile menu
@@ -96,7 +154,16 @@ class MovieTracker {
         const navMenu = document.querySelector('.nav-menu');
         if (hamburger && navMenu) {
             hamburger.addEventListener('click', () => {
+                hamburger.classList.toggle('active');
                 navMenu.classList.toggle('active');
+            });
+
+            // Zamknij menu po kliknięciu poza nim
+            document.addEventListener('click', (e) => {
+                if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+                    hamburger.classList.remove('active');
+                    navMenu.classList.remove('active');
+                }
             });
         }
 
@@ -123,6 +190,8 @@ class MovieTracker {
         // Load section-specific data
         if (sectionName === 'statistics') {
             this.loadCharts();
+        } else if (sectionName === 'my-list') {
+            this.displayMyList();
         }
     }
 
@@ -183,6 +252,7 @@ class MovieTracker {
                 year: 2010,
                 genre: 'Sci-Fi',
                 rating: 5,
+                status: 'watched',
                 watchedDate: '2024-01-15',
                 poster: 'https://via.placeholder.com/200x300/4CAF50/white?text=Incepcja',
                 duration: 148
@@ -194,6 +264,7 @@ class MovieTracker {
                 year: 2008,
                 genre: 'Dramat',
                 rating: 5,
+                status: 'watched',
                 watchedDate: '2024-01-10',
                 poster: 'https://via.placeholder.com/200x300/2196F3/white?text=Breaking+Bad',
                 duration: 2940 // total minutes
@@ -205,6 +276,7 @@ class MovieTracker {
                 year: 2019,
                 genre: 'Komedia',
                 rating: 4,
+                status: 'watched',
                 watchedDate: '2024-01-05',
                 poster: 'https://via.placeholder.com/200x300/FF9800/white?text=Paragraf+22',
                 duration: 119
@@ -212,6 +284,80 @@ class MovieTracker {
         ];
 
         this.displayRecentActivity();
+    }
+
+    displayMyList(filterStatus = 'all') {
+        const listContainer = document.getElementById('my-list-content');
+        if (!listContainer) {
+            console.error('Lista container not found');
+            return;
+        }
+
+        let filteredItems = this.watchedMovies;
+        if (filterStatus !== 'all') {
+            filteredItems = this.watchedMovies.filter(item => item.status === filterStatus);
+        }
+
+        listContainer.innerHTML = '';
+
+        if (filteredItems.length === 0) {
+            listContainer.innerHTML = `
+                <div class="empty-list">
+                    <i class="fas fa-film"></i>
+                    <h3>Brak elementów</h3>
+                    <p>Nie masz jeszcze żadnych filmów lub seriali w tej kategorii.</p>
+                </div>
+            `;
+            return;
+        }
+
+        filteredItems.forEach(item => {
+            const statusBadge = this.getStatusBadge(item.status || 'watched');
+            const stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
+            
+            const listItemHtml = `
+                <div class="list-item list-item-grid" data-status="${item.status || 'watched'}">
+                    ${statusBadge}
+                    <img src="${item.poster}" alt="${item.title}">
+                    <div class="list-item-content">
+                        <h3>${item.title}</h3>
+                        <p>${item.year} • ${item.genre} • ${item.type === 'movie' ? 'Film' : 'Serial'}</p>
+                        <p>Obejrzano: ${new Date(item.watchedDate).toLocaleDateString('pl-PL')}</p>
+                        <div class="list-item-meta">
+                            <div class="list-item-rating">
+                                <span class="stars">${stars}</span>
+                                <span>${item.rating}/5</span>
+                            </div>
+                        </div>
+                        <div class="list-item-actions">
+                            <button class="action-btn edit-btn" onclick="app.editItem(${item.id})">Edytuj</button>
+                            <button class="action-btn delete-btn" onclick="app.deleteItem(${item.id})">Usuń</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            listContainer.innerHTML += listItemHtml;
+        });
+
+        // Update stats
+        this.updateListStats(filteredItems.length);
+    }
+
+    getStatusBadge(status) {
+        const badges = {
+            'watched': '<div class="status-badge status-watched">Obejrzane</div>',
+            'watching': '<div class="status-badge status-watching">Oglądane</div>',
+            'planning': '<div class="status-badge status-planning">Planowane</div>',
+            'dropped': '<div class="status-badge status-dropped">Porzucone</div>'
+        };
+        return badges[status] || badges['watched'];
+    }
+
+    updateListStats(count) {
+        const statsContainer = document.querySelector('.list-stats');
+        if (statsContainer) {
+            statsContainer.innerHTML = `<span>Łącznie: ${count} pozycji</span>`;
+        }
     }
 
     displayRecentActivity() {
@@ -630,6 +776,61 @@ class MovieTracker {
     changeMonth(direction) {
         // Implementation for month navigation
         console.log('Change month:', direction);
+    }
+
+    filterMyList(status) {
+        // Filter the list based on status
+        this.displayMyList(status);
+        console.log('Filtering list by status:', status);
+    }
+
+    changeViewMode(viewMode) {
+        // Change between grid and list view
+        const myListContainer = document.querySelector('.my-list-grid');
+        const listItems = document.querySelectorAll('.list-item');
+        
+        if (myListContainer) {
+            if (viewMode === 'list') {
+                myListContainer.classList.add('my-list-list');
+                myListContainer.classList.remove('my-list-grid');
+                listItems.forEach(item => {
+                    item.classList.add('list-item-list');
+                    item.classList.remove('list-item-grid');
+                });
+            } else {
+                myListContainer.classList.add('my-list-grid');
+                myListContainer.classList.remove('my-list-list');
+                listItems.forEach(item => {
+                    item.classList.add('list-item-grid');
+                    item.classList.remove('list-item-list');
+                });
+            }
+        }
+        console.log('Changing view mode to:', viewMode);
+    }
+
+    editItem(itemId) {
+        // Find and edit item
+        const item = this.watchedMovies.find(movie => movie.id === itemId);
+        if (item) {
+            console.log('Editing item:', item);
+            // Here you would open an edit modal or form
+            alert(`Edytowanie: ${item.title}`);
+        }
+    }
+
+    deleteItem(itemId) {
+        // Delete item from list
+        const index = this.watchedMovies.findIndex(movie => movie.id === itemId);
+        if (index !== -1) {
+            const item = this.watchedMovies[index];
+            if (confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
+                this.watchedMovies.splice(index, 1);
+                this.displayMyList(); // Refresh the list
+                this.updateStats(); // Update dashboard stats
+                console.log('Deleted item:', item.title);
+            }
+        }
     }
     
 }

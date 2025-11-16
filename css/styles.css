@@ -112,6 +112,7 @@ body {
     display: none;
     flex-direction: column;
     cursor: pointer;
+    padding: 0.5rem;
 }
 
 .hamburger span {
@@ -120,6 +121,19 @@ body {
     background-color: var(--text-color);
     margin: 3px 0;
     transition: var(--transition);
+    border-radius: 3px;
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: rotate(-45deg) translate(-5px, 6px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(45deg) translate(-5px, -6px);
 }
 
 /* Main content */
@@ -721,9 +735,11 @@ h3 {
         background-color: var(--surface-color);
         width: 100%;
         text-align: center;
-        transition: 0.3s;
+        transition: left 0.3s ease;
         box-shadow: var(--shadow);
         padding: 2rem 0;
+        gap: 0;
+        z-index: 999;
     }
     
     .nav-menu.active {
@@ -732,6 +748,7 @@ h3 {
     
     .nav-menu li {
         margin: 1rem 0;
+        width: 100%;
     }
     
     h1 {
@@ -971,7 +988,17 @@ h3 {
 }
 
 .list-item-grid {
-    /* Grid view specific styles */
+    display: block;
+}
+
+.list-item-grid img {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+}
+
+.list-item-grid .list-item-content {
+    padding: 1rem;
 }
 
 .list-item-list {
@@ -992,16 +1019,6 @@ h3 {
 .list-item-content {
     padding: 1rem;
     flex: 1;
-}
-
-.list-item-grid .list-item-content {
-    padding: 1rem;
-}
-
-.list-item img {
-    width: 100%;
-    height: 300px;
-    object-fit: cover;
 }
 
 .list-item-list img {

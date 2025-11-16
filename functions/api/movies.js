@@ -140,15 +140,34 @@ async function handlePost(db, request, corsHeaders) {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-    
-    const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(data.id).first();
+
+    // Normalize ID: frontend sometimes prefixes DB ids with `db_` (see /api/search)
+    let movieIdParam = data.id;
+    if (typeof movieIdParam === 'string') {
+      if (movieIdParam.startsWith('db_')) {
+        movieIdParam = movieIdParam.replace(/^db_/, '');
+      }
+      // if string of digits, convert to number
+      if (/^\d+$/.test(movieIdParam)) {
+        movieIdParam = parseInt(movieIdParam, 10);
+      }
+    }
+
+    if (typeof movieIdParam !== 'number' || Number.isNaN(movieIdParam)) {
+      return new Response(JSON.stringify({ error: 'Movie ID invalid' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieIdParam).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-    
+
     const movieId = movie.id;
     
     // Add to watched if status is watched

@@ -13,8 +13,7 @@ class MovieTracker {
         this.bindEvents();
         this.loadUserData();
         this.generateCalendar();
-        this.loadMockData();
-        this.updateStats();
+        this.loadMoviesData();
         this.setupTheme();
         
         // Enable transitions after page load to prevent theme transition on load
@@ -296,48 +295,23 @@ class MovieTracker {
         document.getElementById('user-avatar').src = this.currentUser.avatarUrl;
     }
 
-    loadMockData() {
-        // Mock watched movies data
-        this.watchedMovies = [
-            {
-                id: 1,
-                title: 'Incepcja',
-                type: 'movie',
-                year: 2010,
-                genre: 'Sci-Fi',
-                rating: 5,
-                status: 'watched',
-                watchedDate: '2024-01-15',
-                poster: 'https://via.placeholder.com/200x300/4CAF50/white?text=Incepcja',
-                duration: 148
-            },
-            {
-                id: 2,
-                title: 'Breaking Bad',
-                type: 'series',
-                year: 2008,
-                genre: 'Dramat',
-                rating: 5,
-                status: 'watched',
-                watchedDate: '2024-01-10',
-                poster: 'https://via.placeholder.com/200x300/2196F3/white?text=Breaking+Bad',
-                duration: 2940 // total minutes
-            },
-            {
-                id: 3,
-                title: 'Paragraf 22',
-                type: 'movie',
-                year: 2019,
-                genre: 'Komedia',
-                rating: 4,
-                status: 'watched',
-                watchedDate: '2024-01-05',
-                poster: 'https://via.placeholder.com/200x300/FF9800/white?text=Paragraf+22',
-                duration: 119
+    async loadMoviesData() {
+        try {
+            const response = await fetch('/api/movies?userId=1');
+            if (response.ok) {
+                this.watchedMovies = await response.json();
+            } else {
+                console.warn('Failed to load movies from API, using empty array');
+                this.watchedMovies = [];
             }
-        ];
-
+        } catch (error) {
+            console.error('Error loading movies:', error);
+            this.watchedMovies = [];
+        }
+        
+        this.updateStats();
         this.displayRecentActivity();
+        this.displayMyList();
     }
 
     displayMyList(filterStatus = 'all') {
@@ -451,68 +425,52 @@ class MovieTracker {
         document.getElementById('avg-rating').textContent = avgRating;
     }
 
-    performSearch() {
-        const query = document.getElementById('search-input').value.toLowerCase();
+    async performSearch() {
+        const query = document.getElementById('search-input').value.trim();
         const typeFilter = document.getElementById('type-filter').value;
         const genreFilter = document.getElementById('genre-filter').value;
         const yearFilter = document.getElementById('year-filter').value;
 
-        // Mock search results - in real app, this would be API call
-        const mockResults = [
-            {
-                id: 101,
-                title: 'Matrix',
-                type: 'movie',
-                year: 1999,
-                genre: 'sci-fi',
-                poster: 'https://via.placeholder.com/200x300/9C27B0/white?text=Matrix',
-                description: 'Programista komputerowy zostaje wciągnięty w rewolucję przeciwko maszynom.',
-                rating: 4.5
-            },
-            {
-                id: 102,
-                title: 'Stranger Things',
-                type: 'series',
-                year: 2016,
-                genre: 'horror',
-                poster: 'https://via.placeholder.com/200x300/F44336/white?text=Stranger+Things',
-                description: 'Grupa dzieci walczy z nadprzyrodzonymi siłami w małym miasteczku.',
-                rating: 4.8
-            },
-            {
-                id: 103,
-                title: 'Avengers: Endgame',
-                type: 'movie',
-                year: 2019,
-                genre: 'action',
-                poster: 'https://via.placeholder.com/200x300/3F51B5/white?text=Endgame',
-                description: 'Superbohaterowie próbują odwrócić skutki działań Thanosa.',
-                rating: 4.7
+        if (!query) {
+            this.displaySearchResults([]);
+            return;
+        }
+
+        try {
+            // Use search API
+            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+            let results = [];
+            
+            if (response.ok) {
+                results = await response.json();
+            } else {
+                console.warn('Search API failed, showing empty results');
             }
-        ];
 
-        let filteredResults = mockResults;
+            // Apply local filters
+            let filteredResults = results;
 
-        // Apply filters
-        if (query) {
-            filteredResults = filteredResults.filter(item => 
-                item.title.toLowerCase().includes(query)
-            );
+            if (typeFilter) {
+                filteredResults = filteredResults.filter(item => item.type === typeFilter);
+            }
+
+            if (genreFilter) {
+                filteredResults = filteredResults.filter(item => 
+                    item.genre.toLowerCase() === genreFilter.toLowerCase()
+                );
+            }
+
+            if (yearFilter) {
+                filteredResults = filteredResults.filter(item => 
+                    item.year.toString() === yearFilter
+                );
+            }
+
+            this.displaySearchResults(filteredResults);
+        } catch (error) {
+            console.error('Search error:', error);
+            this.displaySearchResults([]);
         }
-
-        if (typeFilter) {
-            filteredResults = filteredResults.filter(item => item.type === typeFilter);
-        }
-
-        if (genreFilter) {
-            filteredResults = filteredResults.filter(item => item.genre === genreFilter);
-        }
-
-        if (yearFilter) {
-            filteredResults = filteredResults.filter(item => item.year.toString() === yearFilter);
-        }
-
-        this.displaySearchResults(filteredResults);
     }
 
     displaySearchResults(results) {
@@ -585,26 +543,41 @@ class MovieTracker {
         });
     }
 
-    addToWatched() {
+    async addToWatched() {
         const modal = document.getElementById('movie-modal');
         const movie = modal.currentMovie;
         const reviewText = document.getElementById('review-text').value;
 
-        const watchedItem = {
+        const movieData = {
             ...movie,
             rating: this.currentRating,
             review: reviewText,
+            status: 'watched',
             watchedDate: new Date().toISOString().split('T')[0],
-            duration: movie.duration || 120
+            userId: 1
         };
 
-        this.watchedMovies.push(watchedItem);
-        this.updateStats();
-        this.displayRecentActivity();
-        this.closeModal();
+        try {
+            const response = await fetch('/api/movies', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(movieData)
+            });
 
-        // Show success message
-        this.showNotification('Film został dodany do listy obejrzanych!');
+            if (response.ok) {
+                // Reload movies data to refresh the list
+                await this.loadMoviesData();
+                this.closeModal();
+                this.showNotification('Film został dodany do listy obejrzanych!');
+            } else {
+                throw new Error('Failed to add movie');
+            }
+        } catch (error) {
+            console.error('Error adding movie:', error);
+            this.showNotification('Błąd podczas dodawania filmu. Spróbuj ponownie.');
+        }
     }
 
     showNotification(message) {
@@ -868,21 +841,30 @@ class MovieTracker {
         const item = this.watchedMovies.find(movie => movie.id === itemId);
         if (item) {
             console.log('Editing item:', item);
-            // Here you would open an edit modal or form
-            alert(`Edytowanie: ${item.title}`);
+            // TODO: Implement edit modal/form that uses PUT /api/movies/{id}
+            alert(`Edytowanie: ${item.title} - funkcja będzie dostępna wkrótce`);
         }
     }
 
-    deleteItem(itemId) {
+    async deleteItem(itemId) {
         // Delete item from list
-        const index = this.watchedMovies.findIndex(movie => movie.id === itemId);
-        if (index !== -1) {
-            const item = this.watchedMovies[index];
-            if (confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
-                this.watchedMovies.splice(index, 1);
-                this.displayMyList(); // Refresh the list
-                this.updateStats(); // Update dashboard stats
-                console.log('Deleted item:', item.title);
+        const item = this.watchedMovies.find(movie => movie.id === itemId);
+        if (item && confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
+            try {
+                const response = await fetch(`/api/movies/${itemId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    // Reload movies data to refresh the list
+                    await this.loadMoviesData();
+                    this.showNotification(`Usunięto "${item.title}" z listy`);
+                } else {
+                    throw new Error('Failed to delete movie');
+                }
+            } catch (error) {
+                console.error('Error deleting movie:', error);
+                this.showNotification('Błąd podczas usuwania filmu. Spróbuj ponownie.');
             }
         }
     }

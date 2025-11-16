@@ -143,20 +143,45 @@ export async function onRequest(context) {
       'Parasyte The Grey 2', 'Chicken Nugget 2', 'Maestra 2', 'Song of the Bandits 2'
     ];
 
-    console.log('Fetching movies from OMDb...');
-    
-    // Import movies
-    for (let i = 0; i < Math.min(300, popularMovies.length); i++) {
+    console.log('Fetching movies from OMDb (with fallback search)...');
+
+    // helper: try exact title fetch, otherwise search and fetch by imdbID
+    async function fetchOmdbFull(title, type = 'movie') {
       try {
-        const movieTitle = popularMovies[i];
-        const response = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(movieTitle)}&type=movie`);
-        
-        if (!response.ok) continue;
-        
-        const movie = await response.json();
-        
-        if (movie.Response === 'False') {
+        // try exact title first
+        let res = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}&type=${type}`);
+        if (!res.ok) return null;
+        let data = await res.json();
+        if (data && data.Response && data.Response === 'True') return data;
+
+        // fallback: use search endpoint and fetch by imdbID
+        res = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=${type}`);
+        if (!res.ok) return null;
+        const list = await res.json();
+        if (!list || list.Response === 'False' || !Array.isArray(list.Search) || list.Search.length === 0) return null;
+
+        const first = list.Search[0];
+        if (!first || !first.imdbID) return null;
+
+        res = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&i=${encodeURIComponent(first.imdbID)}&plot=full`);
+        if (!res.ok) return null;
+        data = await res.json();
+        if (data && data.Response && data.Response === 'True') return data;
+        return null;
+      } catch (e) {
+        console.error('fetchOmdbFull error for', title, e.message);
+        return null;
+      }
+    }
+
+    // Import movies (try up to requested count or list length)
+    for (let i = 0; i < Math.min(300, popularMovies.length); i++) {
+      const movieTitle = popularMovies[i];
+      try {
+        const movie = await fetchOmdbFull(movieTitle, 'movie');
+        if (!movie) {
           console.log(`Movie not found: ${movieTitle}`);
+          await new Promise(resolve => setTimeout(resolve, 120));
           continue;
         }
 
@@ -166,12 +191,17 @@ export async function onRequest(context) {
         ).bind(movie.Title, 'movie').first();
 
         if (!existing) {
+          // normalize release date: OMDb uses Released (e.g. "14 Oct 1994") or Year
+          let release = null;
+          if (movie.Released && movie.Released !== 'N/A') release = movie.Released;
+          else if (movie.Year && movie.Year !== 'N/A') release = movie.Year;
+
           await env.db.prepare(`
             INSERT INTO movies (title, release_date, media_type, genre, description, poster_url, trailer_url)
             VALUES (?, ?, ?, ?, ?, ?, ?)
           `).bind(
             movie.Title,
-            movie.Released && movie.Released !== 'N/A' ? movie.Released : null,
+            release,
             'movie',
             movie.Genre && movie.Genre !== 'N/A' ? movie.Genre.split(',')[0].trim() : 'Unknown',
             movie.Plot && movie.Plot !== 'N/A' ? movie.Plot : '',
@@ -183,42 +213,42 @@ export async function onRequest(context) {
           console.log(`Added movie: ${movie.Title}`);
         }
 
-        // Rate limiting - OMDb free tier allows 1000/day
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // polite delay
+        await new Promise(resolve => setTimeout(resolve, 120));
       } catch (error) {
-        console.error(`Error adding movie ${popularMovies[i]}:`, error.message);
+        console.error(`Error adding movie ${movieTitle}:`, error.message || error);
       }
     }
 
-    console.log('Fetching TV shows from OMDb...');
-    
+    console.log('Fetching TV shows from OMDb (with fallback search)...');
+
     // Import series
     for (let i = 0; i < Math.min(300, popularSeries.length); i++) {
+      const seriesTitle = popularSeries[i];
       try {
-        const seriesTitle = popularSeries[i];
-        const response = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(seriesTitle)}&type=series`);
-        
-        if (!response.ok) continue;
-        
-        const series = await response.json();
-        
-        if (series.Response === 'False') {
+        const series = await fetchOmdbFull(seriesTitle, 'series');
+        if (!series) {
           console.log(`Series not found: ${seriesTitle}`);
+          await new Promise(resolve => setTimeout(resolve, 120));
           continue;
         }
 
-        // Check if series already exists
         const existing = await env.db.prepare(
           'SELECT id FROM movies WHERE title = ? AND media_type = ?'
         ).bind(series.Title, 'series').first();
 
         if (!existing) {
+          // prefer Released, fallback to Year
+          let release = null;
+          if (series.Released && series.Released !== 'N/A') release = series.Released;
+          else if (series.Year && series.Year !== 'N/A') release = series.Year;
+
           await env.db.prepare(`
             INSERT INTO movies (title, release_date, media_type, genre, description, poster_url, trailer_url)
             VALUES (?, ?, ?, ?, ?, ?, ?)
           `).bind(
             series.Title,
-            series.Released && series.Released !== 'N/A' ? series.Released : null,
+            release,
             'series',
             series.Genre && series.Genre !== 'N/A' ? series.Genre.split(',')[0].trim() : 'Unknown',
             series.Plot && series.Plot !== 'N/A' ? series.Plot : '',
@@ -230,10 +260,9 @@ export async function onRequest(context) {
           console.log(`Added series: ${series.Title}`);
         }
 
-        // Rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 120));
       } catch (error) {
-        console.error(`Error adding series ${popularSeries[i]}:`, error.message);
+        console.error(`Error adding series ${seriesTitle}:`, error.message || error);
       }
     }
 

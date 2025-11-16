@@ -75,7 +75,7 @@ async function handleGetChallenges(db, request, corsHeaders) {
     });
   } else {
     // Get all challenges
-    const challenges = await db.prepare('SELECT * FROM challenges ORDER BY name').all();
+    const challenges = await db.prepare('SELECT * FROM challenges ORDER BY title').all();
     return new Response(JSON.stringify(challenges.results || []), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

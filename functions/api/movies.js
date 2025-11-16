@@ -108,8 +108,8 @@ async function handleGet(db, request, url, corsHeaders) {
     genre: row.genre || 'Unknown',
     rating: row.rating || 0,
     status: row.status,
-    watchedDate: row.watchedDate || new Date().toISOString().split('T')[0],
-    poster: row.poster || `https://via.placeholder.com/200x300/4CAF50/white?text=${encodeURIComponent(row.title)}`,
+    watchedDate: row.watchedDate || null,
+    poster: row.poster || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
     duration: row.duration || 120,
     review: row.review || ''
   }));

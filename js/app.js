@@ -303,7 +303,7 @@ class MovieTracker {
 
     async loadMoviesData() {
         try {
-            const response = await fetch('/api/movies', {
+            const response = await fetch('/api/movies?status=watched', {
                 headers: this.getAuthHeaders()
             });
             if (response.ok) {

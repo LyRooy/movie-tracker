@@ -16,6 +16,11 @@ class MovieTracker {
         this.loadMockData();
         this.updateStats();
         this.setupTheme();
+        
+        // Enable transitions after page load to prevent theme transition on load
+        setTimeout(() => {
+            document.body.classList.add('transitions-enabled');
+        }, 100);
     }
 
     bindEvents() {
@@ -211,8 +216,7 @@ class MovieTracker {
             actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         
-        document.body.className = `${actualTheme}-theme`;
-        
+        // Theme should already be set by inline script, just update the icon and select
         const themeIcon = document.querySelector('#theme-toggle i');
         if (themeIcon) {
             themeIcon.className = actualTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
@@ -247,8 +251,9 @@ class MovieTracker {
             actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         
-        // Update body class
-        document.body.className = `${actualTheme}-theme`;
+        // Update both body and html class for consistency
+        document.body.className = `${actualTheme}-theme transitions-enabled`;
+        document.documentElement.className = `${actualTheme}-theme`;
         
         // Save to localStorage (save the selected option, not the actual theme)
         localStorage.setItem('theme', theme);

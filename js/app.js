@@ -290,26 +290,15 @@ class MovieTracker {
     }
 
     loadUserData() {
-        // Mock user data - in real app, this would come from API
-        this.currentUser = {
-            id: 1,
-            username: 'LyRooy',
-            email: 'lyrooy@example.com',
-            avatarUrl: 'images/default-avatar.png',
-            memberSince: '2024',
-            preferences: {
-                emailNotifications: true,
-                publicProfile: false,
-                theme: 'light'
-            }
-        };
-
-        // Update UI with user data
-        document.getElementById('username').textContent = this.currentUser.username;
-        document.getElementById('profile-username').textContent = this.currentUser.username;
-        document.getElementById('profile-email').textContent = this.currentUser.email;
-        document.getElementById('member-since').textContent = this.currentUser.memberSince;
-        document.getElementById('user-avatar').src = this.currentUser.avatarUrl;
+        // Update UI with current user data (loaded from auth)
+        if (this.currentUser) {
+            document.getElementById('username').textContent = this.currentUser.nickname;
+            const profileUsername = document.getElementById('profile-username');
+            const profileEmail = document.getElementById('profile-email');
+            
+            if (profileUsername) profileUsername.textContent = this.currentUser.nickname;
+            if (profileEmail) profileEmail.textContent = this.currentUser.email;
+        }
     }
 
     async loadMoviesData() {

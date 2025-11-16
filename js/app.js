@@ -6,6 +6,7 @@ class MovieTracker {
         this.watchedMovies = [];
         this.currentRating = 0;
         this.currentSection = 'dashboard';
+        this.adminVerified = false;
         
         this.init();
     }
@@ -24,6 +25,12 @@ class MovieTracker {
         this.generateCalendar();
         await this.loadMoviesData();
         this.setupTheme();
+
+        // Show admin section if user is admin
+        if (this.currentUser && this.currentUser.role === 'admin') {
+            const adminSection = document.getElementById('admin');
+            if (adminSection) adminSection.style.display = '';
+        }
         
         // Enable transitions after page load to prevent theme transition on load
         setTimeout(() => {
@@ -198,9 +205,20 @@ class MovieTracker {
 
         // Generate year options for filter
         this.generateYearOptions();
+        
+        // Admin panel bindings (if admin)
+        if (this.currentUser && this.currentUser.role === 'admin') {
+            this.bindAdminEvents();
+        }
     }
 
     showSection(sectionName) {
+        // Admin panel requires password verification
+        if (sectionName === 'admin' && !this.adminVerified) {
+            this.showAdminPasswordPrompt();
+            return;
+        }
+
         // Hide all sections
         document.querySelectorAll('.section').forEach(section => {
             section.classList.remove('active');
@@ -221,6 +239,8 @@ class MovieTracker {
             this.loadCharts();
         } else if (sectionName === 'my-list') {
             this.displayMyList();
+        } else if (sectionName === 'admin') {
+            this.loadAdminData();
         }
     }
 
@@ -298,6 +318,12 @@ class MovieTracker {
             
             if (profileUsername) profileUsername.textContent = this.currentUser.nickname;
             if (profileEmail) profileEmail.textContent = this.currentUser.email;
+
+            // Show admin navigation if user is admin
+            if (this.currentUser.role === 'admin') {
+                const adminNavItem = document.getElementById('admin-nav-item');
+                if (adminNavItem) adminNavItem.style.display = 'block';
+            }
         }
     }
 
@@ -1005,6 +1031,507 @@ class MovieTracker {
     logout() {
         localStorage.removeItem('movieTrackerToken');
         location.reload();
+    }
+
+    // Admin Panel Methods
+    bindAdminEvents() {
+        // Tab switching
+        document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                this.switchAdminTab(tab);
+            });
+        });
+
+        // Add buttons
+        document.getElementById('add-movie-btn').addEventListener('click', () => this.showAdminMovieModal());
+        document.getElementById('add-challenge-btn').addEventListener('click', () => this.showAdminChallengeModal());
+        document.getElementById('add-badge-btn').addEventListener('click', () => this.showAdminBadgeModal());
+
+        // Modal close buttons
+        document.querySelectorAll('#admin-movie-modal .close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAdminModal('admin-movie-modal'));
+        });
+        document.querySelectorAll('#admin-challenge-modal .close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAdminModal('admin-challenge-modal'));
+        });
+        document.querySelectorAll('#admin-badge-modal .close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAdminModal('admin-badge-modal'));
+        });
+
+        // Form submissions
+        document.getElementById('admin-movie-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveAdminMovie();
+        });
+        document.getElementById('admin-challenge-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveAdminChallenge();
+        });
+        document.getElementById('admin-badge-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveAdminBadge();
+        });
+    }
+
+    switchAdminTab(tab) {
+        // Update tab buttons
+        document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+        // Update tab content
+        document.querySelectorAll('.admin-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`admin-${tab}-tab`).classList.add('active');
+
+        // Load data for the tab
+        if (tab === 'movies') this.loadAdminMovies();
+        else if (tab === 'challenges') this.loadAdminChallenges();
+        else if (tab === 'badges') this.loadAdminBadges();
+    }
+
+    async loadAdminData() {
+        // Load data for the currently active tab
+        const activeTab = document.querySelector('.admin-tab-btn.active').dataset.tab;
+        this.switchAdminTab(activeTab);
+    }
+
+    async loadAdminMovies() {
+        try {
+            const response = await fetch('/api/admin/movies', {
+                headers: this.getAuthHeaders()
+            });
+            if (response.ok) {
+                const movies = await response.json();
+                this.displayAdminMovies(movies);
+            }
+        } catch (error) {
+            console.error('Error loading admin movies:', error);
+            this.showNotification('Błąd podczas ładowania filmów', 'error');
+        }
+    }
+
+    displayAdminMovies(movies) {
+        const tbody = document.getElementById('admin-movies-list');
+        tbody.innerHTML = movies.map(movie => `
+            <tr>
+                <td>${movie.id}</td>
+                <td>${movie.title}</td>
+                <td>${movie.media_type === 'movie' ? 'Film' : 'Serial'}</td>
+                <td>${movie.year || '-'}</td>
+                <td>${movie.genre || '-'}</td>
+                <td>
+                    <button class="action-btn btn-edit" onclick="app.editAdminMovie(${movie.id})">
+                        <i class="fas fa-edit"></i> Edytuj
+                    </button>
+                    <button class="action-btn btn-delete" onclick="app.deleteAdminMovie(${movie.id})">
+                        <i class="fas fa-trash"></i> Usuń
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async loadAdminChallenges() {
+        try {
+            const response = await fetch('/api/admin/challenges', {
+                headers: this.getAuthHeaders()
+            });
+            if (response.ok) {
+                const challenges = await response.json();
+                this.displayAdminChallenges(challenges);
+            }
+        } catch (error) {
+            console.error('Error loading admin challenges:', error);
+            this.showNotification('Błąd podczas ładowania wyzwań', 'error');
+        }
+    }
+
+    displayAdminChallenges(challenges) {
+        const tbody = document.getElementById('admin-challenges-list');
+        tbody.innerHTML = challenges.map(challenge => `
+            <tr>
+                <td>${challenge.id}</td>
+                <td>${challenge.name}</td>
+                <td>${challenge.type}</td>
+                <td>${challenge.criteria_value || '-'}</td>
+                <td>${challenge.target_count}</td>
+                <td>
+                    <button class="action-btn btn-edit" onclick="app.editAdminChallenge(${challenge.id})">
+                        <i class="fas fa-edit"></i> Edytuj
+                    </button>
+                    <button class="action-btn btn-delete" onclick="app.deleteAdminChallenge(${challenge.id})">
+                        <i class="fas fa-trash"></i> Usuń
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async loadAdminBadges() {
+        try {
+            const response = await fetch('/api/admin/badges', {
+                headers: this.getAuthHeaders()
+            });
+            if (response.ok) {
+                const badges = await response.json();
+                this.displayAdminBadges(badges);
+            }
+        } catch (error) {
+            console.error('Error loading admin badges:', error);
+            this.showNotification('Błąd podczas ładowania odznak', 'error');
+        }
+    }
+
+    displayAdminBadges(badges) {
+        const tbody = document.getElementById('admin-badges-list');
+        tbody.innerHTML = badges.map(badge => `
+            <tr>
+                <td>${badge.id}</td>
+                <td>${badge.name}</td>
+                <td>${badge.description}</td>
+                <td><i class="fas ${badge.image_url || 'fa-award'}"></i></td>
+                <td>
+                    <button class="action-btn btn-edit" onclick="app.editAdminBadge(${badge.id})">
+                        <i class="fas fa-edit"></i> Edytuj
+                    </button>
+                    <button class="action-btn btn-delete" onclick="app.deleteAdminBadge(${badge.id})">
+                        <i class="fas fa-trash"></i> Usuń
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Movie CRUD
+    showAdminMovieModal(movie = null) {
+        const modal = document.getElementById('admin-movie-modal');
+        const title = document.getElementById('admin-movie-modal-title');
+        
+        if (movie) {
+            title.textContent = 'Edytuj film';
+            document.getElementById('admin-movie-id').value = movie.id;
+            document.getElementById('admin-movie-title').value = movie.title;
+            document.getElementById('admin-movie-type').value = movie.media_type;
+            document.getElementById('admin-movie-year').value = movie.year || '';
+            document.getElementById('admin-movie-genre').value = movie.genre || '';
+            document.getElementById('admin-movie-duration').value = movie.duration || '';
+            document.getElementById('admin-movie-description').value = movie.description || '';
+            document.getElementById('admin-movie-poster').value = movie.poster_url || '';
+        } else {
+            title.textContent = 'Dodaj film';
+            document.getElementById('admin-movie-form').reset();
+            document.getElementById('admin-movie-id').value = '';
+        }
+        
+        modal.style.display = 'block';
+    }
+
+    async editAdminMovie(id) {
+        try {
+            const response = await fetch(`/api/admin/movies/${id}`, {
+                headers: this.getAuthHeaders()
+            });
+            if (response.ok) {
+                const movie = await response.json();
+                this.showAdminMovieModal(movie);
+            }
+        } catch (error) {
+            console.error('Error loading movie:', error);
+            this.showNotification('Błąd podczas ładowania filmu', 'error');
+        }
+    }
+
+    async saveAdminMovie() {
+        const id = document.getElementById('admin-movie-id').value;
+        const data = {
+            title: document.getElementById('admin-movie-title').value,
+            type: document.getElementById('admin-movie-type').value,
+            year: parseInt(document.getElementById('admin-movie-year').value) || null,
+            genre: document.getElementById('admin-movie-genre').value || null,
+            duration: parseInt(document.getElementById('admin-movie-duration').value) || null,
+            description: document.getElementById('admin-movie-description').value || null,
+            poster: document.getElementById('admin-movie-poster').value || null
+        };
+
+        try {
+            const url = id ? `/api/admin/movies/${id}` : '/api/admin/movies';
+            const method = id ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                this.showNotification(id ? 'Film zaktualizowany' : 'Film dodany', 'success');
+                this.closeAdminModal('admin-movie-modal');
+                this.loadAdminMovies();
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas zapisywania filmu', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving movie:', error);
+            this.showNotification('Błąd podczas zapisywania filmu', 'error');
+        }
+    }
+
+    async deleteAdminMovie(id) {
+        if (!confirm('Czy na pewno chcesz usunąć ten film?')) return;
+
+        try {
+            const response = await fetch(`/api/admin/movies/${id}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                this.showNotification('Film usunięty', 'success');
+                this.loadAdminMovies();
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas usuwania filmu', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting movie:', error);
+            this.showNotification('Błąd podczas usuwania filmu', 'error');
+        }
+    }
+
+    // Challenge CRUD
+    showAdminChallengeModal(challenge = null) {
+        const modal = document.getElementById('admin-challenge-modal');
+        const title = document.getElementById('admin-challenge-modal-title');
+        
+        if (challenge) {
+            title.textContent = 'Edytuj wyzwanie';
+            document.getElementById('admin-challenge-id').value = challenge.id;
+            document.getElementById('admin-challenge-name').value = challenge.name;
+            document.getElementById('admin-challenge-description').value = challenge.description || '';
+            document.getElementById('admin-challenge-type').value = challenge.type;
+            document.getElementById('admin-challenge-criteria').value = challenge.criteria_value || '';
+            document.getElementById('admin-challenge-target').value = challenge.target_count;
+            document.getElementById('admin-challenge-start').value = challenge.start_date ? challenge.start_date.split('T')[0] : '';
+            document.getElementById('admin-challenge-end').value = challenge.end_date ? challenge.end_date.split('T')[0] : '';
+            document.getElementById('admin-challenge-badge').value = challenge.badge_id || '';
+        } else {
+            title.textContent = 'Dodaj wyzwanie';
+            document.getElementById('admin-challenge-form').reset();
+            document.getElementById('admin-challenge-id').value = '';
+        }
+        
+        modal.style.display = 'block';
+    }
+
+    async editAdminChallenge(id) {
+        try {
+            const response = await fetch(`/api/admin/challenges/${id}`, {
+                headers: this.getAuthHeaders()
+            });
+            if (response.ok) {
+                const challenge = await response.json();
+                this.showAdminChallengeModal(challenge);
+            }
+        } catch (error) {
+            console.error('Error loading challenge:', error);
+            this.showNotification('Błąd podczas ładowania wyzwania', 'error');
+        }
+    }
+
+    async saveAdminChallenge() {
+        const id = document.getElementById('admin-challenge-id').value;
+        const data = {
+            name: document.getElementById('admin-challenge-name').value,
+            description: document.getElementById('admin-challenge-description').value || null,
+            type: document.getElementById('admin-challenge-type').value,
+            criteria_value: document.getElementById('admin-challenge-criteria').value || null,
+            target_count: parseInt(document.getElementById('admin-challenge-target').value),
+            start_date: document.getElementById('admin-challenge-start').value || null,
+            end_date: document.getElementById('admin-challenge-end').value || null,
+            badge_id: parseInt(document.getElementById('admin-challenge-badge').value) || null
+        };
+
+        try {
+            const url = id ? `/api/admin/challenges/${id}` : '/api/admin/challenges';
+            const method = id ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                this.showNotification(id ? 'Wyzwanie zaktualizowane' : 'Wyzwanie dodane', 'success');
+                this.closeAdminModal('admin-challenge-modal');
+                this.loadAdminChallenges();
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas zapisywania wyzwania', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving challenge:', error);
+            this.showNotification('Błąd podczas zapisywania wyzwania', 'error');
+        }
+    }
+
+    async deleteAdminChallenge(id) {
+        if (!confirm('Czy na pewno chcesz usunąć to wyzwanie?')) return;
+
+        try {
+            const response = await fetch(`/api/admin/challenges/${id}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                this.showNotification('Wyzwanie usunięte', 'success');
+                this.loadAdminChallenges();
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas usuwania wyzwania', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting challenge:', error);
+            this.showNotification('Błąd podczas usuwania wyzwania', 'error');
+        }
+    }
+
+    // Badge CRUD
+    showAdminBadgeModal(badge = null) {
+        const modal = document.getElementById('admin-badge-modal');
+        const title = document.getElementById('admin-badge-modal-title');
+        
+        if (badge) {
+            title.textContent = 'Edytuj odznakę';
+            document.getElementById('admin-badge-id').value = badge.id;
+            document.getElementById('admin-badge-name').value = badge.name;
+            document.getElementById('admin-badge-description').value = badge.description;
+            document.getElementById('admin-badge-icon').value = badge.image_url || '';
+        } else {
+            title.textContent = 'Dodaj odznakę';
+            document.getElementById('admin-badge-form').reset();
+            document.getElementById('admin-badge-id').value = '';
+        }
+        
+        modal.style.display = 'block';
+    }
+
+    async editAdminBadge(id) {
+        try {
+            const response = await fetch(`/api/admin/badges/${id}`, {
+                headers: this.getAuthHeaders()
+            });
+            if (response.ok) {
+                const badge = await response.json();
+                this.showAdminBadgeModal(badge);
+            }
+        } catch (error) {
+            console.error('Error loading badge:', error);
+            this.showNotification('Błąd podczas ładowania odznaki', 'error');
+        }
+    }
+
+    async saveAdminBadge() {
+        const id = document.getElementById('admin-badge-id').value;
+        const data = {
+            name: document.getElementById('admin-badge-name').value,
+            description: document.getElementById('admin-badge-description').value,
+            image_url: document.getElementById('admin-badge-icon').value || null
+        };
+
+        try {
+            const url = id ? `/api/admin/badges/${id}` : '/api/admin/badges';
+            const method = id ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                this.showNotification(id ? 'Odznaka zaktualizowana' : 'Odznaka dodana', 'success');
+                this.closeAdminModal('admin-badge-modal');
+                this.loadAdminBadges();
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas zapisywania odznaki', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving badge:', error);
+            this.showNotification('Błąd podczas zapisywania odznaki', 'error');
+        }
+    }
+
+    async deleteAdminBadge(id) {
+        if (!confirm('Czy na pewno chcesz usunąć tę odznakę?')) return;
+
+        try {
+            const response = await fetch(`/api/admin/badges/${id}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                this.showNotification('Odznaka usunięta', 'success');
+                this.loadAdminBadges();
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas usuwania odznaki', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting badge:', error);
+            this.showNotification('Błąd podczas usuwania odznaki', 'error');
+        }
+    }
+
+    closeAdminModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // Admin password verification
+    showAdminPasswordPrompt() {
+        const password = prompt('Aby uzyskać dostęp do panelu administracyjnego, wprowadź swoje hasło:');
+        
+        if (!password) {
+            return; // User cancelled
+        }
+
+        this.verifyAdminPassword(password);
+    }
+
+    async verifyAdminPassword(password) {
+        try {
+            // Try to login with current user's email/nickname and provided password
+            const loginData = {
+                emailOrUsername: this.currentUser.email,
+                password: password
+            };
+
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(loginData)
+            });
+
+            if (response.ok) {
+                // Password is correct
+                this.adminVerified = true;
+                this.showNotification('Dostęp przyznany', 'success');
+                this.showSection('admin');
+            } else {
+                this.showNotification('Nieprawidłowe hasło', 'error');
+            }
+        } catch (error) {
+            console.error('Error verifying admin password:', error);
+            this.showNotification('Błąd podczas weryfikacji hasła', 'error');
+        }
     }
     
 }

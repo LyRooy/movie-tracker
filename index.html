@@ -32,6 +32,7 @@
                 <li><a href="#calendar" class="nav-link">Kalendarz</a></li>
                 <li><a href="#statistics" class="nav-link">Statystyki</a></li>
                 <li><a href="#profile" class="nav-link">Profil</a></li>
+                <li id="admin-nav-item" style="display: none;"><a href="#admin" class="nav-link">Panel Admina</a></li>
                 <li>
                     <button id="theme-toggle" class="theme-toggle">
                         <i class="fas fa-moon"></i>
@@ -265,6 +266,99 @@
                 </div>
             </div>
         </section>
+
+        <!-- Admin Panel Section -->
+        <section id="admin" class="section" style="display: none;">
+            <div class="container">
+                <h1>Panel Administracyjny</h1>
+                
+                <div class="admin-tabs">
+                    <button class="admin-tab-btn active" data-tab="movies">Filmy</button>
+                    <button class="admin-tab-btn" data-tab="challenges">Wyzwania</button>
+                    <button class="admin-tab-btn" data-tab="badges">Odznaki</button>
+                </div>
+
+                <!-- Movies Management Tab -->
+                <div id="admin-movies-tab" class="admin-tab-content active">
+                    <div class="admin-actions">
+                        <button id="add-movie-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Dodaj film
+                        </button>
+                    </div>
+                    
+                    <div class="admin-table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tytuł</th>
+                                    <th>Typ</th>
+                                    <th>Rok</th>
+                                    <th>Gatunek</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-movies-list">
+                                <!-- Movies will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Challenges Management Tab -->
+                <div id="admin-challenges-tab" class="admin-tab-content">
+                    <div class="admin-actions">
+                        <button id="add-challenge-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Dodaj wyzwanie
+                        </button>
+                    </div>
+                    
+                    <div class="admin-table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nazwa</th>
+                                    <th>Typ</th>
+                                    <th>Wartość kryterium</th>
+                                    <th>Cel</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-challenges-list">
+                                <!-- Challenges will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Badges Management Tab -->
+                <div id="admin-badges-tab" class="admin-tab-content">
+                    <div class="admin-actions">
+                        <button id="add-badge-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Dodaj odznakę
+                        </button>
+                    </div>
+                    
+                    <div class="admin-table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nazwa</th>
+                                    <th>Opis</th>
+                                    <th>Ikona</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-badges-list">
+                                <!-- Badges will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Movie/Series Modal -->
@@ -313,6 +407,137 @@
                         <button id="remove-from-list" class="btn btn-secondary" style="display: none;">Usuń z listy</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Movie Modal -->
+    <div id="admin-movie-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <h3 id="admin-movie-modal-title">Dodaj film</h3>
+                <form id="admin-movie-form">
+                    <input type="hidden" id="admin-movie-id">
+                    <div class="form-group">
+                        <label>Tytuł:</label>
+                        <input type="text" id="admin-movie-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Typ:</label>
+                        <select id="admin-movie-type" required>
+                            <option value="movie">Film</option>
+                            <option value="series">Serial</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Rok:</label>
+                        <input type="number" id="admin-movie-year" min="1900" max="2100">
+                    </div>
+                    <div class="form-group">
+                        <label>Gatunek:</label>
+                        <input type="text" id="admin-movie-genre">
+                    </div>
+                    <div class="form-group">
+                        <label>Czas trwania (minuty):</label>
+                        <input type="number" id="admin-movie-duration" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Opis:</label>
+                        <textarea id="admin-movie-description" rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>URL plakatu:</label>
+                        <input type="text" id="admin-movie-poster">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="submit" class="btn btn-primary">Zapisz</button>
+                        <button type="button" class="btn btn-secondary close">Anuluj</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Challenge Modal -->
+    <div id="admin-challenge-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <h3 id="admin-challenge-modal-title">Dodaj wyzwanie</h3>
+                <form id="admin-challenge-form">
+                    <input type="hidden" id="admin-challenge-id">
+                    <div class="form-group">
+                        <label>Nazwa:</label>
+                        <input type="text" id="admin-challenge-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Opis:</label>
+                        <textarea id="admin-challenge-description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Typ:</label>
+                        <select id="admin-challenge-type" required>
+                            <option value="count">Liczba</option>
+                            <option value="genre">Gatunek</option>
+                            <option value="time">Czas</option>
+                            <option value="rating">Ocena</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Wartość kryterium:</label>
+                        <input type="text" id="admin-challenge-criteria">
+                    </div>
+                    <div class="form-group">
+                        <label>Cel (liczba):</label>
+                        <input type="number" id="admin-challenge-target" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data rozpoczęcia:</label>
+                        <input type="date" id="admin-challenge-start">
+                    </div>
+                    <div class="form-group">
+                        <label>Data zakończenia:</label>
+                        <input type="date" id="admin-challenge-end">
+                    </div>
+                    <div class="form-group">
+                        <label>Odznaka (ID):</label>
+                        <input type="number" id="admin-challenge-badge">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="submit" class="btn btn-primary">Zapisz</button>
+                        <button type="button" class="btn btn-secondary close">Anuluj</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Badge Modal -->
+    <div id="admin-badge-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <h3 id="admin-badge-modal-title">Dodaj odznakę</h3>
+                <form id="admin-badge-form">
+                    <input type="hidden" id="admin-badge-id">
+                    <div class="form-group">
+                        <label>Nazwa:</label>
+                        <input type="text" id="admin-badge-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Opis:</label>
+                        <textarea id="admin-badge-description" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Ikona (klasa Font Awesome):</label>
+                        <input type="text" id="admin-badge-icon" placeholder="fa-trophy">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="submit" class="btn btn-primary">Zapisz</button>
+                        <button type="button" class="btn btn-secondary close">Anuluj</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

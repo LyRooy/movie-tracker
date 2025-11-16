@@ -20,7 +20,7 @@ export async function onRequestPost(context) {
     }
 
     // Find user by email or nickname
-    const user = await env.db.prepare('SELECT * FROM Users WHERE email = ? OR nickname = ?').bind(emailOrUsername, emailOrUsername).first();
+    const user = await env.db.prepare('SELECT * FROM users WHERE email = ? OR nickname = ?').bind(emailOrUsername, emailOrUsername).first();
     if (!user) {
       return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,

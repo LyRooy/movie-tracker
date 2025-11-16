@@ -70,9 +70,9 @@ async function handleGet(db, request, url, corsHeaders) {
         ELSE 'planning'
       END as status,
       120 as duration
-    FROM Movies m
-    LEFT JOIN Reviews r ON m.id = r.movie_id AND r.user_id = ?
-    LEFT JOIN Watched w ON m.id = w.movie_id AND w.user_id = ?
+    FROM movies m
+    LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
+    LEFT JOIN watched w ON m.id = w.movie_id AND w.user_id = ?
   `;
   
   let params = [userId, userId];
@@ -119,7 +119,7 @@ async function handleGet(db, request, url, corsHeaders) {
   });
 }
 
-// Add new movie/series
+// Add movie to user's watched list (not create new movie!)
 async function handlePost(db, request, corsHeaders) {
   const userId = await getUserIdFromRequest(request);
   
@@ -133,41 +133,55 @@ async function handlePost(db, request, corsHeaders) {
   const data = await request.json();
   
   try {
-    // Start transaction
-    await db.prepare('BEGIN').run();
+    // Verify movie exists
+    if (!data.id) {
+      return new Response(JSON.stringify({ error: 'Movie ID is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     
-    // Insert movie
-    const movieResult = await db.prepare(`
-      INSERT INTO Movies (title, media_type, release_date, genre, poster_url, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(
-      data.title,
-      data.type,
-      `${data.year}-01-01`,
-      data.genre,
-      data.poster,
-      data.description || ''
-    ).run();
+    const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(data.id).first();
+    if (!movie) {
+      return new Response(JSON.stringify({ error: 'Movie not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     
-    const movieId = movieResult.meta.last_row_id;
+    const movieId = movie.id;
     
     // Add to watched if status is watched
     if (data.status === 'watched') {
-      await db.prepare(`
-        INSERT INTO Watched (user_id, movie_id, watched_date)
-        VALUES (?, ?, ?)
-      `).bind(userId, movieId, data.watchedDate).run();
+      // Check if already watched
+      const alreadyWatched = await db.prepare('SELECT id FROM watched WHERE user_id = ? AND movie_id = ?')
+        .bind(userId, movieId).first();
+      
+      if (!alreadyWatched) {
+        await db.prepare(`
+          INSERT INTO watched (user_id, movie_id, watched_date)
+          VALUES (?, ?, ?)
+        `).bind(userId, movieId, data.watchedDate || new Date().toISOString().split('T')[0]).run();
+      }
     }
     
-    // Add review if rating provided
+    // Add or update review if rating provided
     if (data.rating > 0) {
-      await db.prepare(`
-        INSERT INTO Reviews (user_id, movie_id, content, rating)
-        VALUES (?, ?, ?, ?)
-      `).bind(userId, movieId, data.review || '', data.rating).run();
+      const existingReview = await db.prepare('SELECT id FROM reviews WHERE user_id = ? AND movie_id = ?')
+        .bind(userId, movieId).first();
+      
+      if (existingReview) {
+        await db.prepare(`
+          UPDATE reviews SET content = ?, rating = ?, updated_at = strftime('%Y-%m-%d %H:%M:%f', 'now')
+          WHERE user_id = ? AND movie_id = ?
+        `).bind(data.review || '', data.rating, userId, movieId).run();
+      } else {
+        await db.prepare(`
+          INSERT INTO reviews (user_id, movie_id, content, rating)
+          VALUES (?, ?, ?, ?)
+        `).bind(userId, movieId, data.review || '', data.rating).run();
+      }
     }
-    
-    await db.prepare('COMMIT').run();
     
     return new Response(JSON.stringify({ 
       success: true, 
@@ -176,8 +190,10 @@ async function handlePost(db, request, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    await db.prepare('ROLLBACK').run();
-    throw error;
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -220,7 +236,7 @@ async function handlePut(db, request, url, corsHeaders) {
       `).bind(userId, id, data.watchedDate).run();
     } else {
       await db.prepare(`
-        DELETE FROM Watched WHERE user_id = ? AND movie_id = ?
+        DELETE FROM watched WHERE user_id = ? AND movie_id = ?
       `).bind(userId, id).run();
     }
     
@@ -257,7 +273,7 @@ async function handleDelete(db, request, url, corsHeaders) {
   const id = url.pathname.split('/').pop();
   
   // Delete movie (cascading will handle watched and reviews)
-  await db.prepare('DELETE FROM Movies WHERE id = ?').bind(id).run();
+  await db.prepare('DELETE FROM movies WHERE id = ?').bind(id).run();
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }

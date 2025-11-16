@@ -20,7 +20,7 @@ export async function onRequestPost(context) {
     }
 
     // Check if user exists
-    const existingUser = await env.db.prepare('SELECT id FROM Users WHERE email = ?').bind(email).first();
+    const existingUser = await env.db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
     if (existingUser) {
       return new Response(JSON.stringify({ error: 'User already exists' }), {
         status: 409,
@@ -33,7 +33,7 @@ export async function onRequestPost(context) {
 
     // Insert user
     const result = await env.db.prepare(`
-      INSERT INTO Users (nickname, email, password_hash)
+      INSERT INTO users (nickname, email, password_hash)
       VALUES (?, ?, ?)
     `).bind(nickname, email, passwordHash).run();
 

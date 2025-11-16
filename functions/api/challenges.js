@@ -48,12 +48,12 @@ export async function onRequest(context) {
           WHEN date('now') > c.end_date THEN 'expired'
           ELSE 'active'
         END as status
-      FROM Challenges c
+      FROM challenges c
       LEFT JOIN (
         SELECT w.id, c.id as challenge_id
-        FROM Watched w
-        JOIN Movies m ON w.movie_id = m.id
-        JOIN Challenges c ON (
+        FROM watched w
+        JOIN movies m ON w.movie_id = m.id
+        JOIN challenges c ON (
           (c.type = 'movies' AND m.media_type = 'movie') OR
           (c.type = 'series' AND m.media_type = 'series') OR
           c.type = 'both'

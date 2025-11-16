@@ -8,7 +8,7 @@ export async function onRequest(context) {
 
   try {
     // Check if test user already exists
-    const existingUser = await env.db.prepare('SELECT id FROM Users WHERE email = ?').bind('test@example.com').first();
+    const existingUser = await env.db.prepare('SELECT id FROM users WHERE email = ?').bind('test@example.com').first();
     
     let userId;
     if (existingUser) {
@@ -18,7 +18,7 @@ export async function onRequest(context) {
       // Create a test user
       const passwordHash = await hashPassword('test123');
       const userResult = await env.db.prepare(`
-        INSERT INTO Users (nickname, email, password_hash)
+        INSERT INTO users (nickname, email, password_hash)
         VALUES (?, ?, ?)
       `).bind('TestUser', 'test@example.com', passwordHash).run();
       
@@ -57,7 +57,7 @@ export async function onRequest(context) {
     let moviesAdded = 0;
     for (const movie of sampleMovies) {
       // Check if movie already exists
-      const existingMovie = await env.db.prepare('SELECT id FROM Movies WHERE title = ? AND media_type = ?')
+      const existingMovie = await env.db.prepare('SELECT id FROM movies WHERE title = ? AND media_type = ?')
         .bind(movie.title, movie.type).first();
       
       let movieId;
@@ -66,7 +66,7 @@ export async function onRequest(context) {
         console.log(`Movie "${movie.title}" already exists, skipping`);
       } else {
         const movieResult = await env.db.prepare(`
-          INSERT INTO Movies (title, media_type, release_date, genre, poster_url, description)
+          INSERT INTO movies (title, media_type, release_date, genre, poster_url, description)
           VALUES (?, ?, ?, ?, ?, ?)
         `).bind(
           movie.title,
@@ -83,33 +83,33 @@ export async function onRequest(context) {
       }
 
       // Check if user already watched this movie
-      const existingWatched = await env.db.prepare('SELECT id FROM Watched WHERE user_id = ? AND movie_id = ?')
+      const existingWatched = await env.db.prepare('SELECT id FROM watched WHERE user_id = ? AND movie_id = ?')
         .bind(userId, movieId).first();
       
       if (!existingWatched) {
         // Add to watched for user
         await env.db.prepare(`
-          INSERT INTO Watched (user_id, movie_id, watched_date)
+          INSERT INTO watched (user_id, movie_id, watched_date)
           VALUES (?, ?, ?)
         `).bind(userId, movieId, '2024-01-15').run();
       }
 
       // Check if review already exists
-      const existingReview = await env.db.prepare('SELECT id FROM Reviews WHERE user_id = ? AND movie_id = ?')
+      const existingReview = await env.db.prepare('SELECT id FROM reviews WHERE user_id = ? AND movie_id = ?')
         .bind(userId, movieId).first();
       
       if (!existingReview) {
         // Add review
         const rating = movie.title === 'Incepcja' ? 5 : (movie.title === 'Breaking Bad' ? 5 : 4);
         await env.db.prepare(`
-          INSERT INTO Reviews (user_id, movie_id, content, rating)
+          INSERT INTO reviews (user_id, movie_id, content, rating)
           VALUES (?, ?, ?, ?)
         `).bind(userId, movieId, `Świetne ${movie.type === 'movie' ? 'film' : 'serial'}!`, rating).run();
       }
     }
 
     // Insert a sample challenge (only if it doesn't exist)
-    const existingChallenge = await env.db.prepare('SELECT id FROM Challenges WHERE title = ?')
+    const existingChallenge = await env.db.prepare('SELECT id FROM challenges WHERE title = ?')
       .bind('Filmowy Maraton 2024').first();
     
     if (!existingChallenge) {

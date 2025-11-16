@@ -908,7 +908,7 @@ class MovieTracker {
                     <div id="auth-error" class="auth-error" style="display: none;"></div>
                     <form class="auth-form" id="auth-form">
                         <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
-                        <input type="email" id="email" placeholder="Adres email" class="auth-input" required>
+                        <input type="text" id="emailOrUsername" placeholder="Email lub nazwa użytkownika" class="auth-input" required>
                         <input type="password" id="password" placeholder="Hasło" class="auth-input" required>
                         <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
                     </form>
@@ -930,13 +930,13 @@ class MovieTracker {
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const emailOrUsername = document.getElementById('emailOrUsername').value;
             const password = document.getElementById('password').value;
             const nickname = document.getElementById('nickname').value;
 
             try {
                 const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-                const body = isLogin ? { email, password } : { nickname, email, password };
+                const body = isLogin ? { emailOrUsername, password } : { nickname, email: emailOrUsername, password };
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
@@ -967,6 +967,7 @@ class MovieTracker {
             const submitBtn = document.getElementById('auth-submit');
             const toggleText = document.getElementById('auth-toggle-text');
             const nicknameInput = document.getElementById('nickname');
+            const emailOrUsernameInput = document.getElementById('emailOrUsername');
 
             if (isLogin) {
                 title.textContent = 'Zaloguj się do MovieTracker';
@@ -975,6 +976,7 @@ class MovieTracker {
                 toggleLink.textContent = 'Utwórz konto';
                 nicknameInput.style.display = 'none';
                 nicknameInput.required = false;
+                emailOrUsernameInput.placeholder = 'Email lub nazwa użytkownika';
             } else {
                 title.textContent = 'Utwórz konto MovieTracker';
                 submitBtn.textContent = 'Zarejestruj się';
@@ -982,6 +984,7 @@ class MovieTracker {
                 toggleLink.textContent = 'Zaloguj się';
                 nicknameInput.style.display = 'block';
                 nicknameInput.required = true;
+                emailOrUsernameInput.placeholder = 'Adres email';
             }
         });
     }

@@ -10,17 +10,17 @@ export async function onRequestPost(context) {
   };
 
   try {
-    const { email, password } = await request.json();
+    const { emailOrUsername, password } = await request.json();
 
-    if (!email || !password) {
-      return new Response(JSON.stringify({ error: 'Email and password required' }), {
+    if (!emailOrUsername || !password) {
+      return new Response(JSON.stringify({ error: 'Email/username and password required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Find user
-    const user = await env.db.prepare('SELECT * FROM Users WHERE email = ?').bind(email).first();
+    // Find user by email or nickname
+    const user = await env.db.prepare('SELECT * FROM Users WHERE email = ? OR nickname = ?').bind(emailOrUsername, emailOrUsername).first();
     if (!user) {
       return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,

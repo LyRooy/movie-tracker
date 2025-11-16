@@ -307,6 +307,27 @@ class MovieTracker {
         }
         
         console.log('Theme changed to:', theme, '(actual:', actualTheme + ')');
+
+        // Persist the preference for logged-in users
+        if (this.authToken) {
+            fetch('/api/auth/theme', {
+                method: 'POST',
+                headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme_preference: theme })
+            }).then(async (res) => {
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    console.warn('Failed to persist theme preference:', err);
+                    return;
+                }
+                const json = await res.json();
+                if (json && json.user) {
+                    this.currentUser = json.user; // update cached user
+                }
+            }).catch(err => {
+                console.warn('Error saving theme preference:', err);
+            });
+        }
     }
 
     loadUserData() {

@@ -26,6 +26,10 @@ export async function onRequest(context) {
     const notFoundMovies = [];
     const notFoundSeries = [];
     const errors = [];
+    // Allow overriding limits/delays via query params to avoid rate limits during testing
+    const url = new URL(request.url);
+    const maxPerType = parseInt(url.searchParams.get('limit')) || 300; // max titles per type
+    const perRequestDelay = parseInt(url.searchParams.get('delay')) || 600; // ms between titles
     
     // Popular movies to search for
     const popularMovies = [
@@ -162,37 +166,57 @@ export async function onRequest(context) {
     }
 
     // helper: try exact title fetch, otherwise search and fetch by imdbID
+    // Fetch JSON with retries when OMDb returns Too many subrequests or transient network errors
+    async function fetchJsonWithRetry(url, maxRetries = 4, baseDelay = 600) {
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const res = await fetch(url);
+          // Attempt to parse JSON; if parsing fails, treat as an error
+          const json = await res.json().catch(() => null);
+          if (json && json.Error && /Too many subrequests/i.test(json.Error)) {
+            // wait and retry
+            const wait = baseDelay * (attempt + 1);
+            console.warn(`OMDb rate response, retrying after ${wait}ms (${attempt + 1}/${maxRetries})`);
+            await new Promise(r => setTimeout(r, wait));
+            continue;
+          }
+          return json;
+        } catch (e) {
+          const wait = baseDelay * (attempt + 1);
+          console.warn(`Network fetch failed, retrying after ${wait}ms (${attempt + 1}/${maxRetries}):`, e.message || e);
+          await new Promise(r => setTimeout(r, wait));
+        }
+      }
+      return null;
+    }
+
     async function fetchOmdbFull(title, type = 'movie') {
       try {
-        // try exact title first
-        let res = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}&type=${type}`);
-        if (!res.ok) return null;
-        let data = await res.json();
+        // try exact title first (with retry wrapper)
+        const exactUrl = `${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}&type=${type}`;
+        let data = await fetchJsonWithRetry(exactUrl, 4, perRequestDelay);
         if (data && data.Response && data.Response === 'True') return data;
 
         // fallback: use search endpoint and fetch by imdbID
-        res = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=${type}`);
-        if (!res.ok) return null;
-        const list = await res.json();
+        const searchUrl = `${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=${type}`;
+        const list = await fetchJsonWithRetry(searchUrl, 4, perRequestDelay);
         if (!list || list.Response === 'False' || !Array.isArray(list.Search) || list.Search.length === 0) return null;
 
         const first = list.Search[0];
         if (!first || !first.imdbID) return null;
 
-        res = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&i=${encodeURIComponent(first.imdbID)}&plot=full`);
-        if (!res.ok) return null;
-        data = await res.json();
+        const byIdUrl = `${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&i=${encodeURIComponent(first.imdbID)}&plot=full`;
+        data = await fetchJsonWithRetry(byIdUrl, 4, perRequestDelay);
         if (data && data.Response && data.Response === 'True') return data;
         return null;
       } catch (e) {
         console.error('fetchOmdbFull error for', title, e.message || e);
-        // bubble up network/critical errors as thrown so outer handler can record
         throw e;
       }
     }
 
     // Import movies (try up to requested count or list length)
-    for (let i = 0; i < Math.min(300, popularMovies.length); i++) {
+    for (let i = 0; i < Math.min(maxPerType, popularMovies.length); i++) {
       const movieTitle = popularMovies[i];
       try {
         const movie = await fetchOmdbFull(movieTitle, 'movie');
@@ -231,8 +255,8 @@ export async function onRequest(context) {
           console.log(`Added movie: ${movie.Title}`);
         }
 
-        // polite delay
-        await new Promise(resolve => setTimeout(resolve, 120));
+        // polite delay between titles to reduce chance of rate limiting
+        await new Promise(resolve => setTimeout(resolve, perRequestDelay));
       } catch (error) {
         console.error(`Error adding movie ${movieTitle}:`, error.message || error);
         errors.push({ title: movieTitle, error: (error && error.message) || String(error) });
@@ -242,7 +266,7 @@ export async function onRequest(context) {
     console.log('Fetching TV shows from OMDb (with fallback search)...');
 
     // Import series
-    for (let i = 0; i < Math.min(300, popularSeries.length); i++) {
+    for (let i = 0; i < Math.min(maxPerType, popularSeries.length); i++) {
       const seriesTitle = popularSeries[i];
       try {
         const series = await fetchOmdbFull(seriesTitle, 'series');
@@ -280,7 +304,7 @@ export async function onRequest(context) {
           console.log(`Added series: ${series.Title}`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 120));
+        await new Promise(resolve => setTimeout(resolve, perRequestDelay));
       } catch (error) {
         console.error(`Error adding series ${seriesTitle}:`, error.message || error);
         errors.push({ title: seriesTitle, error: (error && error.message) || String(error) });

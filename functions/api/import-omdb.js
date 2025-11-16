@@ -23,6 +23,9 @@ export async function onRequest(context) {
   try {
     let moviesAdded = 0;
     let seriesAdded = 0;
+    const notFoundMovies = [];
+    const notFoundSeries = [];
+    const errors = [];
     
     // Popular movies to search for
     const popularMovies = [
@@ -145,6 +148,19 @@ export async function onRequest(context) {
 
     console.log('Fetching movies from OMDb (with fallback search)...');
 
+    // quick validity check for API key
+    try {
+      const keyCheck = await fetch(`${OMDB_BASE_URL}/?apikey=${OMDB_API_KEY}&s=tt`);
+      if (keyCheck.ok) {
+        const kk = await keyCheck.json();
+        if (kk && kk.Error && /invalid api key/i.test(kk.Error)) {
+          return new Response(JSON.stringify({ error: 'OMDb API key invalid', details: kk.Error }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+    } catch (e) {
+      console.error('OMDb key check failed:', e.message || e);
+    }
+
     // helper: try exact title fetch, otherwise search and fetch by imdbID
     async function fetchOmdbFull(title, type = 'movie') {
       try {
@@ -169,8 +185,9 @@ export async function onRequest(context) {
         if (data && data.Response && data.Response === 'True') return data;
         return null;
       } catch (e) {
-        console.error('fetchOmdbFull error for', title, e.message);
-        return null;
+        console.error('fetchOmdbFull error for', title, e.message || e);
+        // bubble up network/critical errors as thrown so outer handler can record
+        throw e;
       }
     }
 
@@ -181,6 +198,7 @@ export async function onRequest(context) {
         const movie = await fetchOmdbFull(movieTitle, 'movie');
         if (!movie) {
           console.log(`Movie not found: ${movieTitle}`);
+          notFoundMovies.push(movieTitle);
           await new Promise(resolve => setTimeout(resolve, 120));
           continue;
         }
@@ -217,6 +235,7 @@ export async function onRequest(context) {
         await new Promise(resolve => setTimeout(resolve, 120));
       } catch (error) {
         console.error(`Error adding movie ${movieTitle}:`, error.message || error);
+        errors.push({ title: movieTitle, error: (error && error.message) || String(error) });
       }
     }
 
@@ -229,6 +248,7 @@ export async function onRequest(context) {
         const series = await fetchOmdbFull(seriesTitle, 'series');
         if (!series) {
           console.log(`Series not found: ${seriesTitle}`);
+          notFoundSeries.push(seriesTitle);
           await new Promise(resolve => setTimeout(resolve, 120));
           continue;
         }
@@ -263,6 +283,7 @@ export async function onRequest(context) {
         await new Promise(resolve => setTimeout(resolve, 120));
       } catch (error) {
         console.error(`Error adding series ${seriesTitle}:`, error.message || error);
+        errors.push({ title: seriesTitle, error: (error && error.message) || String(error) });
       }
     }
 
@@ -271,7 +292,12 @@ export async function onRequest(context) {
       moviesAdded,
       seriesAdded,
       totalAdded: moviesAdded + seriesAdded,
-      message: `Successfully imported ${moviesAdded} movies and ${seriesAdded} TV shows from OMDb`
+      notFoundMoviesCount: notFoundMovies.length,
+      notFoundSeriesCount: notFoundSeries.length,
+      notFoundMovies,
+      notFoundSeries,
+      errors,
+      message: `Imported ${moviesAdded} movies and ${seriesAdded} TV shows (not found: ${notFoundMovies.length} movies, ${notFoundSeries.length} series)`
     }), {
       headers: { 'Content-Type': 'application/json' }
     });

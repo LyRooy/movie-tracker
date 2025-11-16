@@ -7,14 +7,24 @@ export async function onRequest(context) {
   }
 
   try {
-    // First create a test user
-    const passwordHash = await hashPassword('test123');
-    const userResult = await env.db.prepare(`
-      INSERT INTO Users (nickname, email, password_hash)
-      VALUES (?, ?, ?)
-    `).bind('TestUser', 'test@example.com', passwordHash).run();
+    // Check if test user already exists
+    const existingUser = await env.db.prepare('SELECT id FROM Users WHERE email = ?').bind('test@example.com').first();
     
-    const userId = userResult.meta.last_row_id;
+    let userId;
+    if (existingUser) {
+      userId = existingUser.id;
+      console.log('Test user already exists, using existing user');
+    } else {
+      // Create a test user
+      const passwordHash = await hashPassword('test123');
+      const userResult = await env.db.prepare(`
+        INSERT INTO Users (nickname, email, password_hash)
+        VALUES (?, ?, ?)
+      `).bind('TestUser', 'test@example.com', passwordHash).run();
+      
+      userId = userResult.meta.last_row_id;
+      console.log('Created new test user');
+    }
     // Insert sample movies
     const sampleMovies = [
       {
@@ -43,53 +53,85 @@ export async function onRequest(context) {
       }
     ];
 
-    // Insert movies
+    // Insert movies (only if they don't exist)
+    let moviesAdded = 0;
     for (const movie of sampleMovies) {
-      const movieResult = await env.db.prepare(`
-        INSERT INTO Movies (title, media_type, release_date, genre, poster_url, description)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(
-        movie.title,
-        movie.type,
-        movie.release_date,
-        movie.genre,
-        movie.poster_url,
-        movie.description
-      ).run();
-
-      const movieId = movieResult.meta.last_row_id;
+      // Check if movie already exists
+      const existingMovie = await env.db.prepare('SELECT id FROM Movies WHERE title = ? AND media_type = ?')
+        .bind(movie.title, movie.type).first();
       
-      // Add to watched for user 1
-      await env.db.prepare(`
-        INSERT INTO Watched (user_id, movie_id, watched_date)
-        VALUES (?, ?, ?)
-      `).bind(userId, movieId, '2024-01-15').run();
+      let movieId;
+      if (existingMovie) {
+        movieId = existingMovie.id;
+        console.log(`Movie "${movie.title}" already exists, skipping`);
+      } else {
+        const movieResult = await env.db.prepare(`
+          INSERT INTO Movies (title, media_type, release_date, genre, poster_url, description)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(
+          movie.title,
+          movie.type,
+          movie.release_date,
+          movie.genre,
+          movie.poster_url,
+          movie.description
+        ).run();
+        
+        movieId = movieResult.meta.last_row_id;
+        moviesAdded++;
+        console.log(`Added new movie: "${movie.title}"`);
+      }
 
-      // Add review
-      const rating = movie.title === 'Incepcja' ? 5 : (movie.title === 'Breaking Bad' ? 5 : 4);
-      await env.db.prepare(`
-        INSERT INTO Reviews (user_id, movie_id, content, rating)
-        VALUES (?, ?, ?, ?)
-      `).bind(userId, movieId, `Świetne ${movie.type === 'movie' ? 'film' : 'serial'}!`, rating).run();
+      // Check if user already watched this movie
+      const existingWatched = await env.db.prepare('SELECT id FROM Watched WHERE user_id = ? AND movie_id = ?')
+        .bind(userId, movieId).first();
+      
+      if (!existingWatched) {
+        // Add to watched for user
+        await env.db.prepare(`
+          INSERT INTO Watched (user_id, movie_id, watched_date)
+          VALUES (?, ?, ?)
+        `).bind(userId, movieId, '2024-01-15').run();
+      }
+
+      // Check if review already exists
+      const existingReview = await env.db.prepare('SELECT id FROM Reviews WHERE user_id = ? AND movie_id = ?')
+        .bind(userId, movieId).first();
+      
+      if (!existingReview) {
+        // Add review
+        const rating = movie.title === 'Incepcja' ? 5 : (movie.title === 'Breaking Bad' ? 5 : 4);
+        await env.db.prepare(`
+          INSERT INTO Reviews (user_id, movie_id, content, rating)
+          VALUES (?, ?, ?, ?)
+        `).bind(userId, movieId, `Świetne ${movie.type === 'movie' ? 'film' : 'serial'}!`, rating).run();
+      }
     }
 
-    // Insert a sample challenge
-    await env.db.prepare(`
-      INSERT INTO Challenges (title, description, target_count, challenge_type, start_date, end_date)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(
-      'Filmowy Maraton 2024',
-      'Obejrzyj 50 filmów w 2024 roku',
-      50,
-      'movies',
-      '2024-01-01',
-      '2024-12-31'
-    ).run();
+    // Insert a sample challenge (only if it doesn't exist)
+    const existingChallenge = await env.db.prepare('SELECT id FROM Challenges WHERE title = ?')
+      .bind('Filmowy Maraton 2024').first();
+    
+    if (!existingChallenge) {
+      await env.db.prepare(`
+        INSERT INTO Challenges (title, description, target_count, challenge_type, start_date, end_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        'Filmowy Maraton 2024',
+        'Obejrzyj 50 filmów w 2024 roku',
+        50,
+        'movies',
+        '2024-01-01',
+        '2024-12-31'
+      ).run();
+    }
 
     return new Response(JSON.stringify({ 
       message: 'Sample data inserted successfully',
-      moviesAdded: sampleMovies.length,
-      testUser: { email: 'test@example.com', password: 'test123' }
+      moviesAdded: moviesAdded,
+      testUser: { email: 'test@example.com', password: 'test123' },
+      userExisted: !!existingUser,
+      challengeExisted: !!existingChallenge
     }), {
       headers: { 'Content-Type': 'application/json' }
     });

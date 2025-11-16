@@ -284,12 +284,16 @@
                         <button id="add-movie-btn" class="btn btn-primary">
                             <i class="fas fa-plus"></i> Dodaj film
                         </button>
+                        <button id="delete-selected-movies-btn" class="btn btn-secondary" style="display: none;">
+                            <i class="fas fa-trash"></i> Usuń zaznaczone
+                        </button>
                     </div>
                     
                     <div class="admin-table-container">
                         <table class="admin-table">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="select-all-movies"></th>
                                     <th>ID</th>
                                     <th>Tytuł</th>
                                     <th>Typ</th>
@@ -311,12 +315,16 @@
                         <button id="add-challenge-btn" class="btn btn-primary">
                             <i class="fas fa-plus"></i> Dodaj wyzwanie
                         </button>
+                        <button id="delete-selected-challenges-btn" class="btn btn-secondary" style="display: none;">
+                            <i class="fas fa-trash"></i> Usuń zaznaczone
+                        </button>
                     </div>
                     
                     <div class="admin-table-container">
                         <table class="admin-table">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="select-all-challenges"></th>
                                     <th>ID</th>
                                     <th>Nazwa</th>
                                     <th>Typ</th>
@@ -338,12 +346,16 @@
                         <button id="add-badge-btn" class="btn btn-primary">
                             <i class="fas fa-plus"></i> Dodaj odznakę
                         </button>
+                        <button id="delete-selected-badges-btn" class="btn btn-secondary" style="display: none;">
+                            <i class="fas fa-trash"></i> Usuń zaznaczone
+                        </button>
                     </div>
                     
                     <div class="admin-table-container">
                         <table class="admin-table">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="select-all-badges"></th>
                                     <th>ID</th>
                                     <th>Nazwa</th>
                                     <th>Opis</th>
@@ -407,6 +419,28 @@
                         <button id="remove-from-list" class="btn btn-secondary" style="display: none;">Usuń z listy</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Password Verification Modal -->
+    <div id="admin-password-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <h3>Weryfikacja administratora</h3>
+                <p>Aby uzyskać dostęp do panelu administracyjnego, wprowadź swoje hasło:</p>
+                <form id="admin-password-form">
+                    <div class="form-group">
+                        <label>Hasło:</label>
+                        <input type="password" id="admin-password-input" class="auth-input" required autofocus>
+                    </div>
+                    <div id="admin-password-error" style="display: none; color: var(--accent-color); margin-bottom: 1rem;"></div>
+                    <div class="modal-actions">
+                        <button type="submit" class="btn btn-primary">Potwierdź</button>
+                        <button type="button" class="btn btn-secondary close">Anuluj</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

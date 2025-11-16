@@ -1048,6 +1048,25 @@ class MovieTracker {
         document.getElementById('add-challenge-btn').addEventListener('click', () => this.showAdminChallengeModal());
         document.getElementById('add-badge-btn').addEventListener('click', () => this.showAdminBadgeModal());
 
+        // Bulk delete buttons
+        document.getElementById('delete-selected-movies-btn').addEventListener('click', () => this.bulkDeleteMovies());
+        document.getElementById('delete-selected-challenges-btn').addEventListener('click', () => this.bulkDeleteChallenges());
+        document.getElementById('delete-selected-badges-btn').addEventListener('click', () => this.bulkDeleteBadges());
+
+        // Select all checkboxes
+        document.getElementById('select-all-movies').addEventListener('change', (e) => {
+            document.querySelectorAll('.movie-checkbox').forEach(cb => cb.checked = e.target.checked);
+            this.updateBulkDeleteButton('movies');
+        });
+        document.getElementById('select-all-challenges').addEventListener('change', (e) => {
+            document.querySelectorAll('.challenge-checkbox').forEach(cb => cb.checked = e.target.checked);
+            this.updateBulkDeleteButton('challenges');
+        });
+        document.getElementById('select-all-badges').addEventListener('change', (e) => {
+            document.querySelectorAll('.badge-checkbox').forEach(cb => cb.checked = e.target.checked);
+            this.updateBulkDeleteButton('badges');
+        });
+
         // Modal close buttons
         document.querySelectorAll('#admin-movie-modal .close').forEach(btn => {
             btn.addEventListener('click', () => this.closeAdminModal('admin-movie-modal'));
@@ -1118,6 +1137,7 @@ class MovieTracker {
         const tbody = document.getElementById('admin-movies-list');
         tbody.innerHTML = movies.map(movie => `
             <tr>
+                <td><input type="checkbox" class="movie-checkbox" data-id="${movie.id}" onchange="app.updateBulkDeleteButton('movies')"></td>
                 <td>${movie.id}</td>
                 <td>${movie.title}</td>
                 <td>${movie.media_type === 'movie' ? 'Film' : 'Serial'}</td>
@@ -1154,6 +1174,7 @@ class MovieTracker {
         const tbody = document.getElementById('admin-challenges-list');
         tbody.innerHTML = challenges.map(challenge => `
             <tr>
+                <td><input type="checkbox" class="challenge-checkbox" data-id="${challenge.id}" onchange="app.updateBulkDeleteButton('challenges')"></td>
                 <td>${challenge.id}</td>
                 <td>${challenge.name}</td>
                 <td>${challenge.type}</td>
@@ -1190,6 +1211,7 @@ class MovieTracker {
         const tbody = document.getElementById('admin-badges-list');
         tbody.innerHTML = badges.map(badge => `
             <tr>
+                <td><input type="checkbox" class="badge-checkbox" data-id="${badge.id}" onchange="app.updateBulkDeleteButton('badges')"></td>
                 <td>${badge.id}</td>
                 <td>${badge.name}</td>
                 <td>${badge.description}</td>
@@ -1497,16 +1519,42 @@ class MovieTracker {
 
     // Admin password verification
     showAdminPasswordPrompt() {
-        const password = prompt('Aby uzyskać dostęp do panelu administracyjnego, wprowadź swoje hasło:');
+        const modal = document.getElementById('admin-password-modal');
+        const passwordInput = document.getElementById('admin-password-input');
+        const errorDiv = document.getElementById('admin-password-error');
         
-        if (!password) {
-            return; // User cancelled
-        }
-
-        this.verifyAdminPassword(password);
+        // Clear previous input and errors
+        passwordInput.value = '';
+        errorDiv.style.display = 'none';
+        
+        // Show modal
+        modal.style.display = 'block';
+        
+        // Focus on password input
+        setTimeout(() => passwordInput.focus(), 100);
+        
+        // Setup form submission (remove old listeners first)
+        const form = document.getElementById('admin-password-form');
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        newForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const password = document.getElementById('admin-password-input').value;
+            this.verifyAdminPassword(password);
+        });
+        
+        // Setup close buttons
+        modal.querySelectorAll('.close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        });
     }
 
     async verifyAdminPassword(password) {
+        const errorDiv = document.getElementById('admin-password-error');
+        
         try {
             // Try to login with current user's email/nickname and provided password
             const loginData = {
@@ -1523,15 +1571,131 @@ class MovieTracker {
             if (response.ok) {
                 // Password is correct
                 this.adminVerified = true;
+                document.getElementById('admin-password-modal').style.display = 'none';
                 this.showNotification('Dostęp przyznany', 'success');
                 this.showSection('admin');
             } else {
-                this.showNotification('Nieprawidłowe hasło', 'error');
+                // Show error in modal
+                errorDiv.textContent = 'Nieprawidłowe hasło';
+                errorDiv.style.display = 'block';
             }
         } catch (error) {
             console.error('Error verifying admin password:', error);
-            this.showNotification('Błąd podczas weryfikacji hasła', 'error');
+            errorDiv.textContent = 'Błąd podczas weryfikacji hasła';
+            errorDiv.style.display = 'block';
         }
+    }
+
+    // Bulk delete functions
+    updateBulkDeleteButton(type) {
+        const checkboxes = document.querySelectorAll(`.${type.slice(0, -1)}-checkbox:checked`);
+        const button = document.getElementById(`delete-selected-${type}-btn`);
+        button.style.display = checkboxes.length > 0 ? 'inline-block' : 'none';
+    }
+
+    async bulkDeleteMovies() {
+        const checkboxes = document.querySelectorAll('.movie-checkbox:checked');
+        const ids = Array.from(checkboxes).map(cb => cb.dataset.id);
+        
+        if (ids.length === 0) return;
+        
+        if (!confirm(`Czy na pewno chcesz usunąć ${ids.length} film(ów)?`)) return;
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const id of ids) {
+            try {
+                const response = await fetch(`/api/admin/movies/${id}`, {
+                    method: 'DELETE',
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                console.error(`Error deleting movie ${id}:`, error);
+                errorCount++;
+            }
+        }
+
+        this.showNotification(`Usunięto: ${successCount}, Błędy: ${errorCount}`, successCount > 0 ? 'success' : 'error');
+        this.loadAdminMovies();
+        document.getElementById('select-all-movies').checked = false;
+        this.updateBulkDeleteButton('movies');
+    }
+
+    async bulkDeleteChallenges() {
+        const checkboxes = document.querySelectorAll('.challenge-checkbox:checked');
+        const ids = Array.from(checkboxes).map(cb => cb.dataset.id);
+        
+        if (ids.length === 0) return;
+        
+        if (!confirm(`Czy na pewno chcesz usunąć ${ids.length} wyzwań?`)) return;
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const id of ids) {
+            try {
+                const response = await fetch(`/api/admin/challenges/${id}`, {
+                    method: 'DELETE',
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                console.error(`Error deleting challenge ${id}:`, error);
+                errorCount++;
+            }
+        }
+
+        this.showNotification(`Usunięto: ${successCount}, Błędy: ${errorCount}`, successCount > 0 ? 'success' : 'error');
+        this.loadAdminChallenges();
+        document.getElementById('select-all-challenges').checked = false;
+        this.updateBulkDeleteButton('challenges');
+    }
+
+    async bulkDeleteBadges() {
+        const checkboxes = document.querySelectorAll('.badge-checkbox:checked');
+        const ids = Array.from(checkboxes).map(cb => cb.dataset.id);
+        
+        if (ids.length === 0) return;
+        
+        if (!confirm(`Czy na pewno chcesz usunąć ${ids.length} odznak(i)?`)) return;
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const id of ids) {
+            try {
+                const response = await fetch(`/api/admin/badges/${id}`, {
+                    method: 'DELETE',
+                    headers: this.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                console.error(`Error deleting badge ${id}:`, error);
+                errorCount++;
+            }
+        }
+
+        this.showNotification(`Usunięto: ${successCount}, Błędy: ${errorCount}`, successCount > 0 ? 'success' : 'error');
+        this.loadAdminBadges();
+        document.getElementById('select-all-badges').checked = false;
+        this.updateBulkDeleteButton('badges');
     }
     
 }

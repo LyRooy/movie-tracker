@@ -16,8 +16,9 @@ export async function onRequestPost(context) {
     const email = `guest_${Date.now()}_${id}@guest.local`;
 
     // Insert guest user with role = 'guest'
-    // password_hash is NOT NULL in schema, store an empty placeholder for guest accounts
-    const placeholderHash = '';
+    // `password_hash` is NOT NULL in schema; store a safe placeholder hex string
+    // that won't break hash parsing (48 bytes -> 96 hex chars of zeros).
+    const placeholderHash = '00'.repeat(48);
     const result = await env.db.prepare(`
       INSERT INTO users (nickname, email, password_hash, role)
       VALUES (?, ?, ?, ?)
@@ -25,10 +26,10 @@ export async function onRequestPost(context) {
 
     const userId = result.meta.last_row_id;
 
-    const token = generateSimpleToken(userId, email);
+    const token = await generateSimpleToken(userId, email);
 
     return new Response(JSON.stringify({
-      user: { id: userId, nickname, email, role: 'guest' },
+      user: { id: userId, nickname, email, role: 'guest', theme_preference: 'light' },
       token
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -51,7 +52,8 @@ export async function onRequestOptions() {
   });
 }
 
-function generateSimpleToken(userId, email) {
-  const payload = { userId, email, exp: Date.now() + (24 * 60 * 60 * 1000) };
+// Match the async generator used in login.js so tokens are consistent
+async function generateSimpleToken(userId, email) {
+  const payload = { userId, email, exp: Date.now() + (24 * 60 * 60 * 1000) }; // 24h
   return btoa(JSON.stringify(payload));
 }

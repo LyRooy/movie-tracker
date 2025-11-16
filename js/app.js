@@ -7,6 +7,7 @@ class MovieTracker {
         this.currentRating = 0;
         this.currentSection = 'dashboard';
         this.adminVerified = false;
+        this.isGuest = false;
         
         this.init();
     }
@@ -603,6 +604,12 @@ class MovieTracker {
     }
 
     async addToWatched() {
+        if (!this.currentUser || this.currentUser.role === 'guest') {
+            // Guest browsing allowed, but adding requires auth
+            this.showNotification('Jesteś w trybie gościa — aby zapisać film do listy, zaloguj się lub utwórz konto.');
+            this.showSection('profile');
+            return;
+        }
         const modal = document.getElementById('movie-modal');
         const movie = modal.currentMovie;
         const reviewText = document.getElementById('review-text').value;
@@ -893,6 +900,12 @@ class MovieTracker {
     }
 
     editItem(itemId) {
+        if (!this.currentUser || this.currentUser.role === 'guest') {
+            this.showNotification('Musisz być zalogowany, aby edytować pozycje. Przejdź do Profilu, aby się zalogować lub utworzyć konto.');
+            this.showSection('profile');
+            return;
+        }
+
         // Find and edit item
         const item = this.watchedMovies.find(movie => movie.id === itemId);
         if (item) {
@@ -903,6 +916,12 @@ class MovieTracker {
     }
 
     async deleteItem(itemId) {
+        if (!this.currentUser || this.currentUser.role === 'guest') {
+            this.showNotification('Musisz być zalogowany, aby usuwać pozycje. Przejdź do Profilu, aby się zalogować lub utworzyć konto.');
+            this.showSection('profile');
+            return;
+        }
+
         // Delete item from list
         const item = this.watchedMovies.find(movie => movie.id === itemId);
         if (item && confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
@@ -929,6 +948,10 @@ class MovieTracker {
     // Authentication methods
     async checkAuth() {
         this.authToken = localStorage.getItem('movieTrackerToken');
+        // Check for existing token and load user; if token corresponds to a guest user,
+        // set client flag so protected actions are blocked for guests.
+        this.isGuest = false;
+
         if (this.authToken) {
             try {
                 const response = await fetch('/api/auth/me', {
@@ -937,6 +960,13 @@ class MovieTracker {
                 if (response.ok) {
                     const data = await response.json();
                     this.currentUser = data.user;
+                    if (data.user && data.user.role === 'guest') {
+                        this.isGuest = true;
+                        localStorage.setItem('movieTrackerServerGuest', '1');
+                    } else {
+                        this.isGuest = false;
+                        localStorage.removeItem('movieTrackerServerGuest');
+                    }
                 } else {
                     localStorage.removeItem('movieTrackerToken');
                     this.authToken = null;
@@ -955,7 +985,8 @@ class MovieTracker {
         if (!profileContainer) return;
 
         profileContainer.innerHTML = `
-            <div class="auth-card">
+            <div style="display:flex;justify-content:center;align-items:center;height:100%;">
+              <div class="auth-card" style="max-width:480px;width:100%;">
                 <h2 id="auth-title">Zaloguj się do MovieTracker</h2>
                 <div id="auth-error" class="auth-error" style="display: none;"></div>
                 <form class="auth-form" id="auth-form">
@@ -971,6 +1002,7 @@ class MovieTracker {
                     <span id="auth-toggle-text">Nie masz konta?</span>
                     <a id="auth-toggle-link">Utwórz konto</a>
                 </div>
+              </div>
             </div>
         `;
 
@@ -991,6 +1023,9 @@ class MovieTracker {
             try {
                 const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
                 const body = isLogin ? { emailOrUsername, password } : { nickname, email: emailOrUsername, password };
+                // If there's an existing server-created guest session, remember its token
+                const prevGuestFlag = localStorage.getItem('movieTrackerServerGuest') === '1';
+                const prevGuestToken = prevGuestFlag ? localStorage.getItem('movieTrackerToken') : null;
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
@@ -1001,10 +1036,26 @@ class MovieTracker {
                 const data = await response.json();
 
                 if (response.ok) {
-                    this.authToken = data.token;
+                    // Save new token & user
+                    const newToken = data.token;
+                    this.authToken = newToken;
                     this.currentUser = data.user;
-                    localStorage.setItem('movieTrackerToken', this.authToken);
-                    
+                    localStorage.setItem('movieTrackerToken', newToken);
+
+                    // If we had a previous server-created guest, attempt to delete it
+                    if (prevGuestFlag && prevGuestToken && prevGuestToken !== newToken) {
+                        try {
+                            await fetch('/api/auth/guest-delete', {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${prevGuestToken}` }
+                            });
+                        } catch (e) {
+                            // Non-fatal; log and continue
+                            console.warn('Failed to delete previous guest account:', e);
+                        }
+                        localStorage.removeItem('movieTrackerServerGuest');
+                    }
+
                     // Reload page to show main app
                     location.reload();
                 } else {
@@ -1053,6 +1104,7 @@ class MovieTracker {
                         this.authToken = data.token;
                         this.currentUser = data.user;
                         localStorage.setItem('movieTrackerToken', this.authToken);
+                        localStorage.setItem('movieTrackerServerGuest', '1');
                         // reload to reflect authenticated state across app
                         location.reload();
                     } else {
@@ -1072,10 +1124,9 @@ class MovieTracker {
     }
 
     getAuthHeaders() {
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.authToken}`
-        };
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
+        return headers;
     }
 
     logout() {

@@ -7,6 +7,14 @@ export async function onRequest(context) {
   }
 
   try {
+    // First create a test user
+    const passwordHash = await hashPassword('test123');
+    const userResult = await env.db.prepare(`
+      INSERT INTO Users (nickname, email, password_hash)
+      VALUES (?, ?, ?)
+    `).bind('TestUser', 'test@example.com', passwordHash).run();
+    
+    const userId = userResult.meta.last_row_id;
     // Insert sample movies
     const sampleMovies = [
       {
@@ -55,14 +63,14 @@ export async function onRequest(context) {
       await env.db.prepare(`
         INSERT INTO Watched (user_id, movie_id, watched_date)
         VALUES (?, ?, ?)
-      `).bind(1, movieId, '2024-01-15').run();
+      `).bind(userId, movieId, '2024-01-15').run();
 
       // Add review
       const rating = movie.title === 'Incepcja' ? 5 : (movie.title === 'Breaking Bad' ? 5 : 4);
       await env.db.prepare(`
         INSERT INTO Reviews (user_id, movie_id, content, rating)
         VALUES (?, ?, ?, ?)
-      `).bind(1, movieId, `Świetne ${movie.type === 'movie' ? 'film' : 'serial'}!`, rating).run();
+      `).bind(userId, movieId, `Świetne ${movie.type === 'movie' ? 'film' : 'serial'}!`, rating).run();
     }
 
     // Insert a sample challenge
@@ -80,7 +88,8 @@ export async function onRequest(context) {
 
     return new Response(JSON.stringify({ 
       message: 'Sample data inserted successfully',
-      moviesAdded: sampleMovies.length
+      moviesAdded: sampleMovies.length,
+      testUser: { email: 'test@example.com', password: 'test123' }
     }), {
       headers: { 'Content-Type': 'application/json' }
     });
@@ -91,4 +100,34 @@ export async function onRequest(context) {
       headers: { 'Content-Type': 'application/json' }
     });
   }
+}
+
+// Hash password using PBKDF2 with salt (same as auth.js)
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const passwordKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    passwordKey,
+    256
+  );
+  
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const saltArray = Array.from(salt);
+  
+  // Combine salt and hash
+  return saltArray.concat(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
 }

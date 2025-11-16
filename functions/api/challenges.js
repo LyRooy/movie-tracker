@@ -8,7 +8,7 @@ export async function onRequest(context) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 
   if (method === 'OPTIONS') {
@@ -23,7 +23,14 @@ export async function onRequest(context) {
   }
 
   try {
-    const userId = url.searchParams.get('userId') || 1;
+    // Check authentication
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     
     // Get challenges with progress
     const result = await env.db.prepare(`
@@ -32,7 +39,7 @@ export async function onRequest(context) {
         c.title,
         c.description,
         c.target_count,
-        c.challenge_type,
+        c.type as challenge_type,
         c.start_date,
         c.end_date,
         COUNT(cp.id) as current_progress,
@@ -47,15 +54,15 @@ export async function onRequest(context) {
         FROM Watched w
         JOIN Movies m ON w.movie_id = m.id
         JOIN Challenges c ON (
-          (c.challenge_type = 'movies' AND m.type = 'movie') OR
-          (c.challenge_type = 'series' AND m.type = 'series') OR
-          c.challenge_type = 'both'
+          (c.type = 'movies' AND m.type = 'movie') OR
+          (c.type = 'series' AND m.type = 'series') OR
+          c.type = 'both'
         )
         WHERE w.user_id = ? 
         AND w.watched_date BETWEEN c.start_date AND c.end_date
       ) cp ON c.id = cp.challenge_id
       GROUP BY c.id, c.title, c.description, c.target_count, 
-               c.challenge_type, c.start_date, c.end_date
+               c.type, c.start_date, c.end_date
       ORDER BY c.end_date ASC
     `).bind(userId).all();
 
@@ -81,5 +88,26 @@ export async function onRequest(context) {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
+  }
+}
+
+// Extract user ID from Authorization header
+async function getUserIdFromRequest(request) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const payload = JSON.parse(atob(token));
+    
+    if (payload.exp < Date.now()) {
+      return null; // Token expired
+    }
+    
+    return payload.userId;
+  } catch {
+    return null;
   }
 }

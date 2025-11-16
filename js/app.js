@@ -2,6 +2,7 @@
 class MovieTracker {
     constructor() {
         this.currentUser = null;
+        this.authToken = null;
         this.watchedMovies = [];
         this.currentRating = 0;
         this.currentSection = 'dashboard';
@@ -9,11 +10,19 @@ class MovieTracker {
         this.init();
     }
 
-    init() {
+    async init() {
+        // Check if user is logged in
+        await this.checkAuth();
+        
+        if (!this.currentUser) {
+            this.showAuthScreen();
+            return;
+        }
+        
         this.bindEvents();
         this.loadUserData();
         this.generateCalendar();
-        this.loadMoviesData();
+        await this.loadMoviesData();
         this.setupTheme();
         
         // Enable transitions after page load to prevent theme transition on load
@@ -46,6 +55,14 @@ class MovieTracker {
         document.getElementById('theme-toggle').addEventListener('click', () => {
             this.toggleTheme();
         });
+
+        // Logout button
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.logout();
+            });
+        }
 
         // Theme select in profile
         const themeSelect = document.getElementById('theme-select');
@@ -297,7 +314,9 @@ class MovieTracker {
 
     async loadMoviesData() {
         try {
-            const response = await fetch('/api/movies?userId=1');
+            const response = await fetch('/api/movies', {
+                headers: this.getAuthHeaders()
+            });
             if (response.ok) {
                 this.watchedMovies = await response.json();
             } else {
@@ -438,7 +457,9 @@ class MovieTracker {
 
         try {
             // Use search API
-            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`, {
+                headers: this.getAuthHeaders()
+            });
             let results = [];
             
             if (response.ok) {
@@ -553,16 +574,13 @@ class MovieTracker {
             rating: this.currentRating,
             review: reviewText,
             status: 'watched',
-            watchedDate: new Date().toISOString().split('T')[0],
-            userId: 1
+            watchedDate: new Date().toISOString().split('T')[0]
         };
 
         try {
             const response = await fetch('/api/movies', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: this.getAuthHeaders(),
                 body: JSON.stringify(movieData)
             });
 
@@ -852,7 +870,8 @@ class MovieTracker {
         if (item && confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
             try {
                 const response = await fetch(`/api/movies/${itemId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: this.getAuthHeaders()
                 });
 
                 if (response.ok) {
@@ -867,6 +886,139 @@ class MovieTracker {
                 this.showNotification('Błąd podczas usuwania filmu. Spróbuj ponownie.');
             }
         }
+    }
+
+    // Authentication methods
+    async checkAuth() {
+        this.authToken = localStorage.getItem('movieTrackerToken');
+        if (this.authToken) {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${this.authToken}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.currentUser = data.user;
+                } else {
+                    localStorage.removeItem('movieTrackerToken');
+                    this.authToken = null;
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                localStorage.removeItem('movieTrackerToken');
+                this.authToken = null;
+            }
+        }
+    }
+
+    showAuthScreen() {
+        document.body.innerHTML = `
+            <div class="auth-container">
+                <div class="auth-card">
+                    <h2 id="auth-title">Zaloguj się</h2>
+                    <div id="auth-error" class="auth-error" style="display: none;"></div>
+                    <form class="auth-form" id="auth-form">
+                        <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
+                        <input type="email" id="email" placeholder="Email" class="auth-input" required>
+                        <input type="password" id="password" placeholder="Hasło" class="auth-input" required>
+                        <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
+                    </form>
+                    <div class="auth-toggle">
+                        <span id="auth-toggle-text">Nie masz konta?</span>
+                        <a id="auth-toggle-link">Zarejestruj się</a>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Load auth styles
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '/css/auth.css';
+        document.head.appendChild(link);
+
+        this.bindAuthEvents();
+    }
+
+    bindAuthEvents() {
+        const form = document.getElementById('auth-form');
+        const toggleLink = document.getElementById('auth-toggle-link');
+        let isLogin = true;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const nickname = document.getElementById('nickname').value;
+
+            try {
+                const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+                const body = isLogin ? { email, password } : { nickname, email, password };
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.authToken = data.token;
+                    this.currentUser = data.user;
+                    localStorage.setItem('movieTrackerToken', this.authToken);
+                    
+                    // Reload page to show main app
+                    location.reload();
+                } else {
+                    this.showAuthError(data.error);
+                }
+            } catch (error) {
+                this.showAuthError('Błąd połączenia. Spróbuj ponownie.');
+            }
+        });
+
+        toggleLink.addEventListener('click', () => {
+            isLogin = !isLogin;
+            const title = document.getElementById('auth-title');
+            const submitBtn = document.getElementById('auth-submit');
+            const toggleText = document.getElementById('auth-toggle-text');
+            const nicknameInput = document.getElementById('nickname');
+
+            if (isLogin) {
+                title.textContent = 'Zaloguj się';
+                submitBtn.textContent = 'Zaloguj się';
+                toggleText.textContent = 'Nie masz konta?';
+                toggleLink.textContent = 'Zarejestruj się';
+                nicknameInput.style.display = 'none';
+                nicknameInput.required = false;
+            } else {
+                title.textContent = 'Zarejestruj się';
+                submitBtn.textContent = 'Zarejestruj się';
+                toggleText.textContent = 'Masz już konto?';
+                toggleLink.textContent = 'Zaloguj się';
+                nicknameInput.style.display = 'block';
+                nicknameInput.required = true;
+            }
+        });
+    }
+
+    showAuthError(message) {
+        const errorDiv = document.getElementById('auth-error');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    getAuthHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.authToken}`
+        };
+    }
+
+    logout() {
+        localStorage.removeItem('movieTrackerToken');
+        location.reload();
     }
     
 }

@@ -30,6 +30,15 @@ export async function onRequest(context) {
     });
   }
 
+  // Check authentication
+  const userId = await getUserIdFromRequest(request);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
     // Search in our D1 database
     const searchQuery = `%${query.toLowerCase()}%`;
@@ -74,5 +83,26 @@ export async function onRequest(context) {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
+  }
+}
+
+// Extract user ID from Authorization header
+async function getUserIdFromRequest(request) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const payload = JSON.parse(atob(token));
+    
+    if (payload.exp < Date.now()) {
+      return null; // Token expired
+    }
+    
+    return payload.userId;
+  } catch {
+    return null;
   }
 }

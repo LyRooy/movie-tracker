@@ -41,7 +41,16 @@ export async function onRequest(context) {
 
 // Get movies/series with reviews and watched status
 async function handleGet(db, url, corsHeaders) {
-  const userId = url.searchParams.get('userId') || 1;
+  const request = { headers: new Headers(), url: url.toString() };
+  const userId = await getUserIdFromRequest(request);
+  
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
   const status = url.searchParams.get('status');
   const type = url.searchParams.get('type');
 
@@ -113,8 +122,16 @@ async function handleGet(db, url, corsHeaders) {
 
 // Add new movie/series
 async function handlePost(db, request, corsHeaders) {
+  const userId = await getUserIdFromRequest(request);
+  
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
   const data = await request.json();
-  const userId = data.userId || 1;
   
   try {
     // Start transaction
@@ -167,9 +184,17 @@ async function handlePost(db, request, corsHeaders) {
 
 // Update movie/series
 async function handlePut(db, request, url, corsHeaders) {
+  const userId = await getUserIdFromRequest(request);
+  
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
   const id = url.pathname.split('/').pop();
   const data = await request.json();
-  const userId = data.userId || 1;
   
   try {
     await db.prepare('BEGIN').run();
@@ -229,4 +254,25 @@ async function handleDelete(db, url, corsHeaders) {
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
+}
+
+// Extract user ID from Authorization header
+async function getUserIdFromRequest(request) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const payload = JSON.parse(atob(token));
+    
+    if (payload.exp < Date.now()) {
+      return null; // Token expired
+    }
+    
+    return payload.userId;
+  } catch {
+    return null;
+  }
 }

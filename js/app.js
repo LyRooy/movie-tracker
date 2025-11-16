@@ -14,17 +14,19 @@ class MovieTracker {
     async init() {
         // Check if user is logged in
         await this.checkAuth();
-        
-        if (!this.currentUser) {
-            this.showAuthScreen();
-            return;
-        }
-        
+        // Always bind events and render basic UI. If not authenticated, show login form inside profile.
         this.bindEvents();
         this.loadUserData();
         this.generateCalendar();
-        await this.loadMoviesData();
-        this.setupTheme();
+
+        // Only load user-specific data if authenticated
+        if (this.currentUser) {
+            await this.loadMoviesData();
+            this.setupTheme();
+        } else {
+            // show login form inside profile area (not replacing whole body)
+            this.showAuthScreen();
+        }
 
         // Show admin section if user is admin
         if (this.currentUser && this.currentUser.role === 'admin') {
@@ -948,21 +950,26 @@ class MovieTracker {
     }
 
     showAuthScreen() {
-        document.body.innerHTML = `
-            <div class="auth-container">
-                <div class="auth-card">
-                    <h2 id="auth-title">Zaloguj się do MovieTracker</h2>
-                    <div id="auth-error" class="auth-error" style="display: none;"></div>
-                    <form class="auth-form" id="auth-form">
-                        <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
-                        <input type="text" id="emailOrUsername" placeholder="Email lub nazwa użytkownika" class="auth-input" required>
-                        <input type="password" id="password" placeholder="Hasło" class="auth-input" required>
-                        <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
-                    </form>
-                    <div class="auth-toggle">
-                        <span id="auth-toggle-text">Nie masz konta?</span>
-                        <a id="auth-toggle-link">Utwórz konto</a>
+        // Render auth form into profile container so profile tab becomes login when not authenticated
+        const profileContainer = document.querySelector('#profile .profile-container');
+        if (!profileContainer) return;
+
+        profileContainer.innerHTML = `
+            <div class="auth-card">
+                <h2 id="auth-title">Zaloguj się do MovieTracker</h2>
+                <div id="auth-error" class="auth-error" style="display: none;"></div>
+                <form class="auth-form" id="auth-form">
+                    <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
+                    <input type="text" id="emailOrUsername" placeholder="Email lub nazwa użytkownika" class="auth-input" required>
+                    <input type="password" id="password" placeholder="Hasło" class="auth-input" required>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                      <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
+                      <button type="button" id="guest-btn" class="auth-btn">Kontynuuj jako gość</button>
                     </div>
+                </form>
+                <div class="auth-toggle" style="margin-top:8px;">
+                    <span id="auth-toggle-text">Nie masz konta?</span>
+                    <a id="auth-toggle-link">Utwórz konto</a>
                 </div>
             </div>
         `;
@@ -1034,6 +1041,28 @@ class MovieTracker {
                 emailOrUsernameInput.placeholder = 'Adres email';
             }
         });
+
+        // Guest button handling
+        const guestBtn = document.getElementById('guest-btn');
+        if (guestBtn) {
+            guestBtn.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/auth/guest', { method: 'POST' });
+                    const data = await response.json();
+                    if (response.ok) {
+                        this.authToken = data.token;
+                        this.currentUser = data.user;
+                        localStorage.setItem('movieTrackerToken', this.authToken);
+                        // reload to reflect authenticated state across app
+                        location.reload();
+                    } else {
+                        this.showAuthError(data.error || 'Nie udało się utworzyć sesji gościa');
+                    }
+                } catch (err) {
+                    this.showAuthError('Błąd połączenia podczas logowania jako gość');
+                }
+            });
+        }
     }
 
     showAuthError(message) {

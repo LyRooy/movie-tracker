@@ -21,7 +21,10 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ error: 'Invalid theme_preference. Allowed: light,dark,auto' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    await env.db.prepare('UPDATE users SET theme_preference = ? WHERE id = ?').bind(pref, userId).run();
+    // Database schema only allows 'light' or 'dark'. Map 'auto' -> 'light' to avoid constraint violation.
+    const dbPref = pref === 'auto' ? 'light' : pref;
+
+    await env.db.prepare('UPDATE users SET theme_preference = ? WHERE id = ?').bind(dbPref, userId).run();
 
     const user = await env.db.prepare('SELECT id, nickname, email, role, theme_preference FROM users WHERE id = ?').bind(userId).first();
 

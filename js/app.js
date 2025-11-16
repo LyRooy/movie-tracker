@@ -15,6 +15,8 @@ class MovieTracker {
     async init() {
         // Check if user is logged in
         await this.checkAuth();
+        // Show guest CTA for unauthenticated users unless user dismissed it
+        this.initGuestCta();
         // Always bind events and render basic UI. If not authenticated, show login form inside profile.
         this.bindEvents();
         this.loadUserData();
@@ -39,6 +41,64 @@ class MovieTracker {
         setTimeout(() => {
             document.body.classList.add('transitions-enabled');
         }, 100);
+    }
+
+    initGuestCta() {
+        try {
+            const dismissed = localStorage.getItem('movieTrackerGuestCtaDismissed') === '1';
+            const cta = document.getElementById('guest-cta');
+            if (!cta) return;
+
+            // Show CTA only when not logged in and not dismissed
+            if (!this.currentUser && !dismissed) {
+                cta.style.display = '';
+            } else {
+                cta.style.display = 'none';
+                return;
+            }
+
+            const continueBtn = document.getElementById('guest-cta-continue');
+            const loginBtn = document.getElementById('guest-cta-login');
+            const closeBtn = document.getElementById('guest-cta-close');
+
+            if (continueBtn) continueBtn.addEventListener('click', async () => {
+                // Call server guest endpoint (creates temporary guest account and token)
+                try {
+                    const res = await fetch('/api/auth/guest', { method: 'POST' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.authToken = data.token;
+                        this.currentUser = data.user;
+                        localStorage.setItem('movieTrackerToken', data.token);
+                        localStorage.setItem('movieTrackerServerGuest', '1');
+                        // hide CTA after choosing guest
+                        cta.style.display = 'none';
+                        location.reload();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        console.warn('Guest create failed', err);
+                        alert('Nie udało się rozpocząć sesji gościa');
+                    }
+                } catch (e) {
+                    console.error('Guest create error', e);
+                    alert('Błąd połączenia');
+                }
+            });
+
+            if (loginBtn) loginBtn.addEventListener('click', () => {
+                this.showSection('profile');
+                // show auth form
+                this.showAuthScreen();
+                cta.style.display = 'none';
+            });
+
+            if (closeBtn) closeBtn.addEventListener('click', () => {
+                localStorage.setItem('movieTrackerGuestCtaDismissed', '1');
+                cta.style.display = 'none';
+            });
+        } catch (e) {
+            console.warn('initGuestCta error', e);
+        }
     }
 
     bindEvents() {
@@ -348,6 +408,31 @@ class MovieTracker {
                 const adminNavItem = document.getElementById('admin-nav-item');
                 if (adminNavItem) adminNavItem.style.display = 'block';
             }
+            // Hide logout button for guest accounts and show guest banner
+            const logoutBtn = document.getElementById('logout-btn');
+            if (this.currentUser.role === 'guest') {
+                if (logoutBtn) logoutBtn.style.display = 'none';
+                // Insert guest banner under navbar if not present
+                if (!document.getElementById('guest-banner')) {
+                    const nav = document.querySelector('.navbar');
+                    const banner = document.createElement('div');
+                    banner.id = 'guest-banner';
+                    banner.className = 'guest-banner';
+                    banner.innerHTML = `
+                        <div class="container guest-banner-inner">
+                            Przeglądasz jako gość — dla pełnych funkcji <strong>utwórz konto</strong> lub <strong>zaloguj się</strong>.
+                            <button id="guest-banner-close" class="btn-link">Ukryj</button>
+                        </div>
+                    `;
+                    nav.parentNode.insertBefore(banner, nav.nextSibling);
+                    const closeBtn = document.getElementById('guest-banner-close');
+                    if (closeBtn) closeBtn.addEventListener('click', () => banner.remove());
+                }
+            } else {
+                if (logoutBtn) logoutBtn.style.display = '';
+                const existing = document.getElementById('guest-banner');
+                if (existing) existing.remove();
+            }
         }
     }
 
@@ -495,13 +580,27 @@ class MovieTracker {
         }
 
         try {
-            // Use search API
-            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`, {
-                headers: this.getAuthHeaders()
+            // Use search API. Make unauthenticated request for guests to avoid 401s.
+            let headers = {};
+            if (this.currentUser && this.currentUser.role !== 'guest') {
+                headers = this.getAuthHeaders();
+            }
+
+            let response = await fetch(`/api/search?query=${encodeURIComponent(query)}`, {
+                headers
             });
             let results = [];
-            
-            if (response.ok) {
+
+            // If token expired and server returned 401, retry unauthenticated to show public results
+            if (response && response.status === 401) {
+                try {
+                    response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+                } catch (e) {
+                    console.warn('Retry unauthenticated search failed', e);
+                }
+            }
+
+            if (response && response.ok) {
                 results = await response.json();
             } else {
                 console.warn('Search API failed, showing empty results');
@@ -985,8 +1084,8 @@ class MovieTracker {
         if (!profileContainer) return;
 
         profileContainer.innerHTML = `
-            <div style="display:flex;justify-content:center;align-items:center;height:100%;">
-              <div class="auth-card" style="max-width:480px;width:100%;">
+                        <div style="display:flex;justify-content:center;align-items:center;min-height:60vh;">
+                            <div class="auth-card" style="max-width:480px;width:100%;margin:0 auto;">
                 <h2 id="auth-title">Zaloguj się do MovieTracker</h2>
                 <div id="auth-error" class="auth-error" style="display: none;"></div>
                 <form class="auth-form" id="auth-form">

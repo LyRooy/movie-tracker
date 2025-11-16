@@ -28,8 +28,17 @@ export async function onRequest(context) {
     const errors = [];
     // Allow overriding limits/delays via query params to avoid rate limits during testing
     const url = new URL(request.url);
-    const maxPerType = parseInt(url.searchParams.get('limit')) || 300; // max titles per type
-    const perRequestDelay = parseInt(url.searchParams.get('delay')) || 600; // ms between titles
+    let maxPerType = url.searchParams.has('limit') ? parseInt(url.searchParams.get('limit')) : 300; // max titles per type
+    let perRequestDelay = url.searchParams.has('delay') ? parseInt(url.searchParams.get('delay')) : 600; // ms between titles
+    // mode: 'movies' | 'series' | 'both'
+    let mode = url.searchParams.has('mode') ? url.searchParams.get('mode').toLowerCase() : 'both';
+
+    // If caller didn't provide any of the control params, default to importing 50 series
+    const providedAny = url.searchParams.has('limit') || url.searchParams.has('mode') || url.searchParams.has('delay');
+    if (!providedAny) {
+      maxPerType = 50;
+      mode = 'series';
+    }
     
     // Popular movies to search for
     const popularMovies = [
@@ -150,7 +159,18 @@ export async function onRequest(context) {
       'Parasyte The Grey 2', 'Chicken Nugget 2', 'Maestra 2', 'Song of the Bandits 2'
     ];
 
-    console.log('Fetching movies from OMDb (with fallback search)...');
+    // Adjust which lists to process based on mode parameter
+    if (mode === 'series') {
+      // skip movies
+      popularMovies.length = 0;
+    } else if (mode === 'movies') {
+      // skip series
+      popularSeries.length = 0;
+    }
+
+    if (mode === 'both' || mode === 'movies') {
+      console.log('Fetching movies from OMDb (with fallback search)...');
+    }
 
     // quick validity check for API key
     try {

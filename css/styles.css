@@ -690,6 +690,8 @@ h3 {
 .modal-actions {
     display: flex;
     gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
 }
 
 .btn {
@@ -1436,6 +1438,19 @@ body.transitions-enabled * {
 .form-group textarea:focus {
     outline: none;
     border-color: var(--secondary-color);
+}
+
+.error-message {
+    display: none;
+    color: var(--accent-color);
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: rgba(231, 76, 60, 0.1);
+    border-radius: 0.5rem;
+}
+
+.modal-body p {
+    margin-bottom: 1.5rem;
 }
 
 @media (max-width: 768px) {

@@ -162,7 +162,7 @@ async function getUserIdFromRequest(request) {
   const token = authHeader.substring(7);
   
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payload = JSON.parse(atob(token));
     return payload.userId;
   } catch (error) {
     return null;

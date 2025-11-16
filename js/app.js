@@ -1260,6 +1260,9 @@ class MovieTracker {
             if (response.ok) {
                 const movie = await response.json();
                 this.showAdminMovieModal(movie);
+            } else {
+                const error = await response.json().catch(() => ({ error: 'Nieznany błąd' }));
+                this.showNotification(error.error || 'Błąd podczas ładowania filmu', 'error');
             }
         } catch (error) {
             console.error('Error loading movie:', error);
@@ -1358,6 +1361,9 @@ class MovieTracker {
             if (response.ok) {
                 const challenge = await response.json();
                 this.showAdminChallengeModal(challenge);
+            } else {
+                const error = await response.json().catch(() => ({ error: 'Nieznany błąd' }));
+                this.showNotification(error.error || 'Błąd podczas ładowania wyzwania', 'error');
             }
         } catch (error) {
             console.error('Error loading challenge:', error);
@@ -1452,6 +1458,9 @@ class MovieTracker {
             if (response.ok) {
                 const badge = await response.json();
                 this.showAdminBadgeModal(badge);
+            } else {
+                const error = await response.json().catch(() => ({ error: 'Nieznany błąd' }));
+                this.showNotification(error.error || 'Błąd podczas ładowania odznaki', 'error');
             }
         } catch (error) {
             console.error('Error loading badge:', error);
@@ -1590,7 +1599,17 @@ class MovieTracker {
     updateBulkDeleteButton(type) {
         const checkboxes = document.querySelectorAll(`.${type.slice(0, -1)}-checkbox:checked`);
         const button = document.getElementById(`delete-selected-${type}-btn`);
-        button.style.display = checkboxes.length > 0 ? 'inline-block' : 'none';
+        const selectAllCheckbox = document.getElementById(`select-all-${type}`);
+        
+        if (button) {
+            button.style.display = checkboxes.length > 0 ? 'inline-block' : 'none';
+        }
+        
+        // Update select-all checkbox state
+        if (selectAllCheckbox) {
+            const allCheckboxes = document.querySelectorAll(`.${type.slice(0, -1)}-checkbox`);
+            selectAllCheckbox.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+        }
     }
 
     async bulkDeleteMovies() {

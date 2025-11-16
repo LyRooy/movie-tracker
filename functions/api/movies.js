@@ -8,7 +8,7 @@ export async function onRequest(context) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 
   if (method === 'OPTIONS') {
@@ -18,13 +18,13 @@ export async function onRequest(context) {
   try {
     switch (method) {
       case 'GET':
-        return handleGet(env.db, url, corsHeaders);
+        return handleGet(env.db, request, url, corsHeaders);
       case 'POST':
         return handlePost(env.db, request, corsHeaders);
       case 'PUT':
         return handlePut(env.db, request, url, corsHeaders);
       case 'DELETE':
-        return handleDelete(env.db, url, corsHeaders);
+        return handleDelete(env.db, request, url, corsHeaders);
       default:
         return new Response('Method not allowed', { 
           status: 405,
@@ -40,8 +40,7 @@ export async function onRequest(context) {
 }
 
 // Get movies/series with reviews and watched status
-async function handleGet(db, url, corsHeaders) {
-  const request = { headers: new Headers(), url: url.toString() };
+async function handleGet(db, request, url, corsHeaders) {
   const userId = await getUserIdFromRequest(request);
   
   if (!userId) {
@@ -245,7 +244,16 @@ async function handlePut(db, request, url, corsHeaders) {
 }
 
 // Delete movie/series
-async function handleDelete(db, url, corsHeaders) {
+async function handleDelete(db, request, url, corsHeaders) {
+  const userId = await getUserIdFromRequest(request);
+  
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   const id = url.pathname.split('/').pop();
   
   // Delete movie (cascading will handle watched and reviews)

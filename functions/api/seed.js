@@ -32,7 +32,7 @@ export async function onRequest(context) {
         type: 'movie',
         release_date: '2010-07-16',
         genre: 'Sci-Fi',
-        poster_url: 'https://via.placeholder.com/200x300/4CAF50/white?text=Incepcja',
+        poster_url: 'https://placehold.co/200x300/4CAF50/white/png?text=Incepcja',
         description: 'Dom Cobb jest złodziejem, najlepszym w niebezpiecznej sztuce eksploracji...'
       },
       {
@@ -40,7 +40,7 @@ export async function onRequest(context) {
         type: 'series', 
         release_date: '2008-01-20',
         genre: 'Dramat',
-        poster_url: 'https://via.placeholder.com/200x300/2196F3/white?text=Breaking+Bad',
+        poster_url: 'https://placehold.co/200x300/2196F3/white/png?text=Breaking+Bad',
         description: 'Walter White, nauczyciel chemii w szkole średniej...'
       },
       {
@@ -48,7 +48,7 @@ export async function onRequest(context) {
         type: 'movie',
         release_date: '2019-05-17',
         genre: 'Komedia',
-        poster_url: 'https://via.placeholder.com/200x300/FF9800/white?text=Paragraf+22',
+        poster_url: 'https://placehold.co/200x300/FF9800/white/png?text=Paragraf+22',
         description: 'Komedia oparta na powieści Josepha Hellera...'
       }
     ];

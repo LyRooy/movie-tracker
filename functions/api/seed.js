@@ -114,13 +114,13 @@ export async function onRequest(context) {
     
     if (!existingChallenge) {
       await env.db.prepare(`
-        INSERT INTO Challenges (title, description, target_count, challenge_type, start_date, end_date)
+        INSERT INTO Challenges (title, description, type, target_count, start_date, end_date)
         VALUES (?, ?, ?, ?, ?, ?)
       `).bind(
         'Filmowy Maraton 2024',
         'Obejrzyj 50 filmów w 2024 roku',
-        50,
         'movies',
+        50,
         '2024-01-01',
         '2024-12-31'
       ).run();

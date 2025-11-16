@@ -18,7 +18,7 @@ export async function onRequestGet(context) {
       });
     }
 
-    const user = await env.db.prepare('SELECT id, nickname, email, theme_preference FROM users WHERE id = ?').bind(userId).first();
+    const user = await env.db.prepare('SELECT id, nickname, email, role, theme_preference FROM users WHERE id = ?').bind(userId).first();
     if (!user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,

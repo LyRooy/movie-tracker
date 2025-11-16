@@ -1176,7 +1176,7 @@ class MovieTracker {
             <tr>
                 <td><input type="checkbox" class="challenge-checkbox" data-id="${challenge.id}" onchange="app.updateBulkDeleteButton('challenges')"></td>
                 <td>${challenge.id}</td>
-                <td>${challenge.name}</td>
+                <td>${challenge.title}</td>
                 <td>${challenge.type}</td>
                 <td>${challenge.criteria_value || '-'}</td>
                 <td>${challenge.target_count}</td>
@@ -1642,7 +1642,7 @@ class MovieTracker {
         }
 
         this.showNotification(`Usunięto: ${successCount}, Błędy: ${errorCount}`, successCount > 0 ? 'success' : 'error');
-        this.loadAdminMovies();
+        await this.loadAdminMovies();
         document.getElementById('select-all-movies').checked = false;
         this.updateBulkDeleteButton('movies');
     }
@@ -1677,7 +1677,7 @@ class MovieTracker {
         }
 
         this.showNotification(`Usunięto: ${successCount}, Błędy: ${errorCount}`, successCount > 0 ? 'success' : 'error');
-        this.loadAdminChallenges();
+        await this.loadAdminChallenges();
         document.getElementById('select-all-challenges').checked = false;
         this.updateBulkDeleteButton('challenges');
     }
@@ -1712,7 +1712,7 @@ class MovieTracker {
         }
 
         this.showNotification(`Usunięto: ${successCount}, Błędy: ${errorCount}`, successCount > 0 ? 'success' : 'error');
-        this.loadAdminBadges();
+        await this.loadAdminBadges();
         document.getElementById('select-all-badges').checked = false;
         this.updateBulkDeleteButton('badges');
     }

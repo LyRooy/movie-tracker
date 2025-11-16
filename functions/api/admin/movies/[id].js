@@ -125,21 +125,12 @@ async function handleUpdateMovie(db, request, movieId, corsHeaders) {
 
 // Delete movie
 async function handleDeleteMovie(db, movieId, corsHeaders) {
-  // Check if movie is referenced in watched or reviews
-  const watched = await db.prepare('SELECT COUNT(*) as count FROM watched WHERE movie_id = ?').bind(movieId).first();
-  const reviews = await db.prepare('SELECT COUNT(*) as count FROM reviews WHERE movie_id = ?').bind(movieId).first();
+  // Delete related records first (in case CASCADE doesn't work)
+  await db.prepare('DELETE FROM watched WHERE movie_id = ?').bind(movieId).run();
+  await db.prepare('DELETE FROM reviews WHERE movie_id = ?').bind(movieId).run();
+  await db.prepare('DELETE FROM challenge_watched WHERE movie_id = ?').bind(movieId).run();
   
-  if (watched.count > 0 || reviews.count > 0) {
-    return new Response(JSON.stringify({ 
-      error: 'Cannot delete movie that has been watched or reviewed',
-      watched: watched.count,
-      reviews: reviews.count
-    }), {
-      status: 409,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
+  // Delete the movie
   await db.prepare('DELETE FROM movies WHERE id = ?').bind(movieId).run();
 
   return new Response(JSON.stringify({ success: true }), {

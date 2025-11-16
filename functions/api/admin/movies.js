@@ -200,6 +200,7 @@ async function handleDeleteMovie(db, request, corsHeaders) {
   }
 
   // Delete related records first (if no cascading)
+  await db.prepare('DELETE FROM challenge_watched WHERE movie_id = ?').bind(id).run();
   await db.prepare('DELETE FROM reviews WHERE movie_id = ?').bind(id).run();
   await db.prepare('DELETE FROM watched WHERE movie_id = ?').bind(id).run();
   await db.prepare('DELETE FROM movies WHERE id = ?').bind(id).run();

@@ -43,6 +43,14 @@ class MovieTracker {
             this.toggleTheme();
         });
 
+        // Theme select in profile
+        const themeSelect = document.getElementById('theme-select');
+        if (themeSelect) {
+            themeSelect.addEventListener('change', (e) => {
+                this.changeTheme(e.target.value);
+            });
+        }
+
         // Search functionality
         const searchBtn = document.getElementById('search-btn');
         const searchInput = document.getElementById('search-input');
@@ -197,26 +205,67 @@ class MovieTracker {
 
     setupTheme() {
         const savedTheme = localStorage.getItem('theme') || 'light';
-        document.body.className = `${savedTheme}-theme`;
+        
+        let actualTheme = savedTheme;
+        if (savedTheme === 'auto') {
+            actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        
+        document.body.className = `${actualTheme}-theme`;
         
         const themeIcon = document.querySelector('#theme-toggle i');
-        themeIcon.className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+        if (themeIcon) {
+            themeIcon.className = actualTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+        }
         
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
-            themeSelect.value = savedTheme;
+            themeSelect.value = savedTheme; // Set the saved option, not actual theme
+        }
+        
+        // Listen for system theme changes when auto is selected
+        if (savedTheme === 'auto') {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                if (localStorage.getItem('theme') === 'auto') {
+                    this.changeTheme('auto');
+                }
+            });
         }
     }
 
     toggleTheme() {
         const currentTheme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
         const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        this.changeTheme(newTheme);
+    }
+
+    changeTheme(theme) {
+        let actualTheme = theme;
         
-        document.body.className = `${newTheme}-theme`;
-        localStorage.setItem('theme', newTheme);
+        // Handle auto theme based on system preference
+        if (theme === 'auto') {
+            actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
         
+        // Update body class
+        document.body.className = `${actualTheme}-theme`;
+        
+        // Save to localStorage (save the selected option, not the actual theme)
+        localStorage.setItem('theme', theme);
+        
+        // Update theme toggle button icon
         const themeIcon = document.querySelector('#theme-toggle i');
-        themeIcon.className = newTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+        if (themeIcon) {
+            themeIcon.className = actualTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+        
+        // Update theme select in profile
+        const themeSelect = document.getElementById('theme-select');
+        if (themeSelect) {
+            themeSelect.value = theme;
+        }
+        
+        console.log('Theme changed to:', theme, '(actual:', actualTheme + ')');
     }
 
     loadUserData() {

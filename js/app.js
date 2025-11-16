@@ -915,27 +915,21 @@ class MovieTracker {
         document.body.innerHTML = `
             <div class="auth-container">
                 <div class="auth-card">
-                    <h2 id="auth-title">Zaloguj się</h2>
+                    <h2 id="auth-title">Zaloguj się do MovieTracker</h2>
                     <div id="auth-error" class="auth-error" style="display: none;"></div>
                     <form class="auth-form" id="auth-form">
                         <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
-                        <input type="email" id="email" placeholder="Email" class="auth-input" required>
+                        <input type="email" id="email" placeholder="Adres email" class="auth-input" required>
                         <input type="password" id="password" placeholder="Hasło" class="auth-input" required>
                         <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
                     </form>
                     <div class="auth-toggle">
                         <span id="auth-toggle-text">Nie masz konta?</span>
-                        <a id="auth-toggle-link">Zarejestruj się</a>
+                        <a id="auth-toggle-link">Utwórz konto</a>
                     </div>
                 </div>
             </div>
         `;
-
-        // Load auth styles
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = '/css/auth.css';
-        document.head.appendChild(link);
 
         this.bindAuthEvents();
     }
@@ -986,14 +980,14 @@ class MovieTracker {
             const nicknameInput = document.getElementById('nickname');
 
             if (isLogin) {
-                title.textContent = 'Zaloguj się';
+                title.textContent = 'Zaloguj się do MovieTracker';
                 submitBtn.textContent = 'Zaloguj się';
                 toggleText.textContent = 'Nie masz konta?';
-                toggleLink.textContent = 'Zarejestruj się';
+                toggleLink.textContent = 'Utwórz konto';
                 nicknameInput.style.display = 'none';
                 nicknameInput.required = false;
             } else {
-                title.textContent = 'Zarejestruj się';
+                title.textContent = 'Utwórz konto MovieTracker';
                 submitBtn.textContent = 'Zarejestruj się';
                 toggleText.textContent = 'Masz już konto?';
                 toggleLink.textContent = 'Zaloguj się';

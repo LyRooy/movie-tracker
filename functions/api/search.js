@@ -46,7 +46,7 @@ export async function onRequest(context) {
       SELECT 
         id,
         title,
-        type,
+        media_type as type,
         strftime('%Y', release_date) as year,
         genre,
         poster_url as poster,

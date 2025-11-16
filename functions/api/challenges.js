@@ -54,8 +54,8 @@ export async function onRequest(context) {
         FROM Watched w
         JOIN Movies m ON w.movie_id = m.id
         JOIN Challenges c ON (
-          (c.type = 'movies' AND m.type = 'movie') OR
-          (c.type = 'series' AND m.type = 'series') OR
+          (c.type = 'movies' AND m.media_type = 'movie') OR
+          (c.type = 'series' AND m.media_type = 'series') OR
           c.type = 'both'
         )
         WHERE w.user_id = ? 

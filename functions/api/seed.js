@@ -46,7 +46,7 @@ export async function onRequest(context) {
     // Insert movies
     for (const movie of sampleMovies) {
       const movieResult = await env.db.prepare(`
-        INSERT INTO Movies (title, type, release_date, genre, poster_url, description)
+        INSERT INTO Movies (title, media_type, release_date, genre, poster_url, description)
         VALUES (?, ?, ?, ?, ?, ?)
       `).bind(
         movie.title,

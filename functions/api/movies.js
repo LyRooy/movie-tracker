@@ -59,7 +59,7 @@ async function handleGet(db, url, corsHeaders) {
     SELECT 
       m.id,
       m.title,
-      m.type,
+      m.media_type as type,
       strftime('%Y', m.release_date) as year,
       m.genre,
       m.poster_url as poster,
@@ -88,7 +88,7 @@ async function handleGet(db, url, corsHeaders) {
   }
 
   if (type) {
-    whereClause.push('m.type = ?');
+    whereClause.push('m.media_type = ?');
     params.push(type);
   }
 
@@ -139,7 +139,7 @@ async function handlePost(db, request, corsHeaders) {
     
     // Insert movie
     const movieResult = await db.prepare(`
-      INSERT INTO Movies (title, type, release_date, genre, poster_url, description)
+      INSERT INTO Movies (title, media_type, release_date, genre, poster_url, description)
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
       data.title,
@@ -202,7 +202,7 @@ async function handlePut(db, request, url, corsHeaders) {
     // Update movie
     await db.prepare(`
       UPDATE Movies 
-      SET title = ?, type = ?, release_date = ?, genre = ?, poster_url = ?
+      SET title = ?, media_type = ?, release_date = ?, genre = ?, poster_url = ?
       WHERE id = ?
     `).bind(
       data.title,

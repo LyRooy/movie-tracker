@@ -1092,10 +1092,9 @@ class MovieTracker {
                     <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
                     <input type="text" id="emailOrUsername" placeholder="Email lub nazwa użytkownika" class="auth-input" required>
                     <input type="password" id="password" placeholder="Hasło" class="auth-input" required>
-                    <div style="display:flex;gap:8px;margin-top:8px;">
-                      <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
-                      <button type="button" id="guest-btn" class="auth-btn">Kontynuuj jako gość</button>
-                    </div>
+                                        <div style="display:flex;gap:8px;margin-top:8px;">
+                                            <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
+                                        </div>
                 </form>
                 <div class="auth-toggle" style="margin-top:8px;">
                     <span id="auth-toggle-text">Nie masz konta?</span>

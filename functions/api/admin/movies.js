@@ -129,7 +129,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     `).bind(
       data.title,
       data.type,
-      data.releaseDate || data.year ? `${data.year}-01-01` : new Date().toISOString().split('T')[0],
+      data.year || new Date().getFullYear().toString(),
       data.genre || 'Unknown',
       normalizePosterUrl(data.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
       data.description || '',
@@ -211,9 +211,9 @@ async function handleUpdateMovie(db, request, corsHeaders) {
     updates.push('media_type = ?');
     params.push(data.type);
   }
-  if (data.releaseDate) {
+  if (data.year !== undefined) {
     updates.push('release_date = ?');
-    params.push(data.releaseDate);
+    params.push(data.year);
   }
   if (data.genre) {
     updates.push('genre = ?');

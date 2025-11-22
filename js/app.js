@@ -1656,6 +1656,12 @@ class MovieTracker {
                     <button class="action-btn btn-edit" onclick="app.editAdminMovie(${movie.id})">
                         <i class="fas fa-edit"></i> Edytuj
                     </button>
+                    ${movie.media_type === 'series' ? `
+                    <button class="action-btn btn-edit" onclick="app.editSeriesSeasons(${movie.id}, '${movie.title.replace(/'/g, "\\'")}')"
+                            style="background: #2196F3;" title="Edytuj sezony">
+                        <i class="fas fa-list-ol"></i> Sezony
+                    </button>
+                    ` : ''}
                     <button class="action-btn btn-delete" onclick="app.deleteAdminMovie(${movie.id})">
                         <i class="fas fa-trash"></i> Usuń
                     </button>
@@ -1829,6 +1835,45 @@ class MovieTracker {
         } catch (error) {
             console.error('Error saving movie:', error);
             this.showNotification('Błąd podczas zapisywania', 'error');
+        }
+    }
+
+    async editSeriesSeasons(seriesId, seriesTitle) {
+        try {
+            // Pobierz dane serialu
+            const movieResponse = await fetch(`/api/admin/movies/${seriesId}`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            if (!movieResponse.ok) {
+                throw new Error('Nie udało się pobrać danych serialu');
+            }
+            
+            const movie = await movieResponse.json();
+            
+            // Pobierz istniejące sezony
+            const seasonsResponse = await fetch(`/api/movies/${seriesId}/seasons`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            const existingSeasons = seasonsResponse.ok ? await seasonsResponse.json() : [];
+            
+            // Otwórz modal z pytaniem o liczbę sezonów
+            const newSeasonCount = prompt(
+                `Aktualnie: ${movie.total_seasons} sezonów\n\nPodaj nową liczbę sezonów (lub zostaw jak jest):`,
+                movie.total_seasons
+            );
+            
+            if (newSeasonCount === null) return; // Anulowano
+            
+            const seasonCount = parseInt(newSeasonCount) || movie.total_seasons;
+            
+            // Otwórz modal konfiguracji sezonów
+            this.showSeasonsConfigModal(seriesId, seasonCount, seriesTitle, existingSeasons);
+            
+        } catch (error) {
+            console.error('Error loading series seasons:', error);
+            this.showNotification('Błąd podczas ładowania danych serialu', 'error');
         }
     }
 
@@ -2048,7 +2093,7 @@ class MovieTracker {
         }
     }
 
-    showSeasonsConfigModal(seriesId, seasonCount, seriesTitle) {
+    showSeasonsConfigModal(seriesId, seasonCount, seriesTitle, existingSeasons = null) {
         const modal = document.getElementById('admin-seasons-modal');
         const title = document.getElementById('admin-seasons-modal-title');
         const container = document.getElementById('seasons-config-container');
@@ -2059,6 +2104,9 @@ class MovieTracker {
         // Generate inputs for each season
         container.innerHTML = '';
         for (let i = 1; i <= seasonCount; i++) {
+            const existingSeason = existingSeasons?.find(s => s.season_number === i);
+            const episodeCount = existingSeason?.episode_count || 10;
+            
             const seasonItem = document.createElement('div');
             seasonItem.className = 'season-config-item';
             seasonItem.innerHTML = `
@@ -2067,7 +2115,7 @@ class MovieTracker {
                        class="season-episodes-input" 
                        data-season="${i}" 
                        min="1" 
-                       value="10" 
+                       value="${episodeCount}" 
                        placeholder="Liczba odcinków"
                        required>
             `;

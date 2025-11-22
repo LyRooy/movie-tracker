@@ -1,10 +1,10 @@
-// API endpoint for movies/series operations
+// Endpoint API dla operacji na filmach/serialach
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const method = request.method;
 
-  // CORS headers
+  // Nagłówki CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -39,7 +39,7 @@ export async function onRequest(context) {
   }
 }
 
-// Get movies/series with reviews and watched status
+// Pobierz filmy/seriale z recenzjami i statusem obejrzenia
 async function handleGet(db, request, url, corsHeaders) {
   const userId = await getUserIdFromRequest(request);
   
@@ -53,8 +53,8 @@ async function handleGet(db, request, url, corsHeaders) {
   const status = url.searchParams.get('status');
   const type = url.searchParams.get('type');
 
-  // Join Movies with Reviews and Watched tables
-  // Return only movies that user has interacted with (watched or reviewed)
+  // Połącz tabele Movies z tabelami Reviews i Watched
+  // Zwróć tylko filmy, z którymi użytkownik wchodził w interakcję (obejrzane lub zrecenzowane)
   let query = `
     SELECT 
       m.id,
@@ -79,7 +79,7 @@ async function handleGet(db, request, url, corsHeaders) {
   let params = [userId, userId];
   let additionalWhere = [];
 
-  // Filter by status if provided (and not 'all')
+  // Filtruj według statusu, jeśli został podany (i nie jest 'all')
   if (status && status !== 'all') {
     additionalWhere.push('COALESCE(w.status, \'watched\') = ?');
     params.push(status);
@@ -108,12 +108,12 @@ async function handleGet(db, request, url, corsHeaders) {
     
     console.log('Query returned', result.results.length, 'rows');
     
-    // For each series, fetch watched episodes count
+    // Dla każdego serialu pobierz liczbę obejrzanych odcinków
     const transformedResults = await Promise.all(result.results.map(async row => {
       try {
         let watchedEpisodes = 0;
         
-        // If it's a series, count watched episodes
+        // Jeśli to serial, policz obejrzane odcinki
         if (row.type === 'series') {
           try {
             const episodesResult = await db.prepare(`
@@ -142,18 +142,18 @@ async function handleGet(db, request, url, corsHeaders) {
           poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
           duration: row.duration || 120,
           review: row.review || '',
-          // Series-specific fields
+          // Pola specyficzne dla seriali
           totalSeasons: row.total_seasons || null,
           totalEpisodes: row.total_episodes || null,
           watchedEpisodes: watchedEpisodes,
-          // Calculate progress for series
+          // Oblicz postęp dla serialu
           progress: row.type === 'series' && row.total_episodes > 0 
             ? Math.round((watchedEpisodes / row.total_episodes) * 100) 
             : null
         };
       } catch (rowError) {
         console.error('Error processing row:', row.id, rowError);
-        // Return basic object on error
+        // Zwróć podstawowy obiekt w przypadku błędu
         return {
           id: row.id,
           title: row.title,
@@ -186,7 +186,7 @@ async function handleGet(db, request, url, corsHeaders) {
   }
 }
 
-// Add movie to user's watched list (not create new movie!)
+// Dodaj film do listy obejrzanych użytkownika (nie twórz nowego filmu!)
 async function handlePost(db, request, corsHeaders) {
   const userId = await getUserIdFromRequest(request);
   
@@ -200,7 +200,7 @@ async function handlePost(db, request, corsHeaders) {
   const data = await request.json();
   
   try {
-    // Verify movie exists
+    // Zweryfikuj, czy film istnieje
     if (!data.id) {
       return new Response(JSON.stringify({ error: 'Movie ID is required' }), {
         status: 400,
@@ -208,13 +208,13 @@ async function handlePost(db, request, corsHeaders) {
       });
     }
 
-    // Normalize ID: frontend sometimes prefixes DB ids with `db_` (see /api/search)
+    // Normalizuj ID: frontend czasami dodaje przedrostek `db_` do ID z bazy danych (zobacz /api/search)
     let movieIdParam = data.id;
     if (typeof movieIdParam === 'string') {
       if (movieIdParam.startsWith('db_')) {
         movieIdParam = movieIdParam.replace(/^db_/, '');
       }
-      // if string of digits, convert to number
+      // jeśli ciąg cyfr, konwertuj na liczbę
       if (/^\d+$/.test(movieIdParam)) {
         movieIdParam = parseInt(movieIdParam, 10);
       }
@@ -237,10 +237,10 @@ async function handlePost(db, request, corsHeaders) {
 
     const movieId = movie.id;
     
-    // Add to watched table with appropriate status
+    // Dodaj do tabeli watched z odpowiednim statusem
     const watchedStatus = data.status || 'watched';
     
-    // Check if already in watched table
+    // Sprawdź, czy już znajduje się w tabeli watched
     const alreadyWatched = await db.prepare('SELECT id FROM watched WHERE user_id = ? AND movie_id = ?')
       .bind(userId, movieId).first();
     
@@ -250,7 +250,7 @@ async function handlePost(db, request, corsHeaders) {
         VALUES (?, ?, ?, ?)
       `).bind(userId, movieId, data.watchedDate || new Date().toISOString().split('T')[0], watchedStatus).run();
     } else {
-      // Update status if already exists
+      // Zaktualizuj status, jeśli już istnieje
       await db.prepare(`
         UPDATE watched 
         SET status = ?, watched_date = ?
@@ -258,7 +258,7 @@ async function handlePost(db, request, corsHeaders) {
       `).bind(watchedStatus, data.watchedDate || new Date().toISOString().split('T')[0], userId, movieId).run();
     }
     
-    // Add or update review if rating provided
+    // Dodaj lub zaktualizuj recenzję, jeśli podano ocenę
     if (data.rating > 0) {
       const existingReview = await db.prepare('SELECT id FROM reviews WHERE user_id = ? AND movie_id = ?')
         .bind(userId, movieId).first();
@@ -294,7 +294,7 @@ async function handlePost(db, request, corsHeaders) {
   }
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -306,7 +306,7 @@ async function getUserIdFromRequest(request) {
     const payload = JSON.parse(atob(token));
     
     if (payload.exp < Date.now()) {
-      return null; // Token expired
+      return null; // Token wygasł
     }
     
     return payload.userId;

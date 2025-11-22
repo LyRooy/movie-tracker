@@ -1,4 +1,4 @@
-// Admin endpoint for managing individual badges
+// Endpoint administracyjny do zarządzania pojedynczymi odznakami
 export async function onRequest(context) {
   const { request, env, params } = context;
   const method = request.method;
@@ -15,7 +15,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check if user is admin
+    // Sprawdź czy użytkownik jest administratorem
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -53,7 +53,7 @@ export async function onRequest(context) {
   }
 }
 
-// Get specific badge
+// Pobierz konkretną odznakę
 async function handleGetBadge(db, badgeId, corsHeaders) {
   const badge = await db.prepare('SELECT * FROM badges WHERE id = ?').bind(badgeId).first();
   
@@ -70,7 +70,7 @@ async function handleGetBadge(db, badgeId, corsHeaders) {
   });
 }
 
-// Update badge
+// Zaktualizuj odznakę
 async function handleUpdateBadge(db, request, badgeId, corsHeaders) {
   const data = await request.json();
   
@@ -110,9 +110,9 @@ async function handleUpdateBadge(db, request, badgeId, corsHeaders) {
   });
 }
 
-// Delete badge
+// Usuń odznakę
 async function handleDeleteBadge(db, badgeId, corsHeaders) {
-  // Check if badge is used in challenges
+  // Sprawdź czy odznaka jest używana w wyzwaniach
   const challenges = await db.prepare('SELECT COUNT(*) as count FROM challenges WHERE badge_id = ?').bind(badgeId).first();
   
   if (challenges.count > 0) {
@@ -132,7 +132,7 @@ async function handleDeleteBadge(db, badgeId, corsHeaders) {
   });
 }
 
-// Extract user ID from JWT token
+// Wyodrębnij ID użytkownika z tokenu JWT
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

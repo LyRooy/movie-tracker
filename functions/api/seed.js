@@ -1,4 +1,4 @@
-// Sample data insertion script for D1 database
+// Skrypt do wstawiania przykładowych danych do bazy danych D1
 export async function onRequest(context) {
   const { request, env } = context;
   
@@ -7,7 +7,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check if test user already exists
+    // Sprawdź czy użytkownik testowy już istnieje
     const existingUser = await env.db.prepare('SELECT id FROM users WHERE email = ?').bind('test@example.com').first();
     
     let userId;
@@ -15,7 +15,7 @@ export async function onRequest(context) {
       userId = existingUser.id;
       console.log('Test user already exists, using existing user');
     } else {
-      // Create a test user
+      // Utwórz użytkownika testowego
       const passwordHash = await hashPassword('test123');
       const userResult = await env.db.prepare(`
         INSERT INTO users (nickname, email, password_hash)
@@ -25,7 +25,7 @@ export async function onRequest(context) {
       userId = userResult.meta.last_row_id;
       console.log('Created new test user');
     }
-    // Insert sample movies
+    // Wstaw przykładowe filmy
     const sampleMovies = [
       {
         title: 'Incepcja',
@@ -53,10 +53,10 @@ export async function onRequest(context) {
       }
     ];
 
-    // Insert movies (only if they don't exist)
+    // Wstaw filmy (tylko jeśli nie istnieją)
     let moviesAdded = 0;
     for (const movie of sampleMovies) {
-      // Check if movie already exists
+      // Sprawdź czy film już istnieje
       const existingMovie = await env.db.prepare('SELECT id FROM movies WHERE title = ? AND media_type = ?')
         .bind(movie.title, movie.type).first();
       
@@ -82,24 +82,24 @@ export async function onRequest(context) {
         console.log(`Added new movie: "${movie.title}"`);
       }
 
-      // Check if user already watched this movie
+      // Sprawdź czy użytkownik już obejrzał ten film
       const existingWatched = await env.db.prepare('SELECT id FROM watched WHERE user_id = ? AND movie_id = ?')
         .bind(userId, movieId).first();
       
       if (!existingWatched) {
-        // Add to watched for user
+        // Dodaj do obejrzanych dla użytkownika
         await env.db.prepare(`
           INSERT INTO watched (user_id, movie_id, watched_date)
           VALUES (?, ?, ?)
         `).bind(userId, movieId, '2024-01-15').run();
       }
 
-      // Check if review already exists
+      // Sprawdź czy recenzja już istnieje
       const existingReview = await env.db.prepare('SELECT id FROM reviews WHERE user_id = ? AND movie_id = ?')
         .bind(userId, movieId).first();
       
       if (!existingReview) {
-        // Add review
+        // Dodaj recenzję
         const rating = movie.title === 'Incepcja' ? 5 : (movie.title === 'Breaking Bad' ? 5 : 4);
         await env.db.prepare(`
           INSERT INTO reviews (user_id, movie_id, content, rating)
@@ -108,7 +108,7 @@ export async function onRequest(context) {
       }
     }
 
-    // Insert a sample challenge (only if it doesn't exist)
+    // Wstaw przykładowe wyzwanie (tylko jeśli nie istnieje)
     const existingChallenge = await env.db.prepare('SELECT id FROM challenges WHERE title = ?')
       .bind('Filmowy Maraton 2024').first();
     
@@ -144,7 +144,7 @@ export async function onRequest(context) {
   }
 }
 
-// Hash password using PBKDF2 with salt (same as auth.js)
+// Haszuj hasło używając PBKDF2 z solą (tak samo jak w auth.js)
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -170,6 +170,6 @@ async function hashPassword(password) {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const saltArray = Array.from(salt);
   
-  // Combine salt and hash
+  // Połącz sól i hasz
   return saltArray.concat(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
 }

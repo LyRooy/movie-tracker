@@ -1,4 +1,4 @@
-// Admin endpoint for managing individual movies
+// Endpoint administracyjny do zarządzania pojedynczymi filmami
 export async function onRequest(context) {
   const { request, env, params } = context;
   const method = request.method;
@@ -15,7 +15,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check if user is admin
+    // Sprawdź czy użytkownik jest administratorem
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -53,7 +53,7 @@ export async function onRequest(context) {
   }
 }
 
-// Get specific movie
+// Pobierz konkretny film
 async function handleGetMovie(db, movieId, corsHeaders) {
   const movie = await db.prepare('SELECT * FROM movies WHERE id = ?').bind(movieId).first();
   
@@ -70,11 +70,11 @@ async function handleGetMovie(db, movieId, corsHeaders) {
   });
 }
 
-// Update movie
+// Zaktualizuj film
 async function handleUpdateMovie(db, request, movieId, corsHeaders) {
   const data = await request.json();
   
-  // Build update query dynamically based on provided fields
+  // Zbuduj zapytanie UPDATE dynamicznie na podstawie podanych pól
   const updates = [];
   const values = [];
   
@@ -123,14 +123,14 @@ async function handleUpdateMovie(db, request, movieId, corsHeaders) {
   });
 }
 
-// Delete movie
+// Usuń film
 async function handleDeleteMovie(db, movieId, corsHeaders) {
-  // Delete related records first (in case CASCADE doesn't work)
+  // Usuń powiązane rekordy najpierw (na wypadek gdyby CASCADE nie działało)
   await db.prepare('DELETE FROM watched WHERE movie_id = ?').bind(movieId).run();
   await db.prepare('DELETE FROM reviews WHERE movie_id = ?').bind(movieId).run();
   await db.prepare('DELETE FROM challenge_watched WHERE movie_id = ?').bind(movieId).run();
   
-  // Delete the movie
+  // Usuń film
   await db.prepare('DELETE FROM movies WHERE id = ?').bind(movieId).run();
 
   return new Response(JSON.stringify({ success: true }), {
@@ -138,7 +138,7 @@ async function handleDeleteMovie(db, movieId, corsHeaders) {
   });
 }
 
-// Extract user ID from JWT token
+// Wyodrębnij ID użytkownika z tokenu JWT
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

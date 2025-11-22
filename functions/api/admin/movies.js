@@ -1,4 +1,4 @@
-// Admin endpoint for managing movies in database
+// Endpoint administracyjny do zarządzania filmami w bazie danych
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -14,7 +14,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check if user is admin
+    // Sprawdź czy użytkownik jest administratorem
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -54,14 +54,14 @@ export async function onRequest(context) {
   }
 }
 
-// Get movies (all or specific by ID)
+// Pobierz filmy (wszystkie lub konkretny po ID)
 async function handleGetMovies(db, request, corsHeaders) {
   const url = new URL(request.url);
   const pathParts = url.pathname.split('/');
   const movieId = pathParts[pathParts.length - 1] !== 'movies' ? pathParts[pathParts.length - 1] : null;
 
   if (movieId) {
-    // Get specific movie
+    // Pobierz konkretny film
     const movie = await db.prepare('SELECT * FROM movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
@@ -74,7 +74,7 @@ async function handleGetMovies(db, request, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } else {
-    // Get all movies
+    // Pobierz wszystkie filmy
     const movies = await db.prepare('SELECT * FROM movies ORDER BY title').all();
     return new Response(JSON.stringify(movies.results || []), {
       status: 200,
@@ -83,7 +83,7 @@ async function handleGetMovies(db, request, corsHeaders) {
   }
 }
 
-// Create new movie
+// Utwórz nowy film
 async function handleCreateMovie(db, request, corsHeaders) {
   const data = await request.json();
   
@@ -94,7 +94,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     });
   }
 
-  // Check if movie already exists
+  // Sprawdź czy film już istnieje
   const existing = await db.prepare('SELECT id FROM movies WHERE title = ? AND media_type = ?')
     .bind(data.title, data.type).first();
   
@@ -105,7 +105,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     });
   }
 
-  // Calculate total episodes for series
+  // Oblicz całkowitą liczbę odcinków dla serialu
   const totalSeasons = data.totalSeasons || 1;
   const episodesPerSeason = data.episodesPerSeason || (data.type === 'series' ? 10 : 1);
   const totalEpisodes = data.type === 'series' ? totalSeasons * episodesPerSeason : 1;
@@ -127,10 +127,10 @@ async function handleCreateMovie(db, request, corsHeaders) {
 
   const movieId = result.meta.last_row_id;
 
-  // If it's a series, create seasons and episodes
+  // Jeśli to serial, utwórz sezony i odcinki
   if (data.type === 'series') {
     for (let seasonNum = 1; seasonNum <= totalSeasons; seasonNum++) {
-      // Create season
+      // Utwórz sezon
       const seasonResult = await db.prepare(`
         INSERT INTO seasons (series_id, season_number, episode_count, title)
         VALUES (?, ?, ?, ?)
@@ -143,7 +143,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
 
       const seasonId = seasonResult.meta.last_row_id;
 
-      // Create episodes for this season
+      // Utwórz odcinki dla tego sezonu
       for (let episodeNum = 1; episodeNum <= episodesPerSeason; episodeNum++) {
         await db.prepare(`
           INSERT INTO episodes (season_id, episode_number, title, duration)
@@ -152,7 +152,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
           seasonId,
           episodeNum,
           `Odcinek ${episodeNum}`,
-          45 // default duration
+          45 // domyślny czas trwania
         ).run();
       }
     }
@@ -166,7 +166,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
   });
 }
 
-// Update existing movie
+// Zaktualizuj istniejący film
 async function handleUpdateMovie(db, request, corsHeaders) {
   const data = await request.json();
   
@@ -227,7 +227,7 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   });
 }
 
-// Delete movie
+// Usuń film
 async function handleDeleteMovie(db, request, corsHeaders) {
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
@@ -239,7 +239,7 @@ async function handleDeleteMovie(db, request, corsHeaders) {
     });
   }
 
-  // Delete related records first (if no cascading)
+  // Usuń powiązane rekordy najpierw (jeśli nie ma kaskadowania)
   await db.prepare('DELETE FROM challenge_watched WHERE movie_id = ?').bind(id).run();
   await db.prepare('DELETE FROM reviews WHERE movie_id = ?').bind(id).run();
   await db.prepare('DELETE FROM watched WHERE movie_id = ?').bind(id).run();
@@ -250,7 +250,7 @@ async function handleDeleteMovie(db, request, corsHeaders) {
   });
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

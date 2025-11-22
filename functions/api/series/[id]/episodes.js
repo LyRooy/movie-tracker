@@ -1,4 +1,4 @@
-// API endpoint for series episodes operations
+// Endpoint API dla operacji na odcinkach seriali
 export async function onRequest(context) {
   const { request, env, params } = context;
   const method = request.method;
@@ -43,9 +43,9 @@ export async function onRequest(context) {
   }
 }
 
-// Get all episodes for a series with user's watched status
+// Pobierz wszystkie odcinki serialu ze statusem obejrzenia użytkownika
 async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
-  // Get series info
+  // Pobierz informacje o serialu
   const series = await db.prepare('SELECT * FROM movies WHERE id = ? AND media_type = ?')
     .bind(seriesId, 'series')
     .first();
@@ -57,7 +57,7 @@ async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
     });
   }
 
-  // Get all seasons with episodes
+  // Pobierz wszystkie sezony z odcinkami
   const query = `
     SELECT 
       s.id as season_id,
@@ -81,7 +81,7 @@ async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
 
   const result = await db.prepare(query).bind(userId, seriesId).all();
 
-  // Group episodes by season
+  // Grupuj odcinki według sezonu
   const seasonsMap = new Map();
   
   for (const row of result.results) {
@@ -111,7 +111,7 @@ async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
 
   const seasons = Array.from(seasonsMap.values());
 
-  // Calculate progress
+  // Oblicz postęp
   const totalEpisodes = seasons.reduce((sum, s) => sum + s.episodes.length, 0);
   const watchedEpisodes = seasons.reduce((sum, s) => 
     sum + s.episodes.filter(e => e.isWatched).length, 0
@@ -135,7 +135,7 @@ async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
   });
 }
 
-// Mark episode as watched/unwatched
+// Oznacz odcinek jako obejrzany/nieobejrzany
 async function handleMarkEpisode(db, userId, request, corsHeaders) {
   const data = await request.json();
   const { episodeId, watched, markPreviousAsWatched } = data;
@@ -148,7 +148,7 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
   }
 
   try {
-    // Get episode info to find series and check if we need to mark previous episodes
+    // Pobierz informacje o odcinku, aby znaleźć serial i sprawdzić, czy trzeba oznaczyć poprzednie odcinki
     const episodeInfo = await db.prepare(`
       SELECT e.id, e.season_id, e.episode_number, s.season_number, s.series_id
       FROM episodes e
@@ -166,7 +166,7 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
     const seriesId = episodeInfo.series_id;
 
     if (watched) {
-      // Check if there are unwatched previous episodes
+      // Sprawdź, czy są nieobejrzane poprzednie odcinki
       const unwatchedPrevious = await db.prepare(`
         SELECT COUNT(*) as count
         FROM episodes e
@@ -182,11 +182,11 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
         )
       `).bind(seriesId, episodeInfo.season_number, episodeInfo.season_number, episodeInfo.episode_number, userId).first();
 
-      // If markPreviousAsWatched is true or if it's undefined and there are previous unwatched episodes, mark them
+      // Jeśli markPreviousAsWatched jest true lub jeśli jest undefined i są poprzednie nieobejrzane odcinki, oznacz je
       if (markPreviousAsWatched && unwatchedPrevious.count > 0) {
         const watchedDate = new Date().toISOString().split('T')[0];
         
-        // Mark all previous episodes as watched
+        // Oznacz wszystkie poprzednie odcinki jako obejrzane
         const previousEpisodes = await db.prepare(`
           SELECT e.id
           FROM episodes e
@@ -212,7 +212,7 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
         }
       }
 
-      // Mark current episode as watched
+      // Oznacz bieżący odcinek jako obejrzany
       const watchedDate = new Date().toISOString().split('T')[0];
       const existing = await db.prepare(
         'SELECT id FROM user_episodes_watched WHERE user_id = ? AND episode_id = ?'
@@ -225,16 +225,16 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
         `).bind(userId, episodeId, watchedDate).run();
       }
     } else {
-      // Mark as unwatched
+      // Oznacz jako nieobejrzany
       await db.prepare(
         'DELETE FROM user_episodes_watched WHERE user_id = ? AND episode_id = ?'
       ).bind(userId, episodeId).run();
     }
 
-    // Update series status in watched table based on completion
+    // Zaktualizuj status serialu w tabeli watched na podstawie ukończenia
     await updateSeriesStatus(db, userId, seriesId);
 
-    // Return info about unwatched previous episodes for frontend to show prompt
+    // Zwróć informacje o nieobejrzanych poprzednich odcinkach, aby frontend mógł wyświetlić komunikat
     const stillUnwatchedPrevious = await db.prepare(`
       SELECT COUNT(*) as count
       FROM episodes e
@@ -266,9 +266,9 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
   }
 }
 
-// Update series status based on watched episodes
+// Zaktualizuj status serialu na podstawie obejrzanych odcinków
 async function updateSeriesStatus(db, userId, seriesId) {
-  // Get total episodes count
+  // Pobierz całkowitą liczbę odcinków
   const totalEpisodes = await db.prepare(`
     SELECT COUNT(*) as count
     FROM episodes e
@@ -276,7 +276,7 @@ async function updateSeriesStatus(db, userId, seriesId) {
     WHERE s.series_id = ?
   `).bind(seriesId).first();
 
-  // Get watched episodes count
+  // Pobierz liczbę obejrzanych odcinków
   const watchedEpisodes = await db.prepare(`
     SELECT COUNT(*) as count
     FROM user_episodes_watched uew
@@ -287,20 +287,20 @@ async function updateSeriesStatus(db, userId, seriesId) {
 
   const watchedDate = new Date().toISOString().split('T')[0];
 
-  // Check if record exists in watched table
+  // Sprawdź, czy rekord istnieje w tabeli watched
   const existingWatched = await db.prepare(
     'SELECT id, status FROM watched WHERE user_id = ? AND movie_id = ?'
   ).bind(userId, seriesId).first();
 
   if (watchedEpisodes.count === 0) {
-    // No episodes watched - remove from watched table or set to planning
+    // Brak obejrzanych odcinków - usuń z tabeli watched lub ustaw na planning
     if (existingWatched) {
       await db.prepare(
         'DELETE FROM watched WHERE user_id = ? AND movie_id = ?'
       ).bind(userId, seriesId).run();
     }
   } else if (watchedEpisodes.count === totalEpisodes.count) {
-    // All episodes watched - mark as 'watched'
+    // Wszystkie odcinki obejrzane - oznacz jako 'watched'
     if (existingWatched) {
       await db.prepare(`
         UPDATE watched 
@@ -314,7 +314,7 @@ async function updateSeriesStatus(db, userId, seriesId) {
       `).bind(userId, seriesId, watchedDate).run();
     }
   } else {
-    // Some episodes watched - mark as 'watching'
+    // Część odcinków obejrzana - oznacz jako 'watching'
     if (existingWatched) {
       await db.prepare(`
         UPDATE watched 
@@ -330,7 +330,7 @@ async function updateSeriesStatus(db, userId, seriesId) {
   }
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

@@ -1,6 +1,6 @@
-// API endpoint for movie search in D1 database
+// Endpoint API do wyszukiwania filmów w bazie danych D1
 
-// Helper function to ensure poster URLs use HTTPS
+// Funkcja pomocnicza zapewniająca, że adresy URL plakatów używają HTTPS
 function normalizePosterUrl(url) {
   if (!url) return null;
   if (url.startsWith('http://')) {
@@ -14,7 +14,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const method = request.method;
   
-  // CORS headers
+  // Nagłówki CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -40,7 +40,7 @@ export async function onRequest(context) {
     });
   }
 
-  // Check authentication
+  // Sprawdź uwierzytelnienie
   const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -50,7 +50,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Search in our D1 database
+    // Wyszukaj w naszej bazie danych D1
     const searchQuery = `%${query.toLowerCase()}%`;
     const result = await env.db.prepare(`
       SELECT 
@@ -70,7 +70,7 @@ export async function onRequest(context) {
       LIMIT 20
     `).bind(searchQuery, searchQuery, searchQuery).all();
 
-    // Transform to match frontend format
+    // Przekształć do formatu zgodnego z frontendem
     const transformedResults = result.results.map(row => ({
       id: `db_${row.id}`,
       title: row.title,
@@ -96,7 +96,7 @@ export async function onRequest(context) {
   }
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -108,7 +108,7 @@ async function getUserIdFromRequest(request) {
     const payload = JSON.parse(atob(token));
     
     if (payload.exp < Date.now()) {
-      return null; // Token expired
+      return null; // Token wygasł
     }
     
     return payload.userId;

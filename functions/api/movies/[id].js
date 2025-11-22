@@ -1,6 +1,6 @@
-// User endpoint for managing individual movies in their watch list
+// Endpoint użytkownika do zarządzania pojedynczymi filmami na jego liście do obejrzenia
 
-// Helper function to ensure poster URLs use HTTPS
+// Funkcja pomocnicza zapewniająca, że adresy URL plakatów używają HTTPS
 function normalizePosterUrl(url) {
   if (!url) return null;
   if (url.startsWith('http://')) {
@@ -24,11 +24,11 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Log for debugging
+  // Log do debugowania
   console.log(`[movies/[id].js] Method: ${method}, Movie ID: ${movieId}`);
 
   try {
-    // Check authentication
+    // Sprawdź uwierzytelnienie
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       console.error('[movies/[id].js] No userId found');
@@ -62,7 +62,7 @@ export async function onRequest(context) {
   }
 }
 
-// Get specific movie with user's review and watched status
+// Pobierz konkretny film z recenzją użytkownika i statusem obejrzenia
 async function handleGetMovie(db, userId, movieId, corsHeaders) {
   const query = `
     SELECT 
@@ -92,7 +92,7 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
     });
   }
 
-  // Transform to match frontend format
+  // Przekształć do formatu zgodnego z frontendem
   const transformedMovie = {
     id: movie.id,
     title: movie.title,
@@ -113,7 +113,7 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
   });
 }
 
-// Update movie (rating, review, watched status)
+// Zaktualizuj film (ocena, recenzja, status obejrzenia)
 async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
   let data;
   try {
@@ -126,7 +126,7 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
   }
   
   try {
-    // Verify movie exists
+    // Zweryfikuj, czy film istnieje
     const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
@@ -135,24 +135,24 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
       });
     }
     
-    // Update watched status based on status field
+    // Zaktualizuj status obejrzenia na podstawie pola status
     if (data.status) {
       const watchedDate = data.watchedDate || new Date().toISOString().split('T')[0];
       
-      // Check if watched record exists
+      // Sprawdź, czy rekord watched istnieje
       const existingWatched = await db.prepare(
         'SELECT id FROM watched WHERE user_id = ? AND movie_id = ?'
       ).bind(userId, movieId).first();
       
       if (existingWatched) {
-        // Update existing record with new status
+        // Zaktualizuj istniejący rekord nowym statusem
         await db.prepare(`
           UPDATE watched 
           SET watched_date = ?, status = ?
           WHERE user_id = ? AND movie_id = ?
         `).bind(watchedDate, data.status, userId, movieId).run();
       } else {
-        // Insert new record with status
+        // Wstaw nowy rekord ze statusem
         await db.prepare(`
           INSERT INTO watched (user_id, movie_id, watched_date, status)
           VALUES (?, ?, ?, ?)
@@ -160,30 +160,30 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
       }
     }
     
-    // Update review and rating
+    // Zaktualizuj recenzję i ocenę
     if (data.rating !== undefined) {
       if (data.rating > 0) {
-        // Check if review exists
+        // Sprawdź, czy recenzja istnieje
         const existingReview = await db.prepare(
           'SELECT id FROM reviews WHERE user_id = ? AND movie_id = ?'
         ).bind(userId, movieId).first();
         
         if (existingReview) {
-          // Update existing review
+          // Zaktualizuj istniejącą recenzję
           await db.prepare(`
             UPDATE reviews 
             SET content = ?, rating = ?, updated_at = datetime('now')
             WHERE user_id = ? AND movie_id = ?
           `).bind(data.review || '', data.rating, userId, movieId).run();
         } else {
-          // Insert new review
+          // Wstaw nową recenzję
           await db.prepare(`
             INSERT INTO reviews (user_id, movie_id, content, rating)
             VALUES (?, ?, ?, ?)
           `).bind(userId, movieId, data.review || '', data.rating).run();
         }
       } else {
-        // If rating is 0, remove the review
+        // Jeśli ocena wynosi 0, usuń recenzję
         await db.prepare(`
           DELETE FROM reviews WHERE user_id = ? AND movie_id = ?
         `).bind(userId, movieId).run();
@@ -206,10 +206,10 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
   }
 }
 
-// Delete movie from user's watched list (removes watched status and review, but not the movie itself)
+// Usuń film z listy obejrzanych użytkownika (usuwa status obejrzenia i recenzję, ale nie sam film)
 async function handleDeleteMovie(db, userId, movieId, corsHeaders) {
   try {
-    // Verify movie exists
+    // Zweryfikuj, czy film istnieje
     const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
@@ -218,12 +218,12 @@ async function handleDeleteMovie(db, userId, movieId, corsHeaders) {
       });
     }
     
-    // Remove from watched list
+    // Usuń z listy obejrzanych
     const watchedResult = await db.prepare('DELETE FROM watched WHERE user_id = ? AND movie_id = ?')
       .bind(userId, movieId)
       .run();
     
-    // Remove review
+    // Usuń recenzję
     const reviewResult = await db.prepare('DELETE FROM reviews WHERE user_id = ? AND movie_id = ?')
       .bind(userId, movieId)
       .run();
@@ -250,7 +250,7 @@ async function handleDeleteMovie(db, userId, movieId, corsHeaders) {
   }
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -262,7 +262,7 @@ async function getUserIdFromRequest(request) {
     const payload = JSON.parse(atob(token));
     
     if (payload.exp < Date.now()) {
-      return null; // Token expired
+      return null; // Token wygasł
     }
     
     return payload.userId;

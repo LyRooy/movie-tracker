@@ -1,4 +1,4 @@
-// MovieTracker App
+// Aplikacja MovieTracker
 class MovieTracker {
     constructor() {
         this.currentUser = null;
@@ -7,13 +7,14 @@ class MovieTracker {
         this.currentRating = 0;
         this.currentSection = 'dashboard';
         this.adminVerified = false;
-        this.currentView = 'grid'; // Track current view mode
+        this.currentView = 'grid'; // Śledź aktualny tryb widoku
+        this.tokenCheckInterval = null; // Sprawdzacz wygaśnięcia tokenu
         
         this.init();
     }
 
     async init() {
-        // Check if user is logged in
+        // Sprawdź czy użytkownik jest zalogowany
         await this.checkAuth();
         
         if (!this.currentUser) {
@@ -27,20 +28,20 @@ class MovieTracker {
         await this.loadMoviesData();
         this.setupTheme();
 
-        // Show admin section if user is admin
+        // Pokaż sekcję admina jeśli użytkownik jest adminem
         if (this.currentUser && this.currentUser.role === 'admin') {
             const adminSection = document.getElementById('admin');
             if (adminSection) adminSection.style.display = '';
         }
         
-        // Enable transitions after page load to prevent theme transition on load
+        // Włącz przejścia po załadowaniu strony, aby zapobiec przejściu motywu przy załadowaniu
         setTimeout(() => {
             document.body.classList.add('transitions-enabled');
         }, 100);
     }
 
     bindEvents() {
-        // Navigation
+        // Nawigacja
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -59,12 +60,12 @@ class MovieTracker {
             });
         });
 
-        // Theme toggle
+        // Przełącznik motywu
         document.getElementById('theme-toggle').addEventListener('click', () => {
             this.toggleTheme();
         });
 
-        // Logout button
+        // Przycisk wylogowania
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
@@ -72,7 +73,7 @@ class MovieTracker {
             });
         }
 
-        // Theme select in profile
+        // Wybór motywu w profilu
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
             themeSelect.addEventListener('change', (e) => {
@@ -80,7 +81,7 @@ class MovieTracker {
             });
         }
 
-        // Avatar upload
+        // Przesłanie awatara
         const avatarWrapper = document.getElementById('avatar-wrapper');
         const avatarUpload = document.getElementById('avatar-upload');
         if (avatarWrapper && avatarUpload) {
@@ -92,7 +93,7 @@ class MovieTracker {
             });
         }
 
-        // Search functionality
+        // Funkcjonalność wyszukiwania
         const searchBtn = document.getElementById('search-btn');
         const searchInput = document.getElementById('search-input');
         if (searchBtn) {
@@ -109,7 +110,7 @@ class MovieTracker {
             });
         }
 
-        // Filters
+        // Filtry
         const typeFilter = document.getElementById('type-filter');
         const genreFilter = document.getElementById('genre-filter');
         const yearFilter = document.getElementById('year-filter');
@@ -130,7 +131,7 @@ class MovieTracker {
             });
         }
 
-        // Modal events
+        // Zdarzenia modalne
         const closeBtn = document.querySelector('.close');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -145,7 +146,7 @@ class MovieTracker {
             }
         });
 
-        // Rating stars
+        // Gwiazdki oceny
         const starsContainer = document.querySelector('.stars');
         if (starsContainer) {
             starsContainer.querySelectorAll('i').forEach((star, index) => {
@@ -162,7 +163,7 @@ class MovieTracker {
             });
         }
 
-        // Add to list button (zmienione z add-to-watched na add-to-list)
+        // Przycisk dodawania do listy (zmienione z add-to-watched na add-to-list)
         const addToListBtn = document.getElementById('add-to-list');
         if (addToListBtn) {
             addToListBtn.addEventListener('click', () => {
@@ -170,7 +171,7 @@ class MovieTracker {
             });
         }
 
-        // Update item button
+        // Przycisk aktualizacji elementu
         const updateItemBtn = document.getElementById('update-item');
         if (updateItemBtn) {
             updateItemBtn.addEventListener('click', () => {
@@ -178,7 +179,7 @@ class MovieTracker {
             });
         }
 
-        // Remove from list button
+        // Przycisk usuwania z listy
         const removeFromListBtn = document.getElementById('remove-from-list');
         if (removeFromListBtn) {
             removeFromListBtn.addEventListener('click', () => {
@@ -186,21 +187,21 @@ class MovieTracker {
             });
         }
 
-        // Tab buttons for My List section
+        // Przyciski zakładek dla sekcji Moja Lista
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                // Remove active class from all tab buttons
+                // Usuń klasę active ze wszystkich przycisków zakładek
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                // Add active class to clicked button
+                // Dodaj klasę active do klikniętego przycisku
                 e.target.classList.add('active');
                 
-                // Filter list based on selected tab
+                // Filtruj listę na podstawie wybranej zakładki
                 const status = e.target.dataset.status;
                 this.filterMyList(status);
             });
         });
 
-        // View control buttons (grid/list view)
+        // Przyciski sterowania widokiem (widok siatki/listy)
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -209,17 +210,17 @@ class MovieTracker {
                 const button = e.currentTarget;
                 const viewMode = button.dataset.view;
                 
-                // Remove active class from all view buttons
+                // Usuń klasę active ze wszystkich przycisków widoku
                 document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-                // Add active class to clicked button
+                // Dodaj klasę active do klikniętego przycisku
                 button.classList.add('active');
                 
-                // Change view mode
+                // Zmień tryb widoku
                 this.changeViewMode(viewMode);
             });
         });
 
-        // Mobile menu
+        // Menu mobilne
         const hamburger = document.querySelector('.hamburger');
         const navMenu = document.querySelector('.nav-menu');
         if (hamburger && navMenu) {
@@ -237,10 +238,10 @@ class MovieTracker {
             });
         }
 
-        // Generate year options for filter
+        // Generuj opcje roku dla filtra
         this.generateYearOptions();
         
-        // List item clicks - delegate to container
+        // Kliknięcia elementów listy - deleguj do kontenera
         const myListContainer = document.getElementById('my-list-content');
         if (myListContainer) {
             myListContainer.addEventListener('click', (e) => {
@@ -258,7 +259,7 @@ class MovieTracker {
             });
         }
         
-        // Modal tab buttons
+        // Przyciski zakładek modalnych
         document.querySelectorAll('.modal-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tab = e.target.dataset.tab;
@@ -266,35 +267,35 @@ class MovieTracker {
             });
         });
         
-        // Admin panel bindings (if admin)
+        // Powiązania panelu admina (jeśli admin)
         if (this.currentUser && this.currentUser.role === 'admin') {
             this.bindAdminEvents();
         }
     }
 
     showSection(sectionName) {
-        // Admin panel requires password verification
+        // Panel admina wymaga weryfikacji hasła
         if (sectionName === 'admin' && !this.adminVerified) {
             this.showAdminPasswordPrompt();
             return;
         }
 
-        // Hide all sections
+        // Ukryj wszystkie sekcje
         document.querySelectorAll('.section').forEach(section => {
             section.classList.remove('active');
         });
 
-        // Show selected section
+        // Pokaż wybraną sekcję
         document.getElementById(sectionName).classList.add('active');
         this.currentSection = sectionName;
 
-        // Update navigation
+        // Zaktualizuj nawigację
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
         });
         document.querySelector(`[href="#${sectionName}"]`).classList.add('active');
 
-        // Load section-specific data
+        // Ładuj dane specyficzne dla sekcji
         if (sectionName === 'statistics') {
             this.loadCharts();
         } else if (sectionName === 'my-list') {
@@ -312,7 +313,7 @@ class MovieTracker {
             actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         
-        // Theme should already be set by inline script, just update the icon and select
+        // Motyw powinien być już ustawiony przez skrypt inline, po prostu zaktualizuj ikonę i wybór
         const themeIcon = document.querySelector('#theme-toggle i');
         if (themeIcon) {
             themeIcon.className = actualTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
@@ -320,10 +321,10 @@ class MovieTracker {
         
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
-            themeSelect.value = savedTheme; // Set the saved option, not actual theme
+            themeSelect.value = savedTheme; // Ustaw zapisaną opcję, nie rzeczywisty motyw
         }
         
-        // Listen for system theme changes when auto is selected
+        // Nasłuchuj zmian motywu systemowego gdy wybrano auto
         if (savedTheme === 'auto') {
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
                 if (localStorage.getItem('theme') === 'auto') {
@@ -342,25 +343,25 @@ class MovieTracker {
     changeTheme(theme) {
         let actualTheme = theme;
         
-        // Handle auto theme based on system preference
+        // Obsłuż automatyczny motyw na podstawie preferencji systemowych
         if (theme === 'auto') {
             actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         
-        // Update both body and html class for consistency
+        // Zaktualizuj zarówno klasę body jak i html dla spójności
         document.body.className = `${actualTheme}-theme transitions-enabled`;
         document.documentElement.className = `${actualTheme}-theme`;
         
-        // Save to localStorage (save the selected option, not the actual theme)
+        // Zapisz w localStorage (zapisz wybraną opcję, nie rzeczywisty motyw)
         localStorage.setItem('theme', theme);
         
-        // Update theme toggle button icon
+        // Zaktualizuj ikonę przycisku przełączania motywu
         const themeIcon = document.querySelector('#theme-toggle i');
         if (themeIcon) {
             themeIcon.className = actualTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
         }
         
-        // Update theme select in profile
+        // Zaktualizuj wybór motywu w profilu
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
             themeSelect.value = theme;
@@ -368,7 +369,7 @@ class MovieTracker {
         
         console.log('Theme changed to:', theme, '(actual:', actualTheme + ')');
 
-        // Persist the preference for logged-in users
+        // Zachowaj preferencję dla zalogowanych użytkowników
         if (this.authToken) {
             fetch('/api/auth/theme', {
                 method: 'POST',
@@ -382,7 +383,7 @@ class MovieTracker {
                 }
                 const json = await res.json();
                 if (json && json.user) {
-                    this.currentUser = json.user; // update cached user
+                    this.currentUser = json.user; // zaktualizuj buforowanego użytkownika
                 }
             }).catch(err => {
                 console.warn('Error saving theme preference:', err);
@@ -391,7 +392,7 @@ class MovieTracker {
     }
 
     loadUserData() {
-        // Update UI with current user data (loaded from auth)
+        // Zaktualizuj interfejs danymi bieżącego użytkownika (załadowane z uwierzytelnienia)
         if (this.currentUser) {
             document.getElementById('username').textContent = this.currentUser.nickname;
             const profileUsername = document.getElementById('profile-username');
@@ -400,13 +401,13 @@ class MovieTracker {
             if (profileUsername) profileUsername.textContent = this.currentUser.nickname;
             if (profileEmail) profileEmail.textContent = this.currentUser.email;
             
-            // Load avatar if exists
+            // Załaduj awatar jeśli istnieje
             const userAvatar = document.getElementById('user-avatar');
             if (userAvatar && this.currentUser.avatar_url) {
                 userAvatar.src = this.currentUser.avatar_url;
             }
 
-            // Show admin navigation if user is admin
+            // Pokaż nawigację admina jeśli użytkownik jest adminem
             if (this.currentUser.role === 'admin') {
                 const adminNavItem = document.getElementById('admin-nav-item');
                 if (adminNavItem) adminNavItem.style.display = 'block';
@@ -417,20 +418,20 @@ class MovieTracker {
     async uploadAvatar(file) {
         if (!file) return;
         
-        // Validate file type
+        // Zweryfikuj typ pliku
         if (!file.type.startsWith('image/')) {
             alert('Proszę wybrać plik obrazu');
             return;
         }
         
-        // Validate file size (max 2MB)
+        // Zweryfikuj rozmiar pliku (maks. 2MB)
         if (file.size > 2 * 1024 * 1024) {
             alert('Rozmiar pliku nie może przekraczać 2MB');
             return;
         }
         
         try {
-            // Create FormData
+            // Utwórz FormData
             const formData = new FormData();
             formData.append('avatar', file);
             
@@ -438,7 +439,7 @@ class MovieTracker {
                 method: 'POST',
                 headers: {
                     'Authorization': this.getAuthHeaders()['Authorization']
-                    // Don't set Content-Type - browser will set it with boundary for FormData
+                    // Nie ustawiaj Content-Type - przeglądarka ustawi go z granicą dla FormData
                 },
                 body: formData
             });
@@ -450,13 +451,13 @@ class MovieTracker {
             
             const data = await response.json();
             
-            // Update UI
+            // Zaktualizuj interfejs
             const userAvatar = document.getElementById('user-avatar');
             if (userAvatar) {
                 userAvatar.src = data.avatar_url;
             }
             
-            // Update current user
+            // Zaktualizuj bieżącego użytkownika
             this.currentUser.avatar_url = data.avatar_url;
             
             alert('Avatar został zaktualizowany!');
@@ -468,7 +469,7 @@ class MovieTracker {
 
     async loadMoviesData() {
         try {
-            // Load ALL movies (watched, watching, planning, dropped)
+            // Załaduj WSZYSTKIE filmy (obejrzane, oglądane, planowane, porzucone)
             const response = await fetch('/api/movies?status=all', {
                 headers: this.getAuthHeaders()
             });
@@ -503,7 +504,7 @@ class MovieTracker {
         listContainer.innerHTML = '';
 
         if (filteredItems.length === 0) {
-            // Remove grid class for empty state
+            // Usuń klasę siatki dla pustego stanu
             listContainer.classList.remove('my-list-grid');
             listContainer.innerHTML = `
                 <div class="empty-list">
@@ -515,14 +516,14 @@ class MovieTracker {
             return;
         }
 
-        // Add grid class when there are items
+        // Dodaj klasę siatki gdy są elementy
         listContainer.classList.add('my-list-grid');
 
         filteredItems.forEach(item => {
             const statusBadge = this.getStatusBadge(item.status || 'watched');
             const stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
             
-            // Progress info for series
+            // Informacje o postępie dla seriali
             const progressInfo = item.type === 'series' && item.totalEpisodes 
                 ? `<p class="series-progress">
                      <i class="fas fa-tv"></i> 
@@ -554,7 +555,7 @@ class MovieTracker {
             listContainer.innerHTML += listItemHtml;
         });
 
-        // Update stats
+        // Zaktualizuj statystyki
         this.updateListStats(filteredItems.length);
     }
 
@@ -624,7 +625,7 @@ class MovieTracker {
         }
 
         try {
-            // Use search API
+            // Użyj API wyszukiwania
             const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`, {
                 headers: this.getAuthHeaders()
             });
@@ -636,7 +637,7 @@ class MovieTracker {
                 console.warn('Search API failed, showing empty results');
             }
 
-            // Apply local filters
+            // Zastosuj lokalne filtry
             let filteredResults = results;
 
             if (typeFilter) {
@@ -704,7 +705,7 @@ class MovieTracker {
         document.getElementById('modal-genre').textContent = movie.genre;
         document.getElementById('modal-duration').textContent = movie.duration ? `${movie.duration} min` : '';
 
-        // Set status if available
+        // Ustaw status jeśli dostępny
         const statusSelect = document.getElementById('movie-status');
         if (statusSelect && movie.status) {
             statusSelect.value = movie.status;
@@ -712,31 +713,31 @@ class MovieTracker {
             statusSelect.value = '';
         }
 
-        // Set rating and review
+        // Ustaw ocenę i recenzję
         if (isEdit) {
             this.currentRating = movie.rating || 0;
             this.highlightStars(this.currentRating);
             document.getElementById('review-text').value = movie.review || '';
             
-            // Show update and remove buttons, hide add button
+            // Pokaż przyciski aktualizacji i usuwania, ukryj przycisk dodawania
             document.getElementById('add-to-list').style.display = 'none';
             document.getElementById('update-item').style.display = 'inline-block';
             document.getElementById('remove-from-list').style.display = 'inline-block';
             
-            // Switch to edit tab
+            // Przełącz na zakładkę edycji
             this.switchModalTab('edit');
         } else {
-            // Reset rating for new items
+            // Zresetuj ocenę dla nowych elementów
             this.currentRating = 0;
             this.highlightStars(0);
             document.getElementById('review-text').value = '';
             
-            // Show add button, hide update and remove buttons
+            // Pokaż przycisk dodawania, ukryj przyciski aktualizacji i usuwania
             document.getElementById('add-to-list').style.display = 'inline-block';
             document.getElementById('update-item').style.display = 'none';
             document.getElementById('remove-from-list').style.display = 'none';
             
-            // Switch to info tab
+            // Przełącz na zakładkę informacji
             this.switchModalTab('info');
         }
 
@@ -746,7 +747,7 @@ class MovieTracker {
     }
     
     switchModalTab(tabName) {
-        // Remove active class from all tabs and content
+        // Usuń klasę active ze wszystkich zakładek i zawartości
         document.querySelectorAll('.modal-tab-btn').forEach(btn => {
             btn.classList.remove('active');
         });
@@ -754,7 +755,7 @@ class MovieTracker {
             content.classList.remove('active');
         });
         
-        // Add active class to selected tab and content
+        // Dodaj klasę active do wybranej zakładki i zawartości
         const tabBtn = document.querySelector(`.modal-tab-btn[data-tab="${tabName}"]`);
         const tabContent = document.getElementById(`${tabName}-tab`);
         
@@ -844,7 +845,7 @@ class MovieTracker {
             });
 
             if (response.ok) {
-                // Reload movies data to refresh the list
+                // Przeładuj dane filmów, aby odświeżyć listę
                 await this.loadMoviesData();
                 this.closeModal();
                 this.showNotification('Film został zaktualizowany!');
@@ -878,7 +879,7 @@ class MovieTracker {
             });
 
             if (response.ok) {
-                // Reload movies data to refresh the list
+                // Przeładuj dane filmów, aby odświeżyć listę
                 await this.loadMoviesData();
                 this.closeModal();
                 this.showNotification(`Usunięto "${movie.title}" z listy`);
@@ -930,7 +931,7 @@ class MovieTracker {
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        // Mock upcoming premieres
+        // Mockowe nadchodzące premiery
         const premieres = [
             { date: '2024-02-15', title: 'Nowy film Marvel' },
             { date: '2024-02-20', title: 'Sezon 2 popularnego serialu' },
@@ -962,12 +963,12 @@ class MovieTracker {
         let html = '';
         const dayNames = ['Nie', 'Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob'];
         
-        // Add day headers
+        // Dodaj nagłówki dni
         dayNames.forEach(day => {
             html += `<div class="calendar-day-header">${day}</div>`;
         });
 
-        // Generate calendar days
+        // Generuj dni kalendarza
         for (let i = 0; i < 42; i++) {
             const currentDate = new Date(startDate);
             currentDate.setDate(startDate.getDate() + i);
@@ -1093,7 +1094,7 @@ class MovieTracker {
         }
     }
 
-    // Utility functions
+    // Funkcje pomocnicze
     formatDate(dateString) {
         const date = new Date(dateString);
         return date.toLocaleDateString('pl-PL');
@@ -1113,18 +1114,18 @@ class MovieTracker {
     }
 
     changeMonth(direction) {
-        // Implementation for month navigation
+        // Implementacja nawigacji po miesiącach
         console.log('Change month:', direction);
     }
 
     filterMyList(status) {
-        // Filter the list based on status
+        // Filtruj listę na podstawie statusu
         this.displayMyList(status);
         console.log('Filtering list by status:', status);
     }
 
     changeViewMode(viewMode) {
-        // Change between grid and list view
+        // Przełącz między widokiem siatki a widokiem listy
         this.currentView = viewMode;
         
         const myListContainer = document.getElementById('my-list-content');
@@ -1138,7 +1139,7 @@ class MovieTracker {
                 myListContainer.classList.remove('my-list-list');
             }
             
-            // Re-render the list with new view mode
+            // Przerysuj listę z nowym trybem widoku
             this.displayMyList();
         }
         
@@ -1146,11 +1147,11 @@ class MovieTracker {
     }
 
     editItem(itemId) {
-        // Find and edit item
+        // Znajdź i edytuj element
         const item = this.watchedMovies.find(movie => movie.id === itemId);
         if (item) {
             console.log('Editing item:', item);
-            // Open modal in edit mode
+            // Otwórz modal w trybie edycji
             this.openMovieModal(item, true);
         } else {
             console.error('Item not found:', itemId);
@@ -1159,7 +1160,7 @@ class MovieTracker {
     }
 
     async deleteItem(itemId) {
-        // Delete item from list
+        // Usuń element z listy
         const item = this.watchedMovies.find(movie => movie.id === itemId);
         
         if (!item) {
@@ -1178,7 +1179,7 @@ class MovieTracker {
             });
 
             if (response.ok) {
-                // Reload movies data to refresh the list
+                // Przeładuj dane filmów, aby odświeżyć listę
                 await this.loadMoviesData();
                 this.showNotification(`Usunięto "${item.title}" z listy`);
             } else {
@@ -1193,7 +1194,7 @@ class MovieTracker {
     }
 
     async openSeriesEpisodes(seriesId) {
-        // Open episodes modal for series
+        // Otwórz modal odcinków dla serialu
         const series = this.watchedMovies.find(movie => movie.id === seriesId);
         
         if (!series || series.type !== 'series') {
@@ -1202,7 +1203,7 @@ class MovieTracker {
         }
 
         try {
-            // Fetch episodes data
+            // Pobierz dane odcinków
             const response = await fetch(`/api/series/${seriesId}/episodes`, {
                 headers: this.getAuthHeaders()
             });
@@ -1213,7 +1214,7 @@ class MovieTracker {
 
             const data = await response.json();
             
-            // Open modal and populate with data
+            // Otwórz modal i wypełnij danymi
             const modal = document.getElementById('series-episodes-modal');
             const titleElement = document.getElementById('series-modal-title');
             const container = document.getElementById('series-seasons-container');
@@ -1221,7 +1222,7 @@ class MovieTracker {
             titleElement.textContent = series.title;
             container.innerHTML = '';
 
-            // Group episodes by season
+            // Grupuj odcinki według sezonu
             const seasonMap = new Map();
             data.episodes.forEach(episode => {
                 if (!seasonMap.has(episode.seasonNumber)) {
@@ -1230,7 +1231,7 @@ class MovieTracker {
                 seasonMap.get(episode.seasonNumber).push(episode);
             });
 
-            // Render seasons
+            // Renderuj sezony
             seasonMap.forEach((episodes, seasonNumber) => {
                 const watchedCount = episodes.filter(ep => ep.isWatched).length;
                 const totalCount = episodes.length;
@@ -1284,10 +1285,10 @@ class MovieTracker {
 
             const data = await response.json();
 
-            // Check if there were previous unwatched episodes
+            // Sprawdź czy były poprzednie nieobejrzane odcinki
             if (data.hasPreviousUnwatched && isChecked) {
                 if (confirm(`Odcinek ${episodeNumber} w sezonie ${seasonNumber} został zaznaczony. Czy oznaczyć poprzednie odcinki jako obejrzane?`)) {
-                    // Mark previous episodes as watched
+                    // Oznacz poprzednie odcinki jako obejrzane
                     const markPreviousResponse = await fetch(`/api/series/${seriesId}/episodes`, {
                         method: 'POST',
                         headers: {
@@ -1302,13 +1303,13 @@ class MovieTracker {
                     });
 
                     if (markPreviousResponse.ok) {
-                        // Reload the modal
+                        // Przeładuj modal
                         this.openSeriesEpisodes(seriesId);
                     }
                 }
             }
 
-            // Update the episode item display
+            // Zaktualizuj wyświetlanie elementu odcinka
             const episodeItem = document.querySelector(`.episode-item[data-episode-id="${episodeId}"]`);
             if (episodeItem) {
                 if (isChecked) {
@@ -1318,7 +1319,7 @@ class MovieTracker {
                 }
             }
 
-            // Reload movies data to update progress
+            // Przeładuj dane filmów, aby zaktualizować postęp
             await this.loadMoviesData();
             
         } catch (error) {
@@ -1327,10 +1328,17 @@ class MovieTracker {
         }
     }
 
-    // Authentication methods
+    // Metody uwierzytelniania
     async checkAuth() {
         this.authToken = localStorage.getItem('movieTrackerToken');
         if (this.authToken) {
+            // Sprawdź czy token wygasł przed wykonaniem wywołania API
+            if (this.isTokenExpired(this.authToken)) {
+                console.log('Token expired, logging out...');
+                this.logout();
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/auth/me', {
                     headers: { 'Authorization': `Bearer ${this.authToken}` }
@@ -1338,6 +1346,8 @@ class MovieTracker {
                 if (response.ok) {
                     const data = await response.json();
                     this.currentUser = data.user;
+                    // Uruchom sprawdzacz wygaśnięcia tokenu
+                    this.startTokenExpirationChecker();
                 } else {
                     localStorage.removeItem('movieTrackerToken');
                     this.authToken = null;
@@ -1347,6 +1357,49 @@ class MovieTracker {
                 localStorage.removeItem('movieTrackerToken');
                 this.authToken = null;
             }
+        }
+    }
+
+    isTokenExpired(token) {
+        try {
+            const payload = JSON.parse(atob(token));
+            return payload.exp < Date.now();
+        } catch (e) {
+            console.error('Invalid token format:', e);
+            return true; // Traktuj nieprawidłowy token jako wygasły
+        }
+    }
+
+    startTokenExpirationChecker() {
+        // Sprawdzaj wygaśnięcie tokenu co 5 minut
+        if (this.tokenCheckInterval) {
+            clearInterval(this.tokenCheckInterval);
+        }
+        
+        this.tokenCheckInterval = setInterval(() => {
+            if (this.isTokenExpired(this.authToken)) {
+                clearInterval(this.tokenCheckInterval);
+                alert('Twoja sesja wygasła. Zostaniesz wylogowany.');
+                this.logout();
+            }
+        }, 5 * 60 * 1000); // Check every 5 minutes
+        
+        // Also check 1 minute before expiration to warn user
+        const token = this.authToken;
+        try {
+            const payload = JSON.parse(atob(token));
+            const timeUntilExpiry = payload.exp - Date.now();
+            const oneMinuteBeforeExpiry = timeUntilExpiry - (60 * 1000);
+            
+            if (oneMinuteBeforeExpiry > 0) {
+                setTimeout(() => {
+                    if (!this.isTokenExpired(this.authToken)) {
+                        alert('Twoja sesja wygaśnie za minutę. Zapisz swoją pracę.');
+                    }
+                }, oneMinuteBeforeExpiry);
+            }
+        } catch (e) {
+            console.error('Error setting expiration warning:', e);
         }
     }
 
@@ -1453,6 +1506,10 @@ class MovieTracker {
     }
 
     logout() {
+        // Clear token check interval
+        if (this.tokenCheckInterval) {
+            clearInterval(this.tokenCheckInterval);
+        }
         localStorage.removeItem('movieTrackerToken');
         location.reload();
     }
@@ -1501,11 +1558,19 @@ class MovieTracker {
         document.querySelectorAll('#admin-badge-modal .close').forEach(btn => {
             btn.addEventListener('click', () => this.closeAdminModal('admin-badge-modal'));
         });
+        document.querySelectorAll('#admin-seasons-modal .close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAdminModal('admin-seasons-modal'));
+        });
 
         // Form submissions
         document.getElementById('admin-movie-form').addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveAdminMovie();
+        });
+        
+        document.getElementById('admin-seasons-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveSeasonsConfig();
         });
         
         // Show/hide series fields based on type
@@ -1517,7 +1582,6 @@ class MovieTracker {
                 const durationLabel = document.getElementById('duration-label');
                 
                 document.getElementById('series-fields').style.display = isSeries ? 'block' : 'none';
-                document.getElementById('series-episodes-field').style.display = isSeries ? 'block' : 'none';
                 
                 // Update duration field label based on type
                 if (isSeries) {
@@ -1732,7 +1796,7 @@ class MovieTracker {
         // Add series-specific fields
         if (movieType === 'series') {
             data.totalSeasons = parseInt(document.getElementById('admin-series-seasons').value) || 1;
-            data.episodesPerSeason = parseInt(document.getElementById('admin-series-episodes').value) || 10;
+            // Nie wysyłamy episodesPerSeason - będziemy konfigurować osobno
         }
 
         try {
@@ -1746,9 +1810,18 @@ class MovieTracker {
             });
 
             if (response.ok) {
+                const result = await response.json();
                 this.showNotification(id ? 'Film/serial zaktualizowany' : 'Film/serial dodany', 'success');
                 this.closeAdminModal('admin-movie-modal');
-                this.loadAdminMovies();
+                
+                // If it's a new series, open seasons config modal
+                if (!id && movieType === 'series') {
+                    const seriesId = result.id;
+                    const seasonCount = data.totalSeasons;
+                    this.showSeasonsConfigModal(seriesId, seasonCount, data.title);
+                } else {
+                    this.loadAdminMovies();
+                }
             } else {
                 const error = await response.json();
                 this.showNotification(error.error || 'Błąd podczas zapisywania', 'error');
@@ -1972,6 +2045,65 @@ class MovieTracker {
         } catch (error) {
             console.error('Error deleting badge:', error);
             this.showNotification('Błąd podczas usuwania odznaki', 'error');
+        }
+    }
+
+    showSeasonsConfigModal(seriesId, seasonCount, seriesTitle) {
+        const modal = document.getElementById('admin-seasons-modal');
+        const title = document.getElementById('admin-seasons-modal-title');
+        const container = document.getElementById('seasons-config-container');
+        
+        title.textContent = `Konfiguracja sezonów - ${seriesTitle}`;
+        document.getElementById('admin-seasons-series-id').value = seriesId;
+        
+        // Generate inputs for each season
+        container.innerHTML = '';
+        for (let i = 1; i <= seasonCount; i++) {
+            const seasonItem = document.createElement('div');
+            seasonItem.className = 'season-config-item';
+            seasonItem.innerHTML = `
+                <label>Sezon ${i}:</label>
+                <input type="number" 
+                       class="season-episodes-input" 
+                       data-season="${i}" 
+                       min="1" 
+                       value="10" 
+                       placeholder="Liczba odcinków"
+                       required>
+            `;
+            container.appendChild(seasonItem);
+        }
+        
+        modal.style.display = 'block';
+    }
+
+    async saveSeasonsConfig() {
+        const seriesId = document.getElementById('admin-seasons-series-id').value;
+        const inputs = document.querySelectorAll('.season-episodes-input');
+        
+        const seasons = Array.from(inputs).map(input => ({
+            seasonNumber: parseInt(input.dataset.season),
+            episodeCount: parseInt(input.value) || 10
+        }));
+        
+        try {
+            const response = await fetch(`/api/admin/movies/${seriesId}/seasons`, {
+                method: 'POST',
+                headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ seasons })
+            });
+            
+            if (response.ok) {
+                this.showNotification('Sezony skonfigurowane pomyślnie', 'success');
+                this.closeAdminModal('admin-seasons-modal');
+                this.loadAdminMovies();
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas zapisywania sezonów', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving seasons:', error);
+            this.showNotification('Błąd podczas zapisywania sezonów', 'error');
         }
     }
 

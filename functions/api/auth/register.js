@@ -1,8 +1,8 @@
-// User registration endpoint
+// Endpoint rejestracji użytkownika
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  // CORS headers
+  // Nagłówki CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -19,7 +19,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Check if user exists
+    // Sprawdź czy użytkownik istnieje
     const existingUser = await env.db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
     if (existingUser) {
       return new Response(JSON.stringify({ error: 'User already exists' }), {
@@ -28,10 +28,10 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Hash password
+    // Zahaszuj hasło
     const passwordHash = await hashPassword(password);
 
-    // Insert user
+    // Wstaw użytkownika
     const result = await env.db.prepare(`
       INSERT INTO users (nickname, email, password_hash)
       VALUES (?, ?, ?)
@@ -54,7 +54,7 @@ export async function onRequestPost(context) {
   }
 }
 
-// Handle OPTIONS for CORS
+// Obsługa OPTIONS dla CORS
 export async function onRequestOptions() {
   return new Response(null, {
     headers: {
@@ -65,7 +65,7 @@ export async function onRequestOptions() {
   });
 }
 
-// Hash password using PBKDF2 with salt
+// Zahaszuj hasło używając PBKDF2 z solą
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -91,12 +91,12 @@ async function hashPassword(password) {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const saltArray = Array.from(salt);
   
-  // Combine salt and hash
+  // Połącz sól i hasz
   return saltArray.concat(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Generate simple JWT-like token
+// Generuj prosty token podobny do JWT
 async function generateSimpleToken(userId, email) {
-  const payload = { userId, email, exp: Date.now() + (24 * 60 * 60 * 1000) }; // 24h
+  const payload = { userId, email, exp: Date.now() + (12 * 60 * 60 * 1000) }; // 12 godzin
   return btoa(JSON.stringify(payload));
 }

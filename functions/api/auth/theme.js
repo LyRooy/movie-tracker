@@ -1,4 +1,4 @@
-// Update current user's theme preference
+// Zaktualizuj preferencje motywu bieżącego użytkownika
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -41,7 +41,7 @@ export async function onRequestOptions() {
   });
 }
 
-// Extract user ID from Authorization header (same logic as other auth endpoints)
+// Wyciągnij ID użytkownika z nagłówka Authorization (taka sama logika jak w innych endpointach auth)
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

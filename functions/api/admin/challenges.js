@@ -1,4 +1,4 @@
-// Admin endpoint for managing challenges
+// Punkt końcowy admina do zarządzania wyzwaniami
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -14,7 +14,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check if user is admin
+    // Sprawdź czy użytkownik jest adminem
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -54,14 +54,14 @@ export async function onRequest(context) {
   }
 }
 
-// Get challenges (all or specific by ID)
+// Pobierz wyzwania (wszystkie lub konkretne według ID)
 async function handleGetChallenges(db, request, corsHeaders) {
   const url = new URL(request.url);
   const pathParts = url.pathname.split('/');
   const challengeId = pathParts[pathParts.length - 1] !== 'challenges' ? pathParts[pathParts.length - 1] : null;
 
   if (challengeId) {
-    // Get specific challenge
+    // Pobierz konkretne wyzwanie
     const challenge = await db.prepare('SELECT * FROM challenges WHERE id = ?').bind(challengeId).first();
     if (!challenge) {
       return new Response(JSON.stringify({ error: 'Challenge not found' }), {
@@ -74,7 +74,7 @@ async function handleGetChallenges(db, request, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } else {
-    // Get all challenges
+    // Pobierz wszystkie wyzwania
     const challenges = await db.prepare('SELECT * FROM challenges ORDER BY title').all();
     return new Response(JSON.stringify(challenges.results || []), {
       status: 200,
@@ -83,7 +83,7 @@ async function handleGetChallenges(db, request, corsHeaders) {
   }
 }
 
-// Create new challenge
+// Utwórz nowe wyzwanie
 async function handleCreateChallenge(db, request, corsHeaders) {
   const data = await request.json();
   
@@ -116,7 +116,7 @@ async function handleCreateChallenge(db, request, corsHeaders) {
   });
 }
 
-// Update existing challenge
+// Zaktualizuj istniejące wyzwanie
 async function handleUpdateChallenge(db, request, corsHeaders) {
   const data = await request.json();
   
@@ -181,7 +181,7 @@ async function handleUpdateChallenge(db, request, corsHeaders) {
   });
 }
 
-// Delete challenge
+// Usuń wyzwanie
 async function handleDeleteChallenge(db, request, corsHeaders) {
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
@@ -200,7 +200,7 @@ async function handleDeleteChallenge(db, request, corsHeaders) {
   });
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

@@ -1,4 +1,4 @@
-// Admin endpoint for managing individual challenges
+// Punkt końcowy admina do zarządzania pojedynczymi wyzwaniami
 export async function onRequest(context) {
   const { request, env, params } = context;
   const method = request.method;
@@ -15,7 +15,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check if user is admin
+    // Sprawdź czy użytkownik jest adminem
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -53,7 +53,7 @@ export async function onRequest(context) {
   }
 }
 
-// Get specific challenge
+// Pobierz konkretne wyzwanie
 async function handleGetChallenge(db, challengeId, corsHeaders) {
   const challenge = await db.prepare('SELECT * FROM challenges WHERE id = ?').bind(challengeId).first();
   
@@ -70,7 +70,7 @@ async function handleGetChallenge(db, challengeId, corsHeaders) {
   });
 }
 
-// Update challenge
+// Zaktualizuj wyzwanie
 async function handleUpdateChallenge(db, request, challengeId, corsHeaders) {
   const data = await request.json();
   
@@ -130,9 +130,9 @@ async function handleUpdateChallenge(db, request, challengeId, corsHeaders) {
   });
 }
 
-// Delete challenge
+// Usuń wyzwanie
 async function handleDeleteChallenge(db, challengeId, corsHeaders) {
-  // Check if challenge has participants
+  // Sprawdź czy wyzwanie ma uczestników
   const participants = await db.prepare('SELECT COUNT(*) as count FROM challenge_participants WHERE challenge_id = ?').bind(challengeId).first();
   
   if (participants.count > 0) {
@@ -152,7 +152,7 @@ async function handleDeleteChallenge(db, challengeId, corsHeaders) {
   });
 }
 
-// Extract user ID from JWT token
+// Wyodrębnij ID użytkownika z tokenu JWT
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

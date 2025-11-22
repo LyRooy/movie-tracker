@@ -1,4 +1,4 @@
-// Debug endpoint to check authentication status
+// Punkt końcowy debugowania do sprawdzania stanu uwierzytelnienia
 export async function onRequest(context) {
   const { request, env } = context;
   

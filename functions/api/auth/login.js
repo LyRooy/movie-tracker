@@ -1,8 +1,8 @@
-// User login endpoint
+// Endpoint logowania użytkownika
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  // CORS headers
+  // Nagłówki CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -19,7 +19,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Find user by email or nickname
+    // Znajdź użytkownika po emailu lub nicku
     const user = await env.db.prepare('SELECT * FROM users WHERE email = ? OR nickname = ?').bind(emailOrUsername, emailOrUsername).first();
     if (!user) {
       return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
@@ -28,7 +28,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Check password
+    // Sprawdź hasło
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
       return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
@@ -58,7 +58,7 @@ export async function onRequestPost(context) {
   }
 }
 
-// Handle OPTIONS for CORS
+// Obsługa OPTIONS dla CORS
 export async function onRequestOptions() {
   return new Response(null, {
     headers: {
@@ -69,7 +69,7 @@ export async function onRequestOptions() {
   });
 }
 
-// Verify password against hash
+// Weryfikuj hasło względem hasza
 async function verifyPassword(password, storedHash) {
   const encoder = new TextEncoder();
   const hashBytes = storedHash.match(/.{2}/g).map(byte => parseInt(byte, 16));
@@ -97,7 +97,7 @@ async function verifyPassword(password, storedHash) {
   
   const newHash = new Uint8Array(hashBuffer);
   
-  // Compare hashes
+  // Porównaj hasze
   if (hash.length !== newHash.length) return false;
   for (let i = 0; i < hash.length; i++) {
     if (hash[i] !== newHash[i]) return false;
@@ -105,8 +105,8 @@ async function verifyPassword(password, storedHash) {
   return true;
 }
 
-// Generate simple JWT-like token
+// Generuj prosty token podobny do JWT
 async function generateSimpleToken(userId, email) {
-  const payload = { userId, email, exp: Date.now() + (24 * 60 * 60 * 1000) }; // 24h
+  const payload = { userId, email, exp: Date.now() + (12 * 60 * 60 * 1000) }; // 12 godzin
   return btoa(JSON.stringify(payload));
 }

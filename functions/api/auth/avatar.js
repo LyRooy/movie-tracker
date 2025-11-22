@@ -1,4 +1,4 @@
-// Upload user avatar to R2
+// Prześlij awatar użytkownika do R2
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -17,7 +17,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Parse FormData
+    // Parsuj FormData
     const formData = await request.formData();
     const file = formData.get('avatar');
 
@@ -28,7 +28,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Validate file type
+    // Waliduj typ pliku
     if (!file.type.startsWith('image/')) {
       return new Response(JSON.stringify({ error: 'Invalid image format. Only images allowed.' }), {
         status: 400,
@@ -36,7 +36,7 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Validate file size (max 2MB)
+    // Waliduj rozmiar pliku (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       return new Response(JSON.stringify({ error: 'File size must be less than 2MB' }), {
         status: 400,
@@ -44,11 +44,11 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Generate unique filename
+    // Wygeneruj unikalną nazwę pliku
     const extension = file.name.split('.').pop() || 'jpg';
     const filename = `avatars/${userId}-${Date.now()}.${extension}`;
 
-    // Upload to R2
+    // Prześlij do R2
     const arrayBuffer = await file.arrayBuffer();
     await env.AVATARS.put(filename, arrayBuffer, {
       httpMetadata: {
@@ -56,11 +56,11 @@ export async function onRequestPost(context) {
       },
     });
 
-    // Get public URL (assuming custom domain or R2.dev URL)
+    // Pobierz publiczny URL (zakładając własną domenę lub URL R2.dev)
     // Format: https://pub-xxxxx.r2.dev/avatars/user-timestamp.jpg
     const avatarUrl = `${env.R2_PUBLIC_URL}/${filename}`;
 
-    // Delete old avatar if exists
+    // Usuń stary awatar jeśli istnieje
     const oldUser = await env.db.prepare('SELECT avatar_url FROM users WHERE id = ?')
       .bind(userId).first();
     
@@ -73,7 +73,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Update user's avatar_url in database
+    // Zaktualizuj avatar_url użytkownika w bazie danych
     await env.db.prepare(`
       UPDATE users 
       SET avatar_url = ? 
@@ -98,7 +98,7 @@ export async function onRequestPost(context) {
   }
 }
 
-// Handle OPTIONS for CORS
+// Obsługa OPTIONS dla CORS
 export async function onRequestOptions() {
   return new Response(null, {
     headers: {
@@ -109,7 +109,7 @@ export async function onRequestOptions() {
   });
 }
 
-// Helper function to get user ID from JWT token
+// Funkcja pomocnicza do pobierania ID użytkownika z tokena JWT
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -121,7 +121,7 @@ async function getUserIdFromRequest(request) {
     const payload = JSON.parse(atob(token));
     
     if (payload.exp < Date.now()) {
-      return null; // Token expired
+      return null; // Token wygasł
     }
     
     return payload.userId;

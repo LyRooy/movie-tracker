@@ -1,4 +1,4 @@
-// Admin endpoint for managing badges
+// Endpoint administracyjny do zarządzania odznakami
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -14,7 +14,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check if user is admin
+    // Sprawdź czy użytkownik jest administratorem
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -54,14 +54,14 @@ export async function onRequest(context) {
   }
 }
 
-// Get badges (all or specific by ID)
+// Pobierz odznaki (wszystkie lub konkretną po ID)
 async function handleGetBadges(db, request, corsHeaders) {
   const url = new URL(request.url);
   const pathParts = url.pathname.split('/');
   const badgeId = pathParts[pathParts.length - 1] !== 'badges' ? pathParts[pathParts.length - 1] : null;
 
   if (badgeId) {
-    // Get specific badge
+    // Pobierz konkretną odznakę
     const badge = await db.prepare('SELECT * FROM badges WHERE id = ?').bind(badgeId).first();
     if (!badge) {
       return new Response(JSON.stringify({ error: 'Badge not found' }), {
@@ -74,7 +74,7 @@ async function handleGetBadges(db, request, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } else {
-    // Get all badges
+    // Pobierz wszystkie odznaki
     const result = await db.prepare('SELECT * FROM badges ORDER BY created_at DESC').all();
     return new Response(JSON.stringify(result.results || []), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -82,7 +82,7 @@ async function handleGetBadges(db, request, corsHeaders) {
   }
 }
 
-// Create new badge
+// Utwórz nową odznakę
 async function handleCreateBadge(db, request, corsHeaders) {
   const data = await request.json();
   
@@ -110,7 +110,7 @@ async function handleCreateBadge(db, request, corsHeaders) {
   });
 }
 
-// Update existing badge
+// Zaktualizuj istniejącą odznakę
 async function handleUpdateBadge(db, request, corsHeaders) {
   const data = await request.json();
   
@@ -155,7 +155,7 @@ async function handleUpdateBadge(db, request, corsHeaders) {
   });
 }
 
-// Delete badge
+// Usuń odznakę
 async function handleDeleteBadge(db, request, corsHeaders) {
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
@@ -167,7 +167,7 @@ async function handleDeleteBadge(db, request, corsHeaders) {
     });
   }
 
-  // Check if badge is used in challenges
+  // Sprawdź czy odznaka jest używana w wyzwaniach
   const usedInChallenges = await db.prepare('SELECT id FROM challenges WHERE badge_id = ? LIMIT 1').bind(id).first();
   if (usedInChallenges) {
     return new Response(JSON.stringify({ error: 'Cannot delete badge that is used in challenges' }), {
@@ -183,7 +183,7 @@ async function handleDeleteBadge(db, request, corsHeaders) {
   });
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

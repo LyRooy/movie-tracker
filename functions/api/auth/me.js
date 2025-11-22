@@ -1,8 +1,8 @@
-// Get current user info
+// Pobierz informacje o bieżącym użytkowniku
 export async function onRequestGet(context) {
   const { request, env } = context;
 
-  // CORS headers
+  // Nagłówki CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -37,7 +37,7 @@ export async function onRequestGet(context) {
   }
 }
 
-// Handle OPTIONS for CORS
+// Obsługa OPTIONS dla CORS
 export async function onRequestOptions() {
   return new Response(null, {
     headers: {
@@ -48,7 +48,7 @@ export async function onRequestOptions() {
   });
 }
 
-// Extract user ID from Authorization header
+// Wyciągnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -60,7 +60,7 @@ async function getUserIdFromRequest(request) {
     const payload = JSON.parse(atob(token));
     
     if (payload.exp < Date.now()) {
-      return null; // Token expired
+      return null; // Token wygasł
     }
     
     return payload.userId;

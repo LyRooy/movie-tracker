@@ -488,10 +488,7 @@
                     <div class="form-group" id="series-fields" style="display: none;">
                         <label>Liczba sezonów:</label>
                         <input type="number" id="admin-series-seasons" min="1" value="1">
-                    </div>
-                    <div class="form-group" id="series-episodes-field" style="display: none;">
-                        <label>Średnia liczba odcinków na sezon:</label>
-                        <input type="number" id="admin-series-episodes" min="1" value="10">
+                        <small class="form-hint">Po zapisaniu będziesz mógł skonfigurować odcinki dla każdego sezonu osobno</small>
                     </div>
                     <div class="form-group">
                         <label>Rok:</label>
@@ -516,6 +513,27 @@
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary close">Anuluj</button>
                         <button type="submit" class="btn btn-primary">Zapisz</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Series Seasons Modal -->
+    <div id="admin-seasons-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <h3 id="admin-seasons-modal-title">Konfiguracja sezonów</h3>
+                <p class="modal-subtitle">Podaj liczbę odcinków dla każdego sezonu</p>
+                <form id="admin-seasons-form">
+                    <input type="hidden" id="admin-seasons-series-id">
+                    <div id="seasons-config-container">
+                        <!-- Season inputs will be generated here -->
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary close">Pomiń</button>
+                        <button type="submit" class="btn btn-primary">Zapisz sezony</button>
                     </div>
                 </form>
             </div>

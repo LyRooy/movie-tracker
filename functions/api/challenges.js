@@ -1,10 +1,10 @@
-// API endpoint for viewing challenges
+// Endpoint API do przeglądania wyzwań
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const method = request.method;
 
-  // CORS headers
+  // Nagłówki CORS
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -23,7 +23,7 @@ export async function onRequest(context) {
   }
 
   try {
-    // Check authentication
+    // Sprawdź uwierzytelnienie
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -32,7 +32,7 @@ export async function onRequest(context) {
       });
     }
     
-    // Get challenges with progress
+    // Pobierz wyzwania z postępem
     const result = await env.db.prepare(`
       SELECT 
         c.id,
@@ -66,7 +66,7 @@ export async function onRequest(context) {
       ORDER BY c.end_date ASC
     `).bind(userId).all();
 
-    // Transform to frontend format
+    // Przekształć do formatu zgodnego z frontendem
     const challenges = result.results.map(row => ({
       id: row.id,
       title: row.title,
@@ -91,7 +91,7 @@ export async function onRequest(context) {
   }
 }
 
-// Extract user ID from Authorization header
+// Wyodrębnij ID użytkownika z nagłówka Authorization
 async function getUserIdFromRequest(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -103,7 +103,7 @@ async function getUserIdFromRequest(request) {
     const payload = JSON.parse(atob(token));
     
     if (payload.exp < Date.now()) {
-      return null; // Token expired
+      return null; // Token wygasł
     }
     
     return payload.userId;

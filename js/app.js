@@ -532,6 +532,22 @@ class MovieTracker {
                 alert('Strona ze wszystkimi odznakami będzie dostępna wkrótce!');
             });
         }
+
+        // Zmiana hasła
+        const changePasswordBtn = document.getElementById('change-password-btn');
+        if (changePasswordBtn) {
+            changePasswordBtn.addEventListener('click', () => {
+                this.showChangePasswordModal();
+            });
+        }
+
+        // Usunięcie konta
+        const deleteAccountBtn = document.getElementById('delete-account-btn');
+        if (deleteAccountBtn) {
+            deleteAccountBtn.addEventListener('click', () => {
+                this.showDeleteAccountModal();
+            });
+        }
     }
 
     switchProfileTab(tabName) {
@@ -603,7 +619,7 @@ class MovieTracker {
 
         container.innerHTML = badges.map(badge => `
             <div class="badge-item">
-                <img src="${badge.imageUrl}" alt="${badge.name}">
+                <img src="${badge.imageUrl || '/images/default-badge.png'}" alt="${badge.name}">
                 <h4>${badge.name}</h4>
                 <span class="badge-level ${badge.level}">${this.getBadgeLevelText(badge.level)}</span>
             </div>
@@ -934,6 +950,61 @@ class MovieTracker {
         if (days < 30) return `${Math.floor(days / 7)} tyg. temu`;
         if (days < 365) return `${Math.floor(days / 30)} mies. temu`;
         return date.toLocaleDateString('pl-PL');
+    }
+
+    showChangePasswordModal() {
+        // TODO: Implementacja modalnego okna zmiany hasła
+        const oldPassword = prompt('Wprowadź stare hasło:');
+        if (!oldPassword) return;
+
+        const newPassword = prompt('Wprowadź nowe hasło (min. 6 znaków):');
+        if (!newPassword || newPassword.length < 6) {
+            alert('Hasło musi mieć minimum 6 znaków');
+            return;
+        }
+
+        const confirmPassword = prompt('Potwierdź nowe hasło:');
+        if (newPassword !== confirmPassword) {
+            alert('Hasła nie są identyczne');
+            return;
+        }
+
+        // TODO: Wywołanie API zmiany hasła
+        alert('Funkcja zmiany hasła będzie dostępna wkrótce');
+    }
+
+    showDeleteAccountModal() {
+        const confirmation = prompt(
+            'UWAGA! Ta operacja jest nieodwracalna!\n\n' +
+            'Wszystkie Twoje dane, filmy, recenzje i postępy zostaną trwale usunięte.\n\n' +
+            'Aby potwierdzić usunięcie konta, wpisz: USUN KONTO'
+        );
+
+        if (confirmation === 'USUN KONTO') {
+            this.deleteAccount();
+        } else if (confirmation !== null) {
+            alert('Nieprawidłowe potwierdzenie. Konto nie zostało usunięte.');
+        }
+    }
+
+    async deleteAccount() {
+        try {
+            const response = await fetch('/api/auth/delete', {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Nie udało się usunąć konta');
+            }
+
+            alert('Konto zostało usunięte. Żegnamy!');
+            this.logout();
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            alert('Błąd podczas usuwania konta: ' + error.message);
+        }
     }
 
     // ============= KONIEC FUNKCJI PROFILU =============

@@ -97,20 +97,18 @@ async function handleGetFriends(db, userId, url, corsHeaders) {
   const result = await db.prepare(query).bind(...params).all();
 
   const friends = result.results.map(row => ({
-    friendshipId: row.friendship_id,
+    friendship_id: row.friendship_id,
     status: row.status,
-    requestedAt: row.requested_at,
-    respondedAt: row.responded_at,
-    requestDirection: row.request_direction,
-    user: {
-      id: row.friend_id,
-      nickname: row.nickname,
-      avatarUrl: row.avatar_url,
-      description: row.description
-    }
+    requested_at: row.requested_at,
+    responded_at: row.responded_at,
+    request_direction: row.request_direction,
+    user_id: row.friend_id,
+    nickname: row.nickname,
+    avatar_url: row.avatar_url,
+    description: row.description
   }));
 
-  return new Response(JSON.stringify({ friends }), {
+  return new Response(JSON.stringify(friends), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });

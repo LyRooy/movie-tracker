@@ -53,9 +53,11 @@ export async function onRequest(context) {
       id: badge.id,
       name: badge.name,
       description: badge.description,
-      imageUrl: badge.image_url.startsWith('http') 
+      imageUrl: badge.image_url && badge.image_url.startsWith('http') 
         ? badge.image_url 
-        : `${env.R2_PUBLIC_URL_BADGES}/${badge.image_url}`,
+        : badge.image_url 
+          ? `${env.R2_PUBLIC_URL_BADGES}/${badge.image_url}`
+          : null,
       level: badge.level,
       earnedAt: badge.earned_at,
       challengeParticipantId: badge.challenge_participant_id

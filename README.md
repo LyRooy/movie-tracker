@@ -104,7 +104,9 @@ functions/
 │   │   ├── login.js                 # Logowanie
 │   │   ├── register.js              # Rejestracja
 │   │   ├── me.js                    # Dane użytkownika
-│   │   └── theme.js                 # Zmiana motywu
+│   │   ├── avatar.js                # Upload avatara
+│   │   ├── theme.js                 # Zmiana motywu
+│   │   └── delete.js                # Usunięcie konta
 │   └── users/
 │       └── search.js                # Wyszukiwanie użytkowników
 ```
@@ -367,6 +369,8 @@ wrangler pages deploy
 - `POST /api/auth/login` - Logowanie
 - `GET /api/auth/me` - Dane zalogowanego użytkownika
 - `PUT /api/auth/theme` - Zmiana motywu
+- `POST /api/auth/avatar` - Przesyłanie avatara (FormData)
+- `DELETE /api/auth/delete` - Usunięcie konta (wymaga potwierdzenia "USUN KONTO")
 
 ### Filmy i Seriale
 - `GET /api/movies` - Lista filmów użytkownika

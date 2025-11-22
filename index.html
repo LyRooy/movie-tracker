@@ -377,11 +377,17 @@
     <div id="movie-modal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <div class="modal-body">
+            <div class="modal-header">
                 <div class="movie-poster">
                     <img id="modal-poster" src="" alt="Poster">
                 </div>
-                <div class="movie-details">
+            </div>
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" data-tab="info">Informacje</button>
+                <button class="modal-tab-btn" data-tab="edit">Edycja</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-tab-content active" id="info-tab">
                     <h2 id="modal-title"></h2>
                     <p id="modal-description"></p>
                     <div class="movie-meta">
@@ -389,6 +395,8 @@
                         <span id="modal-genre"></span>
                         <span id="modal-duration"></span>
                     </div>
+                </div>
+                <div class="modal-tab-content" id="edit-tab">
                     <div class="status-section">
                         <label>Status:</label>
                         <select id="movie-status">
@@ -416,8 +424,21 @@
                     <div class="modal-actions">
                         <button id="add-to-list" class="btn btn-primary">Dodaj do listy</button>
                         <button id="update-item" class="btn btn-primary" style="display: none;">Aktualizuj</button>
-                        <button id="remove-from-list" class="btn btn-secondary" style="display: none;">Usuń z listy</button>
+                        <button id="remove-from-list" class="btn btn-danger" style="display: none;">Usuń z listy</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Series Episodes Modal -->
+    <div id="series-episodes-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <h2 id="series-modal-title"></h2>
+                <div id="series-seasons-container">
+                    <!-- Seasons and episodes will be loaded here -->
                 </div>
             </div>
         </div>
@@ -464,6 +485,14 @@
                             <option value="series">Serial</option>
                         </select>
                     </div>
+                    <div class="form-group" id="series-fields" style="display: none;">
+                        <label>Liczba sezonów:</label>
+                        <input type="number" id="admin-series-seasons" min="1" value="1">
+                    </div>
+                    <div class="form-group" id="series-episodes-field" style="display: none;">
+                        <label>Średnia liczba odcinków na sezon:</label>
+                        <input type="number" id="admin-series-episodes" min="1" value="10">
+                    </div>
                     <div class="form-group">
                         <label>Rok:</label>
                         <input type="number" id="admin-movie-year" min="1900" max="2100">
@@ -472,8 +501,8 @@
                         <label>Gatunek:</label>
                         <input type="text" id="admin-movie-genre">
                     </div>
-                    <div class="form-group">
-                        <label>Czas trwania (minuty):</label>
+                    <div class="form-group" id="duration-field">
+                        <label id="duration-label">Czas trwania (minuty):</label>
                         <input type="number" id="admin-movie-duration" min="0">
                     </div>
                     <div class="form-group">

@@ -7,6 +7,7 @@ class MovieTracker {
         this.currentRating = 0;
         this.currentSection = 'dashboard';
         this.adminVerified = false;
+        this.currentView = 'grid'; // Track current view mode
         
         this.init();
     }
@@ -190,13 +191,18 @@ class MovieTracker {
         // View control buttons (grid/list view)
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const button = e.currentTarget;
+                const viewMode = button.dataset.view;
+                
                 // Remove active class from all view buttons
                 document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
                 // Add active class to clicked button
-                e.target.classList.add('active');
+                button.classList.add('active');
                 
                 // Change view mode
-                const viewMode = e.target.dataset.view;
                 this.changeViewMode(viewMode);
             });
         });
@@ -221,6 +227,32 @@ class MovieTracker {
 
         // Generate year options for filter
         this.generateYearOptions();
+        
+        // List item clicks - delegate to container
+        const myListContainer = document.getElementById('my-list-content');
+        if (myListContainer) {
+            myListContainer.addEventListener('click', (e) => {
+                const listItem = e.target.closest('.list-item');
+                if (listItem) {
+                    const itemId = parseInt(listItem.dataset.id);
+                    const itemType = listItem.dataset.type;
+                    
+                    if (itemType === 'series') {
+                        this.openSeriesEpisodes(itemId);
+                    } else {
+                        this.editItem(itemId);
+                    }
+                }
+            });
+        }
+        
+        // Modal tab buttons
+        document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                this.switchModalTab(tab);
+            });
+        });
         
         // Admin panel bindings (if admin)
         if (this.currentUser && this.currentUser.role === 'admin') {
@@ -420,24 +452,33 @@ class MovieTracker {
             const statusBadge = this.getStatusBadge(item.status || 'watched');
             const stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
             
+            // Progress info for series
+            const progressInfo = item.type === 'series' && item.totalEpisodes 
+                ? `<p class="series-progress">
+                     <i class="fas fa-tv"></i> 
+                     ${item.watchedEpisodes || 0}/${item.totalEpisodes} odcinków (${item.progress || 0}%)
+                     <div class="progress-bar">
+                       <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
+                     </div>
+                   </p>`
+                : '';
+            
+            const viewClass = this.currentView === 'list' ? 'list-item-list' : 'list-item-grid';
             const listItemHtml = `
-                <div class="list-item list-item-grid" data-status="${item.status || 'watched'}">
+                <div class="list-item ${viewClass}" data-status="${item.status || 'watched'}" data-id="${item.id}" data-type="${item.type}">
                     ${statusBadge}
-                    <img src="${item.poster}" alt="${item.title}">
-                    <div class="list-item-content">
+                    <img src="${item.poster}" alt="${item.title}" class="list-item-poster">
+                    ${this.currentView === 'list' ? `
+                    <div class="list-item-info">
                         <h3>${item.title}</h3>
                         <p>${item.year} • ${item.genre} • ${item.type === 'movie' ? 'Film' : 'Serial'}</p>
-                        <p>Obejrzano: ${new Date(item.watchedDate).toLocaleDateString('pl-PL')}</p>
-                        <div class="list-item-meta">
-                            <div class="list-item-rating">
-                                <span class="stars">${stars}</span>
-                                <span>${item.rating}/5</span>
-                            </div>
-                        </div>
-                        <div class="list-item-actions">
-                            <button class="action-btn edit-btn" onclick="app.editItem(${item.id})">Edytuj</button>
+                        ${progressInfo}
+                        <div class="list-item-rating">
+                            <span class="stars">${stars}</span>
+                            <span>${item.rating}/5</span>
                         </div>
                     </div>
+                    ` : ''}
                 </div>
             `;
             listContainer.innerHTML += listItemHtml;
@@ -611,6 +652,9 @@ class MovieTracker {
             document.getElementById('add-to-list').style.display = 'none';
             document.getElementById('update-item').style.display = 'inline-block';
             document.getElementById('remove-from-list').style.display = 'inline-block';
+            
+            // Switch to edit tab
+            this.switchModalTab('edit');
         } else {
             // Reset rating for new items
             this.currentRating = 0;
@@ -621,11 +665,31 @@ class MovieTracker {
             document.getElementById('add-to-list').style.display = 'inline-block';
             document.getElementById('update-item').style.display = 'none';
             document.getElementById('remove-from-list').style.display = 'none';
+            
+            // Switch to info tab
+            this.switchModalTab('info');
         }
 
         modal.style.display = 'block';
         modal.currentMovie = movie;
         modal.isEditMode = isEdit;
+    }
+    
+    switchModalTab(tabName) {
+        // Remove active class from all tabs and content
+        document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelectorAll('.modal-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        // Add active class to selected tab and content
+        const tabBtn = document.querySelector(`.modal-tab-btn[data-tab="${tabName}"]`);
+        const tabContent = document.getElementById(`${tabName}-tab`);
+        
+        if (tabBtn) tabBtn.classList.add('active');
+        if (tabContent) tabContent.classList.add('active');
     }
 
     closeModal() {
@@ -991,27 +1055,24 @@ class MovieTracker {
 
     changeViewMode(viewMode) {
         // Change between grid and list view
-        const myListContainer = document.querySelector('.my-list-grid');
-        const listItems = document.querySelectorAll('.list-item');
+        this.currentView = viewMode;
+        
+        const myListContainer = document.getElementById('my-list-content');
         
         if (myListContainer) {
             if (viewMode === 'list') {
                 myListContainer.classList.add('my-list-list');
                 myListContainer.classList.remove('my-list-grid');
-                listItems.forEach(item => {
-                    item.classList.add('list-item-list');
-                    item.classList.remove('list-item-grid');
-                });
             } else {
                 myListContainer.classList.add('my-list-grid');
                 myListContainer.classList.remove('my-list-list');
-                listItems.forEach(item => {
-                    item.classList.add('list-item-grid');
-                    item.classList.remove('list-item-list');
-                });
             }
+            
+            // Re-render the list with new view mode
+            this.displayMyList();
         }
-        console.log('Changing view mode to:', viewMode);
+        
+        console.log('Changed view mode to:', viewMode);
     }
 
     editItem(itemId) {
@@ -1058,6 +1119,141 @@ class MovieTracker {
         } catch (error) {
             console.error('Error deleting movie:', error);
             this.showNotification('Błąd podczas usuwania filmu. Spróbuj ponownie.');
+        }
+    }
+
+    async openSeriesEpisodes(seriesId) {
+        // Open episodes modal for series
+        const series = this.watchedMovies.find(movie => movie.id === seriesId);
+        
+        if (!series || series.type !== 'series') {
+            this.showNotification('Nie znaleziono serialu.');
+            return;
+        }
+
+        try {
+            // Fetch episodes data
+            const response = await fetch(`/api/series/${seriesId}/episodes`, {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch episodes');
+            }
+
+            const data = await response.json();
+            
+            // Open modal and populate with data
+            const modal = document.getElementById('series-episodes-modal');
+            const titleElement = document.getElementById('series-modal-title');
+            const container = document.getElementById('series-seasons-container');
+            
+            titleElement.textContent = series.title;
+            container.innerHTML = '';
+
+            // Group episodes by season
+            const seasonMap = new Map();
+            data.episodes.forEach(episode => {
+                if (!seasonMap.has(episode.seasonNumber)) {
+                    seasonMap.set(episode.seasonNumber, []);
+                }
+                seasonMap.get(episode.seasonNumber).push(episode);
+            });
+
+            // Render seasons
+            seasonMap.forEach((episodes, seasonNumber) => {
+                const watchedCount = episodes.filter(ep => ep.isWatched).length;
+                const totalCount = episodes.length;
+                
+                const seasonDiv = document.createElement('div');
+                seasonDiv.className = 'season-section';
+                seasonDiv.innerHTML = `
+                    <div class="season-header" onclick="this.nextElementSibling.classList.toggle('active')">
+                        <h3>Sezon ${seasonNumber}</h3>
+                        <span class="season-progress">${watchedCount}/${totalCount} odcinków</span>
+                    </div>
+                    <div class="season-episodes">
+                        ${episodes.map(episode => `
+                            <div class="episode-item ${episode.isWatched ? 'watched' : ''}" data-episode-id="${episode.id}">
+                                <input type="checkbox" 
+                                    class="episode-checkbox" 
+                                    ${episode.isWatched ? 'checked' : ''}
+                                    onchange="app.toggleEpisode(${seriesId}, ${episode.id}, ${episode.seasonNumber}, ${episode.episodeNumber}, this.checked)">
+                                <label class="episode-label">Odcinek ${episode.episodeNumber}</label>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(seasonDiv);
+            });
+
+            modal.style.display = 'block';
+        } catch (error) {
+            console.error('Error loading episodes:', error);
+            this.showNotification('Błąd podczas ładowania odcinków.');
+        }
+    }
+
+    async toggleEpisode(seriesId, episodeId, seasonNumber, episodeNumber, isChecked) {
+        try {
+            const response = await fetch(`/api/series/${seriesId}/episodes`, {
+                method: 'POST',
+                headers: {
+                    ...this.getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    episodeId,
+                    watched: isChecked
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update episode');
+            }
+
+            const data = await response.json();
+
+            // Check if there were previous unwatched episodes
+            if (data.hasPreviousUnwatched && isChecked) {
+                if (confirm(`Odcinek ${episodeNumber} w sezonie ${seasonNumber} został zaznaczony. Czy oznaczyć poprzednie odcinki jako obejrzane?`)) {
+                    // Mark previous episodes as watched
+                    const markPreviousResponse = await fetch(`/api/series/${seriesId}/episodes`, {
+                        method: 'POST',
+                        headers: {
+                            ...this.getAuthHeaders(),
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            episodeId,
+                            watched: true,
+                            markPrevious: true
+                        })
+                    });
+
+                    if (markPreviousResponse.ok) {
+                        // Reload the modal
+                        this.openSeriesEpisodes(seriesId);
+                    }
+                }
+            }
+
+            // Update the episode item display
+            const episodeItem = document.querySelector(`.episode-item[data-episode-id="${episodeId}"]`);
+            if (episodeItem) {
+                if (isChecked) {
+                    episodeItem.classList.add('watched');
+                } else {
+                    episodeItem.classList.remove('watched');
+                }
+            }
+
+            // Reload movies data to update progress
+            await this.loadMoviesData();
+            
+        } catch (error) {
+            console.error('Error toggling episode:', error);
+            this.showNotification('Błąd podczas aktualizacji odcinka.');
         }
     }
 
@@ -1241,6 +1437,27 @@ class MovieTracker {
             e.preventDefault();
             this.saveAdminMovie();
         });
+        
+        // Show/hide series fields based on type
+        const adminMovieType = document.getElementById('admin-movie-type');
+        if (adminMovieType) {
+            adminMovieType.addEventListener('change', (e) => {
+                const isSeries = e.target.value === 'series';
+                const durationField = document.getElementById('duration-field');
+                const durationLabel = document.getElementById('duration-label');
+                
+                document.getElementById('series-fields').style.display = isSeries ? 'block' : 'none';
+                document.getElementById('series-episodes-field').style.display = isSeries ? 'block' : 'none';
+                
+                // Update duration field label based on type
+                if (isSeries) {
+                    durationLabel.textContent = 'Średni czas trwania odcinka (minuty):';
+                } else {
+                    durationLabel.textContent = 'Czas trwania (minuty):';
+                }
+            });
+        }
+        
         document.getElementById('admin-challenge-form').addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveAdminChallenge();
@@ -1430,15 +1647,23 @@ class MovieTracker {
 
     async saveAdminMovie() {
         const id = document.getElementById('admin-movie-id').value;
+        const movieType = document.getElementById('admin-movie-type').value;
+        
         const data = {
             title: document.getElementById('admin-movie-title').value,
-            type: document.getElementById('admin-movie-type').value,
+            type: movieType,
             year: parseInt(document.getElementById('admin-movie-year').value) || null,
             genre: document.getElementById('admin-movie-genre').value || null,
             duration: parseInt(document.getElementById('admin-movie-duration').value) || null,
             description: document.getElementById('admin-movie-description').value || null,
             poster: document.getElementById('admin-movie-poster').value || null
         };
+
+        // Add series-specific fields
+        if (movieType === 'series') {
+            data.totalSeasons = parseInt(document.getElementById('admin-series-seasons').value) || 1;
+            data.episodesPerSeason = parseInt(document.getElementById('admin-series-episodes').value) || 10;
+        }
 
         try {
             const url = id ? `/api/admin/movies/${id}` : '/api/admin/movies';
@@ -1451,16 +1676,16 @@ class MovieTracker {
             });
 
             if (response.ok) {
-                this.showNotification(id ? 'Film zaktualizowany' : 'Film dodany', 'success');
+                this.showNotification(id ? 'Film/serial zaktualizowany' : 'Film/serial dodany', 'success');
                 this.closeAdminModal('admin-movie-modal');
                 this.loadAdminMovies();
             } else {
                 const error = await response.json();
-                this.showNotification(error.error || 'Błąd podczas zapisywania filmu', 'error');
+                this.showNotification(error.error || 'Błąd podczas zapisywania', 'error');
             }
         } catch (error) {
             console.error('Error saving movie:', error);
-            this.showNotification('Błąd podczas zapisywania filmu', 'error');
+            this.showNotification('Błąd podczas zapisywania', 'error');
         }
     }
 

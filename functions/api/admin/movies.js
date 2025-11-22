@@ -105,9 +105,14 @@ async function handleCreateMovie(db, request, corsHeaders) {
     });
   }
 
+  // Calculate total episodes for series
+  const totalSeasons = data.totalSeasons || 1;
+  const episodesPerSeason = data.episodesPerSeason || (data.type === 'series' ? 10 : 1);
+  const totalEpisodes = data.type === 'series' ? totalSeasons * episodesPerSeason : 1;
+
   const result = await db.prepare(`
-    INSERT INTO movies (title, media_type, release_date, genre, poster_url, description, trailer_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO movies (title, media_type, release_date, genre, poster_url, description, trailer_url, total_seasons, total_episodes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     data.title,
     data.type,
@@ -115,12 +120,47 @@ async function handleCreateMovie(db, request, corsHeaders) {
     data.genre || 'Unknown',
     data.poster || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
     data.description || '',
-    data.trailerUrl || null
+    data.trailerUrl || null,
+    totalSeasons,
+    totalEpisodes
   ).run();
+
+  const movieId = result.meta.last_row_id;
+
+  // If it's a series, create seasons and episodes
+  if (data.type === 'series') {
+    for (let seasonNum = 1; seasonNum <= totalSeasons; seasonNum++) {
+      // Create season
+      const seasonResult = await db.prepare(`
+        INSERT INTO seasons (series_id, season_number, episode_count, title)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        movieId,
+        seasonNum,
+        episodesPerSeason,
+        `Sezon ${seasonNum}`
+      ).run();
+
+      const seasonId = seasonResult.meta.last_row_id;
+
+      // Create episodes for this season
+      for (let episodeNum = 1; episodeNum <= episodesPerSeason; episodeNum++) {
+        await db.prepare(`
+          INSERT INTO episodes (season_id, episode_number, title, duration)
+          VALUES (?, ?, ?, ?)
+        `).bind(
+          seasonId,
+          episodeNum,
+          `Odcinek ${episodeNum}`,
+          45 // default duration
+        ).run();
+      }
+    }
+  }
 
   return new Response(JSON.stringify({ 
     success: true, 
-    id: result.meta.last_row_id 
+    id: movieId 
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });

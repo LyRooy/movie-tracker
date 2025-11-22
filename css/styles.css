@@ -566,17 +566,21 @@ h3 {
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
 }
 
 .modal-content {
     background-color: var(--surface-color);
-    margin: 5% auto;
+    margin: 2rem auto;
     padding: 0;
     border-radius: 10px;
     width: 90%;
     max-width: 800px;
+    max-height: calc(100vh - 4rem);
     position: relative;
     box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
 }
 
 .close {
@@ -594,24 +598,72 @@ h3 {
     color: var(--accent-color);
 }
 
-.modal-body {
-    display: flex;
+.modal-header {
     padding: 2rem;
-    gap: 2rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.modal-tab-btn {
+    flex: 1;
+    padding: 1rem;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    border-bottom: 3px solid transparent;
+}
+
+.modal-tab-btn:hover {
+    color: var(--primary-color);
+    background-color: var(--background-color);
+}
+
+.modal-tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--secondary-color);
+}
+
+.modal-body {
+    padding: 2rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-tab-content {
+    display: none;
+}
+
+.modal-tab-content.active {
+    display: block;
 }
 
 #admin-password-modal .modal-body,
 #admin-movie-modal .modal-body,
 #admin-challenge-modal .modal-body,
-#admin-badge-modal .modal-body {
+#admin-badge-modal .modal-body,
+#series-episodes-modal .modal-body {
     display: block;
 }
 
+.movie-poster {
+    display: inline-block;
+}
+
 .movie-poster img {
-    width: 250px;
-    height: 375px;
+    width: 200px;
+    height: 300px;
     object-fit: cover;
     border-radius: 8px;
+    box-shadow: var(--shadow);
 }
 
 .movie-details {
@@ -730,14 +782,109 @@ h3 {
     background-color: var(--border-color);
 }
 
+.btn-danger,
 #remove-from-list {
     background-color: #e74c3c;
     color: white;
     border: none;
 }
 
+.btn-danger:hover,
 #remove-from-list:hover {
     background-color: #c0392b;
+}
+
+/* Series Episodes Modal */
+#series-episodes-modal .modal-content {
+    max-width: 900px;
+}
+
+#series-episodes-modal .modal-body {
+    display: block;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.season-section {
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.season-header {
+    background-color: var(--background-color);
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: var(--transition);
+}
+
+.season-header:hover {
+    background-color: var(--border-color);
+}
+
+.season-header h3 {
+    margin: 0;
+    color: var(--primary-color);
+}
+
+.season-progress {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.season-episodes {
+    display: none;
+    padding: 1rem;
+    background-color: var(--surface-color);
+}
+
+.season-episodes.active {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.episode-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: var(--transition);
+    background-color: var(--background-color);
+}
+
+.episode-item:hover {
+    border-color: var(--secondary-color);
+    background-color: var(--surface-color);
+}
+
+.episode-item.watched {
+    border-color: var(--accent-color);
+    background-color: rgba(46, 204, 113, 0.1);
+}
+
+.episode-checkbox {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.75rem;
+    cursor: pointer;
+    accent-color: var(--accent-color);
+}
+
+.episode-label {
+    flex: 1;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.episode-item.watched .episode-label {
+    color: var(--accent-color);
 }
 
 /* Responsive design */
@@ -788,15 +935,24 @@ h3 {
         grid-template-columns: 1fr;
     }
     
+    .modal-content {
+        width: 95%;
+        margin: 1rem auto;
+        max-height: calc(100vh - 2rem);
+    }
+    
+    .modal-header {
+        padding: 1rem;
+    }
+    
     .modal-body {
-        flex-direction: column;
         padding: 1rem;
     }
     
     .movie-poster img {
         width: 100%;
         height: auto;
-        max-width: 250px;
+        max-width: 200px;
         margin: 0 auto;
     }
     
@@ -1008,31 +1164,39 @@ body.transitions-enabled * {
 
 .list-item-grid {
     display: block;
+    position: relative;
 }
 
 .list-item-grid img {
     width: 100%;
-    height: 300px;
+    height: 400px;
     object-fit: cover;
+    display: block;
 }
 
-.list-item-grid .list-item-content {
-    padding: 1rem;
+.list-item-grid .list-item-content,
+.list-item-grid .list-item-info {
+    display: none;
 }
 
 .list-item-list {
     display: flex;
     padding: 1rem;
-    align-items: center;
-    gap: 1rem;
+    align-items: flex-start;
+    gap: 1.5rem;
 }
 
-.list-item-list img {
-    width: 80px;
-    height: 120px;
+.list-item-list .list-item-poster {
+    width: 100px;
+    height: 150px;
     object-fit: cover;
     border-radius: 5px;
     flex-shrink: 0;
+}
+
+.list-item-list .list-item-info {
+    flex: 1;
+    display: block;
 }
 
 .list-item-content {
@@ -1040,9 +1204,21 @@ body.transitions-enabled * {
     flex: 1;
 }
 
-.list-item-list img {
-    width: 80px;
-    height: 120px;
+.list-item-info {
+    flex: 1;
+}
+
+.list-item-info h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
+
+.list-item-info p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
 }
 
 .list-item h3 {
@@ -1056,6 +1232,31 @@ body.transitions-enabled * {
     font-size: 0.9rem;
     line-height: 1.4;
     margin-bottom: 0.5rem;
+}
+
+.series-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--secondary-color);
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 6px;
+    background-color: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-left: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+    border-radius: 3px;
+    transition: width 0.3s ease;
 }
 
 .list-item-meta {

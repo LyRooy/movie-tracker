@@ -138,13 +138,10 @@ class MovieTracker {
             });
         }
 
-        // Zdarzenia modalne
-        const closeBtn = document.querySelector('.close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                this.closeModal();
-            });
-        }
+        // Zdarzenia modalne - obsłuż przycisk zamykający w modalu filmu
+        document.querySelectorAll('#movie-modal .close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeModal());
+        });
 
         window.addEventListener('click', (e) => {
             const modal = document.getElementById('movie-modal');
@@ -725,6 +722,35 @@ class MovieTracker {
         });
     }
 
+    // Znormalizuj pole roku tak, aby zwracać tylko rok (lub oryginalny zakres),
+    // zamiast pełnej daty typu 1985-01-01. Przydatne gdy backend zapisuje
+    // release_date jako pełną datę, a w UI chcemy wyświetlać tylko rok.
+    normalizeYear(value) {
+        if (!value && value !== 0) return null;
+        if (typeof value === 'number') return String(value);
+        if (typeof value !== 'string') return null;
+
+        const v = value.trim();
+        if (v === '') return null;
+
+        // Dokładny rok
+        if (/^\d{4}$/.test(v)) return v;
+
+        // Pełna data ISO YYYY-MM-DD -> zwróć rok
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v.substr(0, 4);
+
+        // Zakresy jak 2008-2013 lub 2025-teraz - zostaw bez zmian
+        if (/^\d{4}-\d{4}$/.test(v) || /^\d{4}-\D+/.test(v)) return v;
+
+        // Spróbuj sparsować jako data i wyciągnąć rok
+        const d = new Date(v);
+        if (!isNaN(d.getTime())) return String(d.getFullYear());
+
+        // Wypatruj pierwszego wystąpienia czterech cyfr (fallback)
+        const m = v.match(/\d{4}/);
+        return m ? m[0] : v;
+    }
+
     async loadFriends() {
         try {
             const response = await fetch('/api/friends?status=accepted', {
@@ -1229,6 +1255,12 @@ class MovieTracker {
             });
             if (response.ok) {
                 this.watchedMovies = await response.json();
+                // Znormalizuj pole `year` dla wygodnego wyświetlania w UI.
+                this.watchedMovies = this.watchedMovies.map(item => {
+                    const raw = item.year || item.release_date || item.releaseDate || null;
+                    const normalized = this.normalizeYear(raw);
+                    return { ...item, year: normalized || (item.year || raw) };
+                });
             } else {
                 console.warn('Failed to load movies from API, using empty array');
                 this.watchedMovies = [];
@@ -1456,7 +1488,7 @@ class MovieTracker {
         document.getElementById('modal-poster').src = movie.poster;
         document.getElementById('modal-title').textContent = movie.title;
         document.getElementById('modal-description').textContent = movie.description || '';
-        document.getElementById('modal-year').textContent = movie.year;
+        document.getElementById('modal-year').textContent = this.normalizeYear(movie.year || movie.release_date || movie.releaseDate) || (movie.year || '');
         document.getElementById('modal-genre').textContent = movie.genre;
         document.getElementById('modal-duration').textContent = movie.duration ? `${movie.duration} min` : '';
 
@@ -2565,13 +2597,15 @@ class MovieTracker {
 
     displayAdminMovies(movies) {
         const tbody = document.getElementById('admin-movies-list');
-        tbody.innerHTML = movies.map(movie => `
+        tbody.innerHTML = movies.map(movie => {
+            const displayYear = this.normalizeYear(movie.release_date || movie.year || movie.releaseDate) || '-';
+            return `
             <tr>
                 <td><input type="checkbox" class="movie-checkbox" data-id="${movie.id}" onchange="app.updateBulkDeleteButton('movies')"></td>
                 <td>${movie.id}</td>
                 <td>${movie.title}</td>
                 <td>${movie.media_type === 'movie' ? 'Film' : 'Serial'}</td>
-                <td>${movie.release_date || '-'}</td>
+                <td>${displayYear}</td>
                 <td>${movie.genre || '-'}</td>
                 <td>
                     <button class="action-btn btn-edit" onclick="app.editAdminMovie(${movie.id})">
@@ -2588,7 +2622,7 @@ class MovieTracker {
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     }
 
     async loadAdminChallenges() {
@@ -2674,7 +2708,7 @@ class MovieTracker {
             document.getElementById('admin-movie-id').value = movie.id;
             document.getElementById('admin-movie-title').value = movie.title;
             document.getElementById('admin-movie-type').value = movie.media_type;
-            document.getElementById('admin-movie-year').value = movie.year || '';
+            document.getElementById('admin-movie-year').value = this.normalizeYear(movie.year || movie.release_date || movie.releaseDate) || '';
             document.getElementById('admin-movie-genre').value = movie.genre || '';
             document.getElementById('admin-movie-duration').value = movie.duration || '';
             document.getElementById('admin-movie-description').value = movie.description || '';

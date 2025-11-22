@@ -595,8 +595,9 @@ class MovieTracker {
     }
 
     updateStats() {
-        const movies = this.watchedMovies.filter(item => item.type === 'movie');
-        const series = this.watchedMovies.filter(item => item.type === 'series');
+        // Licz tylko filmy/seriale ze statusem 'watched'
+        const movies = this.watchedMovies.filter(item => item.type === 'movie' && item.status === 'watched');
+        const series = this.watchedMovies.filter(item => item.type === 'series' && item.status === 'watched');
         const totalHours = Math.round(this.watchedMovies.reduce((total, item) => total + item.duration, 0) / 60);
         const avgRating = this.watchedMovies.length > 0 
             ? (this.watchedMovies.reduce((total, item) => total + item.rating, 0) / this.watchedMovies.length).toFixed(1)
@@ -897,6 +898,11 @@ class MovieTracker {
             });
 
             if (response.ok) {
+                // Jeśli to serial i status zmieniono na 'watched', oznacz wszystkie odcinki jako obejrzane
+                if (movie.type === 'series' && selectedStatus === 'watched') {
+                    await this.markAllEpisodesAsWatched(movie.id);
+                }
+                
                 // Przeładuj dane filmów, aby odświeżyć listę
                 await this.loadMoviesData();
                 this.closeModal();
@@ -908,6 +914,44 @@ class MovieTracker {
         } catch (error) {
             console.error('Error updating movie:', error);
             this.showNotification('Błąd podczas aktualizacji filmu. Spróbuj ponownie.');
+        }
+    }
+
+    // Funkcja do oznaczenia wszystkich odcinków serialu jako obejrzanych
+    async markAllEpisodesAsWatched(seriesId) {
+        try {
+            // Pobierz wszystkie odcinki serialu
+            const response = await fetch(`/api/series/${seriesId}/episodes`, {
+                method: 'GET',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch episodes');
+            }
+
+            const data = await response.json();
+
+            // Oznacz każdy nieobejrzany odcinek jako obejrzany
+            for (const season of data.seasons) {
+                for (const episode of season.episodes) {
+                    if (!episode.watched) {
+                        await fetch(`/api/series/${seriesId}/episodes`, {
+                            method: 'POST',
+                            headers: this.getAuthHeaders(),
+                            body: JSON.stringify({
+                                season: season.season_number,
+                                episode: episode.episode_number,
+                                watched: true,
+                                markPrevious: false
+                            })
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error marking all episodes as watched:', error);
+            // Nie pokazuj notyfikacji błędu - to operacja w tle
         }
     }
 
@@ -1439,12 +1483,9 @@ class MovieTracker {
                     });
 
                     if (markPreviousResponse.ok) {
-                        // Przeładuj modal - użyj loadSeriesEpisodesModal zamiast openSeriesEpisodes
-                        const modal = document.getElementById('series-episodes-modal');
-                        const titleElement = document.getElementById('series-modal-title');
-                        const currentTitle = titleElement.textContent;
-                        await this.loadSeriesEpisodesModal(seriesId, currentTitle);
-                        return; // Wyjdź z funkcji, ponieważ modal został już przeładowany
+                        // Przeładuj zakładkę odcinków
+                        await this.loadEpisodesIntoTab(seriesId);
+                        return; // Wyjdź z funkcji, ponieważ odcinki zostały już przeładowane
                     }
                 }
             }

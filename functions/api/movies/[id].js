@@ -210,12 +210,25 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
 async function handleDeleteMovie(db, userId, movieId, corsHeaders) {
   try {
     // Zweryfikuj, czy film istnieje
-    const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieId).first();
+    const movie = await db.prepare('SELECT id, media_type FROM movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+    
+    // Jeśli to serial, usuń również wszystkie obejrzane odcinki użytkownika
+    if (movie.media_type === 'series') {
+      await db.prepare(`
+        DELETE FROM user_episodes_watched 
+        WHERE user_id = ? 
+        AND episode_id IN (
+          SELECT e.id FROM episodes e
+          JOIN seasons s ON e.season_id = s.id
+          WHERE s.series_id = ?
+        )
+      `).bind(userId, movieId).run();
     }
     
     // Usuń z listy obejrzanych

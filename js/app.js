@@ -769,7 +769,9 @@ class MovieTracker {
             const modal = document.getElementById('movie-modal');
             const movie = modal.currentMovie;
             if (movie && movie.id) {
-                this.loadEpisodesIntoTab(movie.id);
+                // Upewnij się, że ID jest liczbą, a nie stringiem z prefiksem
+                const seriesId = typeof movie.id === 'string' ? movie.id.replace(/^db_/, '') : movie.id;
+                this.loadEpisodesIntoTab(seriesId);
             }
         }
     }
@@ -900,6 +902,7 @@ class MovieTracker {
             if (response.ok) {
                 // Jeśli to serial i status zmieniono na 'watched', oznacz wszystkie odcinki jako obejrzane
                 if (movie.type === 'series' && selectedStatus === 'watched') {
+                    this.showNotification('Oznaczam wszystkie odcinki jako obejrzane...', 'info');
                     await this.markAllEpisodesAsWatched(movie.id);
                 }
                 
@@ -989,15 +992,30 @@ class MovieTracker {
         }
     }
 
-    showNotification(message) {
+    showNotification(message, type = 'success') {
         const notification = document.createElement('div');
         notification.className = 'notification';
-        notification.textContent = message;
+        
+        // Dodaj ikonę w zależności od typu
+        let icon = '';
+        let bgColor = 'var(--secondary-color)';
+        
+        if (type === 'info') {
+            icon = '<i class="fas fa-spinner fa-spin"></i> ';
+            bgColor = '#2196F3';
+        } else if (type === 'error') {
+            icon = '<i class="fas fa-exclamation-circle"></i> ';
+            bgColor = '#f44336';
+        } else {
+            icon = '<i class="fas fa-check-circle"></i> ';
+        }
+        
+        notification.innerHTML = icon + message;
         notification.style.cssText = `
             position: fixed;
             top: 90px;
             right: 20px;
-            background-color: var(--secondary-color);
+            background-color: ${bgColor};
             color: white;
             padding: 1rem 2rem;
             border-radius: 5px;

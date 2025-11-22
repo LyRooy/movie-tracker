@@ -1,6 +1,4 @@
 // Upload user avatar to R2
-import { getUserIdFromRequest } from '../../../functions/auth.js';
-
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -109,4 +107,25 @@ export async function onRequestOptions() {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     }
   });
+}
+
+// Helper function to get user ID from JWT token
+async function getUserIdFromRequest(request) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const payload = JSON.parse(atob(token));
+    
+    if (payload.exp < Date.now()) {
+      return null; // Token expired
+    }
+    
+    return payload.userId;
+  } catch {
+    return null;
+  }
 }

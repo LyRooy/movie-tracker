@@ -854,12 +854,19 @@ class MovieTracker {
                 await this.loadMoviesData();
                 this.closeModal();
                 
-                // Jeśli to serial, od razu otwórz modal odcinków
+                // Jeśli to serial, od razu otwórz modal z zakładką odcinków
                 if (movie.type === 'series' && result.id) {
-                    this.showNotification('Serial został dodany! Zaznacz obejrzane odcinki.');
                     // Poczekaj chwilę na załadowanie danych
                     setTimeout(() => {
-                        this.openSeriesEpisodes(result.id);
+                        const addedSeries = this.watchedMovies.find(m => m.id === result.id);
+                        if (addedSeries) {
+                            this.openModal(addedSeries, false);
+                            // Przełącz na zakładkę odcinków
+                            setTimeout(() => {
+                                this.switchModalTab('episodes');
+                                this.showNotification('Serial został dodany! Zaznacz obejrzane odcinki.');
+                            }, 100);
+                        }
                     }, 300);
                 } else {
                     this.showNotification('Film został dodany do listy!');
@@ -902,14 +909,23 @@ class MovieTracker {
             if (response.ok) {
                 // Jeśli to serial i status zmieniono na 'watched', oznacz wszystkie odcinki jako obejrzane
                 if (movie.type === 'series' && selectedStatus === 'watched') {
-                    this.showNotification('Oznaczam wszystkie odcinki jako obejrzane...', 'info');
+                    const loadingNotification = this.showNotification('Oznaczam wszystkie odcinki jako obejrzane...', 'info', false);
                     await this.markAllEpisodesAsWatched(movie.id);
+                    // Usuń notyfikację ładowania
+                    if (loadingNotification && loadingNotification.parentNode) {
+                        loadingNotification.style.transform = 'translateX(400px)';
+                        setTimeout(() => {
+                            if (loadingNotification.parentNode) {
+                                document.body.removeChild(loadingNotification);
+                            }
+                        }, 300);
+                    }
                 }
                 
                 // Przeładuj dane filmów, aby odświeżyć listę
                 await this.loadMoviesData();
                 this.closeModal();
-                this.showNotification('Film został zaktualizowany!');
+                this.showNotification(movie.type === 'series' ? 'Serial został zaktualizowany!' : 'Film został zaktualizowany!');
             } else {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to update movie');
@@ -992,7 +1008,7 @@ class MovieTracker {
         }
     }
 
-    showNotification(message, type = 'success') {
+    showNotification(message, type = 'success', autoHide = true) {
         const notification = document.createElement('div');
         notification.className = 'notification';
         
@@ -1031,12 +1047,18 @@ class MovieTracker {
             notification.style.transform = 'translateX(0)';
         }, 100);
 
-        setTimeout(() => {
-            notification.style.transform = 'translateX(400px)';
+        if (autoHide) {
             setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 300);
-        }, 3000);
+                notification.style.transform = 'translateX(400px)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        document.body.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+        
+        return notification; // Zwróć element, aby móc go usunąć ręcznie
     }
 
     generateCalendar() {
@@ -1360,111 +1382,40 @@ class MovieTracker {
         }
     }
 
-    async openSeriesEpisodes(seriesId) {
-        // Otwórz modal odcinków dla serialu
-        const series = this.watchedMovies.find(movie => movie.id === seriesId);
-        
-        // Jeśli nie znaleziono w watchedMovies, spróbuj pobrać z API
-        if (!series) {
-            try {
-                const movieResponse = await fetch(`/api/movies/${seriesId}`, {
-                    headers: this.getAuthHeaders()
-                });
-                
-                if (!movieResponse.ok) {
-                    this.showNotification('Nie znaleziono serialu.');
-                    return;
-                }
-                
-                const movieData = await movieResponse.json();
-                
-                if (movieData.type !== 'series') {
-                    this.showNotification('To nie jest serial.');
-                    return;
-                }
-                
-                // Kontynuuj z danymi z API
-                await this.loadSeriesEpisodesModal(seriesId, movieData.title);
-                return;
-            } catch (error) {
-                console.error('Error loading series data:', error);
-                this.showNotification('Błąd podczas ładowania serialu.');
-                return;
-            }
-        }
-        
-        if (series.type !== 'series') {
-            this.showNotification('To nie jest serial.');
-            return;
-        }
-
-        await this.loadSeriesEpisodesModal(seriesId, series.title);
-    }
-
-    async loadSeriesEpisodesModal(seriesId, seriesTitle) {
-        try {
-            // Pobierz dane odcinków
-            const response = await fetch(`/api/series/${seriesId}/episodes`, {
-                headers: this.getAuthHeaders()
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch episodes');
-            }
-
-            const data = await response.json();
-            
-            // Otwórz modal i wypełnij danymi
-            const modal = document.getElementById('series-episodes-modal');
-            const titleElement = document.getElementById('series-modal-title');
-            const container = document.getElementById('series-seasons-container');
-            
-            titleElement.textContent = data.series?.title || seriesTitle;
-            container.innerHTML = '';
-
-            // API zwraca seasons, każdy sezon ma episodes
-            if (!data.seasons || data.seasons.length === 0) {
-                container.innerHTML = '<p style="text-align: center; padding: 20px;">Brak odcinków do wyświetlenia. Serial może nie być jeszcze skonfigurowany.</p>';
-                modal.style.display = 'block';
-                return;
-            }
-
-            // Renderuj sezony
-            data.seasons.forEach(season => {
-                const watchedCount = season.episodes.filter(ep => ep.isWatched).length;
-                const totalCount = season.episodes.length;
-                
-                const seasonDiv = document.createElement('div');
-                seasonDiv.className = 'season-section';
-                seasonDiv.innerHTML = `
-                    <div class="season-header" onclick="this.nextElementSibling.classList.toggle('active')">
-                        <h3>Sezon ${season.seasonNumber}</h3>
-                        <span class="season-progress">${watchedCount}/${totalCount} odcinków</span>
-                    </div>
-                    <div class="season-episodes">
-                        ${season.episodes.map(episode => `
-                            <div class="episode-item ${episode.isWatched ? 'watched' : ''}" data-episode-id="${episode.id}">
-                                <input type="checkbox" 
-                                    class="episode-checkbox" 
-                                    ${episode.isWatched ? 'checked' : ''}
-                                    onchange="app.toggleEpisode(${seriesId}, ${episode.id}, ${season.seasonNumber}, ${episode.episodeNumber}, this.checked)">
-                                <label class="episode-label">Odcinek ${episode.episodeNumber}</label>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                container.appendChild(seasonDiv);
-            });
-
-            modal.style.display = 'block';
-        } catch (error) {
-            console.error('Error loading episodes:', error);
-            this.showNotification('Błąd podczas ładowania odcinków.');
-        }
-    }
+    // Funkcja openSeriesEpisodes usunięta - używamy zakładki odcinków w głównym modalu
 
     async toggleEpisode(seriesId, episodeId, seasonNumber, episodeNumber, isChecked) {
         try {
+            // Jeśli użytkownik zaznacza odcinek jako obejrzany, upewnij się, że serial jest w liście
+            if (isChecked) {
+                const series = this.watchedMovies.find(m => m.id === seriesId);
+                if (!series) {
+                    // Serial nie jest jeszcze na liście - dodaj go jako 'watching'
+                    const movieResponse = await fetch(`/api/movies/${seriesId}`, {
+                        headers: this.getAuthHeaders()
+                    });
+                    
+                    if (movieResponse.ok) {
+                        const movieData = await movieResponse.json();
+                        // Jeśli serial nie ma statusu, dodaj go jako 'watching'
+                        if (!movieData.status || movieData.status === 'planning') {
+                            await fetch(`/api/movies/${seriesId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    ...this.getAuthHeaders(),
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    status: 'watching',
+                                    rating: movieData.rating || 0,
+                                    review: movieData.review || ''
+                                })
+                            });
+                        }
+                    }
+                }
+            }
+            
             const response = await fetch(`/api/series/${seriesId}/episodes`, {
                 method: 'POST',
                 headers: {

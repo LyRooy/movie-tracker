@@ -80,6 +80,18 @@ class MovieTracker {
             });
         }
 
+        // Avatar upload
+        const avatarWrapper = document.getElementById('avatar-wrapper');
+        const avatarUpload = document.getElementById('avatar-upload');
+        if (avatarWrapper && avatarUpload) {
+            avatarWrapper.addEventListener('click', () => {
+                avatarUpload.click();
+            });
+            avatarUpload.addEventListener('change', (e) => {
+                this.uploadAvatar(e.target.files[0]);
+            });
+        }
+
         // Search functionality
         const searchBtn = document.getElementById('search-btn');
         const searchInput = document.getElementById('search-input');
@@ -387,12 +399,70 @@ class MovieTracker {
             
             if (profileUsername) profileUsername.textContent = this.currentUser.nickname;
             if (profileEmail) profileEmail.textContent = this.currentUser.email;
+            
+            // Load avatar if exists
+            const userAvatar = document.getElementById('user-avatar');
+            if (userAvatar && this.currentUser.avatar_url) {
+                userAvatar.src = this.currentUser.avatar_url;
+            }
 
             // Show admin navigation if user is admin
             if (this.currentUser.role === 'admin') {
                 const adminNavItem = document.getElementById('admin-nav-item');
                 if (adminNavItem) adminNavItem.style.display = 'block';
             }
+        }
+    }
+
+    async uploadAvatar(file) {
+        if (!file) return;
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Proszę wybrać plik obrazu');
+            return;
+        }
+        
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Rozmiar pliku nie może przekraczać 2MB');
+            return;
+        }
+        
+        try {
+            // Create FormData
+            const formData = new FormData();
+            formData.append('avatar', file);
+            
+            const response = await fetch('/api/auth/avatar', {
+                method: 'POST',
+                headers: {
+                    'Authorization': this.getAuthHeaders()['Authorization']
+                    // Don't set Content-Type - browser will set it with boundary for FormData
+                },
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Nie udało się zaktualizować avatara');
+            }
+            
+            const data = await response.json();
+            
+            // Update UI
+            const userAvatar = document.getElementById('user-avatar');
+            if (userAvatar) {
+                userAvatar.src = data.avatar_url;
+            }
+            
+            // Update current user
+            this.currentUser.avatar_url = data.avatar_url;
+            
+            alert('Avatar został zaktualizowany!');
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            alert('Błąd podczas przesyłania avatara: ' + error.message);
         }
     }
 

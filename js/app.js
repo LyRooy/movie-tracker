@@ -1786,7 +1786,7 @@ class MovieTracker {
         const data = {
             title: document.getElementById('admin-movie-title').value,
             type: movieType,
-            year: parseInt(document.getElementById('admin-movie-year').value) || null,
+            year: document.getElementById('admin-movie-year').value || null,
             genre: document.getElementById('admin-movie-genre').value || null,
             duration: parseInt(document.getElementById('admin-movie-duration').value) || null,
             description: document.getElementById('admin-movie-description').value || null,

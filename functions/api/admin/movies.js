@@ -1,4 +1,14 @@
 // Endpoint administracyjny do zarządzania filmami w bazie danych
+
+// Funkcja pomocnicza zapewniająca, że adresy URL plakatów używają HTTPS
+function normalizePosterUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
@@ -85,85 +95,98 @@ async function handleGetMovies(db, request, corsHeaders) {
 
 // Utwórz nowy film
 async function handleCreateMovie(db, request, corsHeaders) {
-  const data = await request.json();
-  
-  if (!data.title || !data.type) {
-    return new Response(JSON.stringify({ error: 'Title and type are required' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
+  try {
+    const data = await request.json();
+    
+    console.log('Creating movie with data:', data);
+    
+    if (!data.title || !data.type) {
+      return new Response(JSON.stringify({ error: 'Title and type are required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
-  // Sprawdź czy film już istnieje
-  const existing = await db.prepare('SELECT id FROM movies WHERE title = ? AND media_type = ?')
-    .bind(data.title, data.type).first();
-  
-  if (existing) {
-    return new Response(JSON.stringify({ error: 'Movie already exists', id: existing.id }), {
-      status: 409,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
+    // Sprawdź czy film już istnieje
+    const existing = await db.prepare('SELECT id FROM movies WHERE title = ? AND media_type = ?')
+      .bind(data.title, data.type).first();
+    
+    if (existing) {
+      return new Response(JSON.stringify({ error: 'Movie already exists', id: existing.id }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
-  // Oblicz całkowitą liczbę odcinków dla serialu
-  const totalSeasons = data.totalSeasons || 1;
-  const episodesPerSeason = data.episodesPerSeason || (data.type === 'series' ? 10 : 1);
-  const totalEpisodes = data.type === 'series' ? totalSeasons * episodesPerSeason : 1;
+    // Oblicz całkowitą liczbę odcinków dla serialu
+    const totalSeasons = data.totalSeasons || 1;
+    const episodesPerSeason = data.episodesPerSeason || (data.type === 'series' ? 10 : 1);
+    const totalEpisodes = data.type === 'series' ? totalSeasons * episodesPerSeason : 1;
 
-  const result = await db.prepare(`
-    INSERT INTO movies (title, media_type, release_date, genre, poster_url, description, trailer_url, total_seasons, total_episodes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    data.title,
-    data.type,
-    data.releaseDate || data.year ? `${data.year}-01-01` : new Date().toISOString().split('T')[0],
-    data.genre || 'Unknown',
-    normalizePosterUrl(data.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
-    data.description || '',
-    data.trailerUrl || null,
-    totalSeasons,
-    totalEpisodes
-  ).run();
+    const result = await db.prepare(`
+      INSERT INTO movies (title, media_type, release_date, genre, poster_url, description, trailer_url, total_seasons, total_episodes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      data.title,
+      data.type,
+      data.releaseDate || data.year ? `${data.year}-01-01` : new Date().toISOString().split('T')[0],
+      data.genre || 'Unknown',
+      normalizePosterUrl(data.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
+      data.description || '',
+      data.trailerUrl || null,
+      totalSeasons,
+      totalEpisodes
+    ).run();
 
-  const movieId = result.meta.last_row_id;
+    const movieId = result.meta.last_row_id;
 
-  // Jeśli to serial, utwórz sezony i odcinki
-  if (data.type === 'series') {
-    for (let seasonNum = 1; seasonNum <= totalSeasons; seasonNum++) {
-      // Utwórz sezon
-      const seasonResult = await db.prepare(`
-        INSERT INTO seasons (series_id, season_number, episode_count, title)
-        VALUES (?, ?, ?, ?)
-      `).bind(
-        movieId,
-        seasonNum,
-        episodesPerSeason,
-        `Sezon ${seasonNum}`
-      ).run();
-
-      const seasonId = seasonResult.meta.last_row_id;
-
-      // Utwórz odcinki dla tego sezonu
-      for (let episodeNum = 1; episodeNum <= episodesPerSeason; episodeNum++) {
-        await db.prepare(`
-          INSERT INTO episodes (season_id, episode_number, title, duration)
+    // Jeśli to serial, utwórz sezony i odcinki
+    if (data.type === 'series') {
+      for (let seasonNum = 1; seasonNum <= totalSeasons; seasonNum++) {
+        // Utwórz sezon
+        const seasonResult = await db.prepare(`
+          INSERT INTO seasons (series_id, season_number, episode_count, title)
           VALUES (?, ?, ?, ?)
         `).bind(
-          seasonId,
-          episodeNum,
-          `Odcinek ${episodeNum}`,
-          45 // domyślny czas trwania
+          movieId,
+          seasonNum,
+          episodesPerSeason,
+          `Sezon ${seasonNum}`
         ).run();
+
+        const seasonId = seasonResult.meta.last_row_id;
+
+        // Utwórz odcinki dla tego sezonu
+        for (let episodeNum = 1; episodeNum <= episodesPerSeason; episodeNum++) {
+          await db.prepare(`
+            INSERT INTO episodes (season_id, episode_number, title, duration)
+            VALUES (?, ?, ?, ?)
+          `).bind(
+            seasonId,
+            episodeNum,
+            `Odcinek ${episodeNum}`,
+            data.duration || 45 // użyj podanego czasu lub domyślnie 45
+          ).run();
+        }
       }
     }
-  }
 
-  return new Response(JSON.stringify({ 
-    success: true, 
-    id: movieId 
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
+    return new Response(JSON.stringify({ 
+      success: true, 
+      id: movieId 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('Error in handleCreateMovie:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      stack: error.stack 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 }
 
 // Zaktualizuj istniejący film

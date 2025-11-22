@@ -385,6 +385,7 @@
             <div class="modal-tabs">
                 <button class="modal-tab-btn active" data-tab="info">Informacje</button>
                 <button class="modal-tab-btn" data-tab="edit">Edycja</button>
+                <button class="modal-tab-btn" id="episodes-tab-btn" data-tab="episodes" style="display: none;">Odcinki</button>
             </div>
             <div class="modal-body">
                 <div class="modal-tab-content active" id="info-tab">
@@ -427,18 +428,24 @@
                         <button id="remove-from-list" class="btn btn-danger" style="display: none;">Usuń z listy</button>
                     </div>
                 </div>
+                <div class="modal-tab-content" id="episodes-tab">
+                    <div id="series-seasons-container">
+                        <!-- Seasons and episodes will be loaded here -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Series Episodes Modal -->
-    <div id="series-episodes-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
             <div class="modal-body">
-                <h2 id="series-modal-title"></h2>
-                <div id="series-seasons-container">
-                    <!-- Seasons and episodes will be loaded here -->
+                <h3 id="confirm-title" style="margin-top: 0;">Potwierdzenie</h3>
+                <p id="confirm-message"></p>
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button id="confirm-yes" class="btn btn-primary">Tak</button>
+                    <button id="confirm-no" class="btn btn-secondary">Nie</button>
                 </div>
             </div>
         </div>

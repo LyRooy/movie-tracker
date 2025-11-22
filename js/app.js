@@ -248,13 +248,8 @@ class MovieTracker {
                 const listItem = e.target.closest('.list-item');
                 if (listItem) {
                     const itemId = parseInt(listItem.dataset.id);
-                    const itemType = listItem.dataset.type;
-                    
-                    if (itemType === 'series') {
-                        this.openSeriesEpisodes(itemId);
-                    } else {
-                        this.editItem(itemId);
-                    }
+                    // Zawsze otwieraj normalny modal edycji (również dla seriali)
+                    this.editItem(itemId);
                 }
             });
         }
@@ -713,6 +708,12 @@ class MovieTracker {
             statusSelect.value = '';
         }
 
+        // Pokaż/ukryj zakładkę odcinków w zależności od typu
+        const episodesTabBtn = document.getElementById('episodes-tab-btn');
+        if (episodesTabBtn) {
+            episodesTabBtn.style.display = movie.type === 'series' ? 'inline-block' : 'none';
+        }
+
         // Ustaw ocenę i recenzję
         if (isEdit) {
             this.currentRating = movie.rating || 0;
@@ -761,6 +762,46 @@ class MovieTracker {
         
         if (tabBtn) tabBtn.classList.add('active');
         if (tabContent) tabContent.classList.add('active');
+        
+        // Jeśli przechodzi na zakładkę odcinków, załaduj odcinki
+        if (tabName === 'episodes') {
+            const modal = document.getElementById('movie-modal');
+            const movie = modal.currentMovie;
+            if (movie && movie.id) {
+                this.loadEpisodesIntoTab(movie.id);
+            }
+        }
+    }
+
+    showConfirm(message, title = 'Potwierdzenie') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirm-modal');
+            const titleEl = document.getElementById('confirm-title');
+            const messageEl = document.getElementById('confirm-message');
+            const yesBtn = document.getElementById('confirm-yes');
+            const noBtn = document.getElementById('confirm-no');
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            modal.style.display = 'block';
+            
+            const handleYes = () => {
+                modal.style.display = 'none';
+                yesBtn.removeEventListener('click', handleYes);
+                noBtn.removeEventListener('click', handleNo);
+                resolve(true);
+            };
+            
+            const handleNo = () => {
+                modal.style.display = 'none';
+                yesBtn.removeEventListener('click', handleYes);
+                noBtn.removeEventListener('click', handleNo);
+                resolve(false);
+            };
+            
+            yesBtn.addEventListener('click', handleYes);
+            noBtn.addEventListener('click', handleNo);
+        });
     }
 
     closeModal() {
@@ -879,7 +920,7 @@ class MovieTracker {
             return;
         }
 
-        if (!confirm(`Czy na pewno chcesz usunąć "${movie.title}" z listy?`)) {
+        if (!(await this.showConfirm(`Czy na pewno chcesz usunąć "${movie.title}" z listy?`, 'Potwierdzenie usunięcia'))) {
             return;
         }
 
@@ -1179,7 +1220,7 @@ class MovieTracker {
             return;
         }
 
-        if (!confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
+        if (!(await this.showConfirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`, 'Potwierdzenie usunięcia'))) {
             return;
         }
 
@@ -1201,6 +1242,59 @@ class MovieTracker {
         } catch (error) {
             console.error('Error deleting movie:', error);
             this.showNotification('Błąd podczas usuwania filmu. Spróbuj ponownie.');
+        }
+    }
+
+    async loadEpisodesIntoTab(seriesId) {
+        const container = document.getElementById('series-seasons-container');
+        container.innerHTML = '<p style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Ładowanie odcinków...</p>';
+        
+        try {
+            const response = await fetch(`/api/series/${seriesId}/episodes`, {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch episodes');
+            }
+
+            const data = await response.json();
+            container.innerHTML = '';
+
+            if (!data.seasons || data.seasons.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 20px;">Brak odcinków do wyświetlenia. Serial może nie być jeszcze skonfigurowany.</p>';
+                return;
+            }
+
+            // Renderuj sezony
+            data.seasons.forEach(season => {
+                const watchedCount = season.episodes.filter(ep => ep.isWatched).length;
+                const totalCount = season.episodes.length;
+                
+                const seasonDiv = document.createElement('div');
+                seasonDiv.className = 'season-section';
+                seasonDiv.innerHTML = `
+                    <div class="season-header" onclick="this.nextElementSibling.classList.toggle('active')">
+                        <h3>Sezon ${season.seasonNumber}</h3>
+                        <span class="season-progress">${watchedCount}/${totalCount} odcinków</span>
+                    </div>
+                    <div class="season-episodes">
+                        ${season.episodes.map(episode => `
+                            <div class="episode-item ${episode.isWatched ? 'watched' : ''}" data-episode-id="${episode.id}">
+                                <input type="checkbox" 
+                                    class="episode-checkbox" 
+                                    ${episode.isWatched ? 'checked' : ''}
+                                    onchange="app.toggleEpisode(${seriesId}, ${episode.id}, ${season.seasonNumber}, ${episode.episodeNumber}, this.checked)">
+                                <label class="episode-label">Odcinek ${episode.episodeNumber}</label>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(seasonDiv);
+            });
+        } catch (error) {
+            console.error('Error loading episodes:', error);
+            container.innerHTML = '<p style="text-align: center; padding: 20px; color: #e74c3c;">Błąd podczas ładowania odcinków.</p>';
         }
     }
 
@@ -1329,7 +1423,7 @@ class MovieTracker {
 
             // Sprawdź czy były poprzednie nieobejrzane odcinki
             if (data.hasPreviousUnwatched && isChecked) {
-                if (confirm(`Odcinek ${episodeNumber} w sezonie ${seasonNumber} został zaznaczony. Czy oznaczyć poprzednie odcinki jako obejrzane?`)) {
+                if (await this.showConfirm(`Odcinek ${episodeNumber} w sezonie ${seasonNumber} został zaznaczony. Czy oznaczyć poprzednie odcinki jako obejrzane?`, 'Zaznacz poprzednie odcinki')) {
                     // Oznacz poprzednie odcinki jako obejrzane
                     const markPreviousResponse = await fetch(`/api/series/${seriesId}/episodes`, {
                         method: 'POST',
@@ -1345,8 +1439,12 @@ class MovieTracker {
                     });
 
                     if (markPreviousResponse.ok) {
-                        // Przeładuj modal
-                        this.openSeriesEpisodes(seriesId);
+                        // Przeładuj modal - użyj loadSeriesEpisodesModal zamiast openSeriesEpisodes
+                        const modal = document.getElementById('series-episodes-modal');
+                        const titleElement = document.getElementById('series-modal-title');
+                        const currentTitle = titleElement.textContent;
+                        await this.loadSeriesEpisodesModal(seriesId, currentTitle);
+                        return; // Wyjdź z funkcji, ponieważ modal został już przeładowany
                     }
                 }
             }
@@ -1932,7 +2030,7 @@ class MovieTracker {
     }
 
     async deleteAdminMovie(id) {
-        if (!confirm('Czy na pewno chcesz usunąć ten film?')) return;
+        if (!(await this.showConfirm('Czy na pewno chcesz usunąć ten film?', 'Potwierdzenie usunięcia'))) return;
 
         try {
             const response = await fetch(`/api/admin/movies/${id}`, {
@@ -2034,7 +2132,7 @@ class MovieTracker {
     }
 
     async deleteAdminChallenge(id) {
-        if (!confirm('Czy na pewno chcesz usunąć to wyzwanie?')) return;
+        if (!(await this.showConfirm('Czy na pewno chcesz usunąć to wyzwanie?', 'Potwierdzenie usunięcia'))) return;
 
         try {
             const response = await fetch(`/api/admin/challenges/${id}`, {
@@ -2126,7 +2224,7 @@ class MovieTracker {
     }
 
     async deleteAdminBadge(id) {
-        if (!confirm('Czy na pewno chcesz usunąć tę odznakę?')) return;
+        if (!(await this.showConfirm('Czy na pewno chcesz usunąć tę odznakę?', 'Potwierdzenie usunięcia'))) return;
 
         try {
             const response = await fetch(`/api/admin/badges/${id}`, {

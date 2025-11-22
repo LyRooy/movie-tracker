@@ -138,7 +138,7 @@ async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
 // Oznacz odcinek jako obejrzany/nieobejrzany
 async function handleMarkEpisode(db, userId, request, corsHeaders) {
   const data = await request.json();
-  const { episodeId, watched, markPreviousAsWatched } = data;
+  const { episodeId, watched, markPrevious } = data;
 
   if (!episodeId) {
     return new Response(JSON.stringify({ error: 'Episode ID is required' }), {
@@ -182,8 +182,8 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
         )
       `).bind(seriesId, episodeInfo.season_number, episodeInfo.season_number, episodeInfo.episode_number, userId).first();
 
-      // Jeśli markPreviousAsWatched jest true lub jeśli jest undefined i są poprzednie nieobejrzane odcinki, oznacz je
-      if (markPreviousAsWatched && unwatchedPrevious.count > 0) {
+      // Jeśli markPrevious jest true lub jeśli jest undefined i są poprzednie nieobejrzane odcinki, oznacz je
+      if (markPrevious && unwatchedPrevious.count > 0) {
         const watchedDate = new Date().toISOString().split('T')[0];
         
         // Oznacz wszystkie poprzednie odcinki jako obejrzane
@@ -252,7 +252,7 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
 
     return new Response(JSON.stringify({ 
       success: true,
-      hasPreviousUnwatched: watched && !markPreviousAsWatched && stillUnwatchedPrevious.count > 0,
+      hasPreviousUnwatched: watched && !markPrevious && stillUnwatchedPrevious.count > 0,
       previousUnwatchedCount: stillUnwatchedPrevious.count
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -293,11 +293,11 @@ async function updateSeriesStatus(db, userId, seriesId) {
   ).bind(userId, seriesId).first();
 
   if (watchedEpisodes.count === 0) {
-    // Brak obejrzanych odcinków - usuń z tabeli watched lub ustaw na planning
+    // Brak obejrzanych odcinków - zmień status na planning zamiast usuwać
     if (existingWatched) {
       await db.prepare(
-        'DELETE FROM watched WHERE user_id = ? AND movie_id = ?'
-      ).bind(userId, seriesId).run();
+        'UPDATE watched SET status = ? WHERE user_id = ? AND movie_id = ?'
+      ).bind('planning', userId, seriesId).run();
     }
   } else if (watchedEpisodes.count === totalEpisodes.count) {
     // Wszystkie odcinki obejrzane - oznacz jako 'watched'

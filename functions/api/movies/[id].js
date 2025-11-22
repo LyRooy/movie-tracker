@@ -108,41 +108,80 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
 
 // Update movie (rating, review, watched status)
 async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
-  const data = await request.json();
+  let data;
+  try {
+    data = await request.json();
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
   
   try {
-    await db.prepare('BEGIN').run();
-    
     // Verify movie exists
     const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
-      await db.prepare('ROLLBACK').run();
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
     
-    // Update watched status
-    if (data.status === 'watched') {
+    // Update watched status based on status field
+    if (data.status) {
       const watchedDate = data.watchedDate || new Date().toISOString().split('T')[0];
-      await db.prepare(`
-        INSERT OR REPLACE INTO watched (user_id, movie_id, watched_date)
-        VALUES (?, ?, ?)
-      `).bind(userId, movieId, watchedDate).run();
-    } else {
-      await db.prepare(`
-        DELETE FROM watched WHERE user_id = ? AND movie_id = ?
-      `).bind(userId, movieId).run();
+      
+      // Check if watched record exists
+      const existingWatched = await db.prepare(
+        'SELECT id FROM watched WHERE user_id = ? AND movie_id = ?'
+      ).bind(userId, movieId).first();
+      
+      if (data.status === 'watched') {
+        if (existingWatched) {
+          // Update existing record
+          await db.prepare(`
+            UPDATE watched 
+            SET watched_date = ?
+            WHERE user_id = ? AND movie_id = ?
+          `).bind(watchedDate, userId, movieId).run();
+        } else {
+          // Insert new record
+          await db.prepare(`
+            INSERT INTO watched (user_id, movie_id, watched_date)
+            VALUES (?, ?, ?)
+          `).bind(userId, movieId, watchedDate).run();
+        }
+      } else {
+        // Remove from watched if status is not 'watched'
+        await db.prepare(`
+          DELETE FROM watched WHERE user_id = ? AND movie_id = ?
+        `).bind(userId, movieId).run();
+      }
     }
     
     // Update review and rating
     if (data.rating !== undefined) {
       if (data.rating > 0) {
-        await db.prepare(`
-          INSERT OR REPLACE INTO reviews (user_id, movie_id, content, rating)
-          VALUES (?, ?, ?, ?)
-        `).bind(userId, movieId, data.review || '', data.rating).run();
+        // Check if review exists
+        const existingReview = await db.prepare(
+          'SELECT id FROM reviews WHERE user_id = ? AND movie_id = ?'
+        ).bind(userId, movieId).first();
+        
+        if (existingReview) {
+          // Update existing review
+          await db.prepare(`
+            UPDATE reviews 
+            SET content = ?, rating = ?, updated_at = datetime('now')
+            WHERE user_id = ? AND movie_id = ?
+          `).bind(data.review || '', data.rating, userId, movieId).run();
+        } else {
+          // Insert new review
+          await db.prepare(`
+            INSERT INTO reviews (user_id, movie_id, content, rating)
+            VALUES (?, ?, ?, ?)
+          `).bind(userId, movieId, data.review || '', data.rating).run();
+        }
       } else {
         // If rating is 0, remove the review
         await db.prepare(`
@@ -151,16 +190,16 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
       }
     }
     
-    await db.prepare('COMMIT').run();
-    
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    await db.prepare('ROLLBACK').run();
     console.error('Error updating movie:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.toString()
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
@@ -170,12 +209,9 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
 // Delete movie from user's watched list (removes watched status and review, but not the movie itself)
 async function handleDeleteMovie(db, userId, movieId, corsHeaders) {
   try {
-    await db.prepare('BEGIN').run();
-    
     // Verify movie exists
     const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
-      await db.prepare('ROLLBACK').run();
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -183,25 +219,31 @@ async function handleDeleteMovie(db, userId, movieId, corsHeaders) {
     }
     
     // Remove from watched list
-    await db.prepare('DELETE FROM watched WHERE user_id = ? AND movie_id = ?')
+    const watchedResult = await db.prepare('DELETE FROM watched WHERE user_id = ? AND movie_id = ?')
       .bind(userId, movieId)
       .run();
     
     // Remove review
-    await db.prepare('DELETE FROM reviews WHERE user_id = ? AND movie_id = ?')
+    const reviewResult = await db.prepare('DELETE FROM reviews WHERE user_id = ? AND movie_id = ?')
       .bind(userId, movieId)
       .run();
     
-    await db.prepare('COMMIT').run();
+    console.log(`[handleDeleteMovie] Deleted ${watchedResult.meta?.changes || 0} watched records and ${reviewResult.meta?.changes || 0} review records`);
     
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      success: true,
+      deletedWatched: watchedResult.meta?.changes || 0,
+      deletedReviews: reviewResult.meta?.changes || 0
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    await db.prepare('ROLLBACK').run();
     console.error('Error deleting movie:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.toString()
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

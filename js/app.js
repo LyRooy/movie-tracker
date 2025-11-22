@@ -77,7 +77,14 @@ class MovieTracker {
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
             themeSelect.addEventListener('change', (e) => {
-                this.changeTheme(e.target.value);
+                let theme = e.target.value;
+                // Baza akceptuje tylko 'light' lub 'dark'
+                if (theme === 'auto') {
+                    // Wykryj preferencje systemowe
+                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    theme = prefersDark ? 'dark' : 'light';
+                }
+                this.changeTheme(theme);
             });
         }
 
@@ -764,7 +771,8 @@ class MovieTracker {
         const modal = document.getElementById('add-friend-modal');
         if (modal) {
             modal.classList.add('active');
-            document.getElementById('user-search-input').focus();
+            const searchInput = document.getElementById('friend-search-input');
+            if (searchInput) searchInput.focus();
         }
     }
 
@@ -772,7 +780,8 @@ class MovieTracker {
         const modal = document.getElementById('add-friend-modal');
         if (modal) {
             modal.classList.remove('active');
-            document.getElementById('user-search-input').value = '';
+            const searchInput = document.getElementById('friend-search-input');
+            if (searchInput) searchInput.value = '';
             document.getElementById('user-search-results').innerHTML = '';
         }
     }
@@ -967,37 +976,142 @@ class MovieTracker {
     }
 
     showChangePasswordModal() {
-        // TODO: Implementacja modalnego okna zmiany hasła
-        const oldPassword = prompt('Wprowadź stare hasło:');
-        if (!oldPassword) return;
-
-        const newPassword = prompt('Wprowadź nowe hasło (min. 6 znaków):');
-        if (!newPassword || newPassword.length < 6) {
-            alert('Hasło musi mieć minimum 6 znaków');
-            return;
-        }
-
-        const confirmPassword = prompt('Potwierdź nowe hasło:');
-        if (newPassword !== confirmPassword) {
-            alert('Hasła nie są identyczne');
-            return;
-        }
-
-        // TODO: Wywołanie API zmiany hasła
-        alert('Funkcja zmiany hasła będzie dostępna wkrótce');
+        // Customowy modal do zmiany hasła
+        const modalHtml = `
+            <div class="modal active" id="change-password-modal">
+                <div class="modal-content">
+                    <h2>Zmiana hasła</h2>
+                    <form id="change-password-form">
+                        <div class="form-group">
+                            <label>Obecne hasło</label>
+                            <input type="password" id="current-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nowe hasło</label>
+                            <input type="password" id="new-password" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label>Potwierdź nowe hasło</label>
+                            <input type="password" id="confirm-password" required minlength="6">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" id="cancel-password-change">Anuluj</button>
+                            <button type="submit" class="btn-primary">Zmień hasło</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        const modal = document.getElementById('change-password-modal');
+        const form = document.getElementById('change-password-form');
+        const cancelBtn = document.getElementById('cancel-password-change');
+        
+        const closeModal = () => modal.remove();
+        
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            if (newPassword !== confirmPassword) {
+                this.showNotification('Hasła nie są identyczne!', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                this.showNotification('Nowe hasło musi mieć minimum 6 znaków!', 'error');
+                return;
+            }
+            
+            // Wywołanie API zmiany hasła
+            const success = await this.changePassword(currentPassword, newPassword);
+            if (success) {
+                closeModal();
+            }
+        });
     }
 
     showDeleteAccountModal() {
-        const confirmation = prompt(
-            'UWAGA! Ta operacja jest nieodwracalna!\n\n' +
-            'Wszystkie Twoje dane, filmy, recenzje i postępy zostaną trwale usunięte.\n\n' +
-            'Aby potwierdzić usunięcie konta, wpisz: USUN KONTO'
-        );
+        // Customowy modal do usuwania konta
+        const modalHtml = `
+            <div class="modal active" id="delete-account-modal">
+                <div class="modal-content">
+                    <h2 style="color: #dc3545;">⚠️ Usuń konto</h2>
+                    <p><strong>UWAGA! Ta operacja jest nieodwracalna!</strong></p>
+                    <p>Wszystkie Twoje dane, filmy, recenzje i postępy zostaną trwale usunięte.</p>
+                    <form id="delete-account-form">
+                        <div class="form-group">
+                            <label>Aby potwierdzić, wpisz: <strong>USUN KONTO</strong></label>
+                            <input type="text" id="delete-confirmation" required placeholder="USUN KONTO">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-secondary" id="cancel-delete">Anuluj</button>
+                            <button type="submit" class="btn-danger">Usuń konto</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        const modal = document.getElementById('delete-account-modal');
+        const form = document.getElementById('delete-account-form');
+        const cancelBtn = document.getElementById('cancel-delete');
+        
+        const closeModal = () => modal.remove();
+        
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+        
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const confirmation = document.getElementById('delete-confirmation').value;
+            
+            if (confirmation === 'USUN KONTO') {
+                closeModal();
+                this.deleteAccount();
+            } else {
+                this.showNotification('Nieprawidłowe potwierdzenie. Konto nie zostało usunięte.', 'error');
+            }
+        });
+    }
 
-        if (confirmation === 'USUN KONTO') {
-            this.deleteAccount();
-        } else if (confirmation !== null) {
-            alert('Nieprawidłowe potwierdzenie. Konto nie zostało usunięte.');
+    async changePassword(currentPassword, newPassword) {
+        try {
+            const response = await fetch('/api/auth/password', {
+                method: 'PUT',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Nie udało się zmienić hasła');
+            }
+
+            this.showNotification('Hasło zostało zmienione pomyślnie!', 'success');
+            return true;
+        } catch (error) {
+            console.error('Error changing password:', error);
+            this.showNotification('Błąd: ' + error.message, 'error');
+            return false;
         }
     }
 
@@ -1013,11 +1127,11 @@ class MovieTracker {
                 throw new Error(error.error || 'Nie udało się usunąć konta');
             }
 
-            alert('Konto zostało usunięte. Żegnamy!');
-            this.logout();
+            this.showNotification('Konto zostało usunięte. Żegnamy!', 'success');
+            setTimeout(() => this.logout(), 1500);
         } catch (error) {
             console.error('Error deleting account:', error);
-            alert('Błąd podczas usuwania konta: ' + error.message);
+            this.showNotification('Błąd podczas usuwania konta: ' + error.message, 'error');
         }
     }
 

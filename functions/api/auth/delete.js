@@ -50,7 +50,7 @@ export async function onRequest(context) {
     await env.db.prepare('DELETE FROM challenge_participants WHERE user_id = ?').bind(userId).run();
     await env.db.prepare('DELETE FROM friends WHERE user1_id = ? OR user2_id = ?').bind(userId, userId).run();
     await env.db.prepare('DELETE FROM reviews WHERE user_id = ?').bind(userId).run();
-    await env.db.prepare('DELETE FROM watched_episodes WHERE user_id = ?').bind(userId).run();
+    await env.db.prepare('DELETE FROM user_episodes_watched WHERE user_id = ?').bind(userId).run();
     await env.db.prepare('DELETE FROM watched WHERE user_id = ?').bind(userId).run();
     await env.db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
 

@@ -157,6 +157,22 @@ class MovieTracker {
             });
         }
 
+        // Update item button
+        const updateItemBtn = document.getElementById('update-item');
+        if (updateItemBtn) {
+            updateItemBtn.addEventListener('click', () => {
+                this.updateMovieItem();
+            });
+        }
+
+        // Remove from list button
+        const removeFromListBtn = document.getElementById('remove-from-list');
+        if (removeFromListBtn) {
+            removeFromListBtn.addEventListener('click', () => {
+                this.removeFromList();
+            });
+        }
+
         // Tab buttons for My List section
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -562,23 +578,49 @@ class MovieTracker {
         });
     }
 
-    openMovieModal(movie) {
+    openMovieModal(movie, isEdit = false) {
         const modal = document.getElementById('movie-modal');
         
         document.getElementById('modal-poster').src = movie.poster;
         document.getElementById('modal-title').textContent = movie.title;
-        document.getElementById('modal-description').textContent = movie.description;
+        document.getElementById('modal-description').textContent = movie.description || '';
         document.getElementById('modal-year').textContent = movie.year;
         document.getElementById('modal-genre').textContent = movie.genre;
         document.getElementById('modal-duration').textContent = movie.duration ? `${movie.duration} min` : '';
 
-        // Reset rating
-        this.currentRating = 0;
-        this.highlightStars(0);
-        document.getElementById('review-text').value = '';
+        // Set status if available
+        const statusSelect = document.getElementById('movie-status');
+        if (statusSelect && movie.status) {
+            statusSelect.value = movie.status;
+        } else if (statusSelect) {
+            statusSelect.value = '';
+        }
+
+        // Set rating and review
+        if (isEdit) {
+            this.currentRating = movie.rating || 0;
+            this.highlightStars(this.currentRating);
+            document.getElementById('review-text').value = movie.review || '';
+            
+            // Show update and remove buttons, hide add button
+            document.getElementById('add-to-list').style.display = 'none';
+            document.getElementById('update-item').style.display = 'inline-block';
+            document.getElementById('remove-from-list').style.display = 'inline-block';
+        } else {
+            // Reset rating for new items
+            this.currentRating = 0;
+            this.highlightStars(0);
+            document.getElementById('review-text').value = '';
+            
+            // Show add button, hide update and remove buttons
+            document.getElementById('add-to-list').style.display = 'inline-block';
+            document.getElementById('update-item').style.display = 'none';
+            document.getElementById('remove-from-list').style.display = 'none';
+        }
 
         modal.style.display = 'block';
         modal.currentMovie = movie;
+        modal.isEditMode = isEdit;
     }
 
     closeModal() {
@@ -604,12 +646,14 @@ class MovieTracker {
         const modal = document.getElementById('movie-modal');
         const movie = modal.currentMovie;
         const reviewText = document.getElementById('review-text').value;
+        const statusSelect = document.getElementById('movie-status');
+        const selectedStatus = statusSelect ? statusSelect.value : 'watched';
 
         const movieData = {
             ...movie,
             rating: this.currentRating,
             review: reviewText,
-            status: 'watched',
+            status: selectedStatus || 'watched',
             watchedDate: new Date().toISOString().split('T')[0]
         };
 
@@ -624,13 +668,88 @@ class MovieTracker {
                 // Reload movies data to refresh the list
                 await this.loadMoviesData();
                 this.closeModal();
-                this.showNotification('Film został dodany do listy obejrzanych!');
+                this.showNotification('Film został dodany do listy!');
             } else {
                 throw new Error('Failed to add movie');
             }
         } catch (error) {
             console.error('Error adding movie:', error);
             this.showNotification('Błąd podczas dodawania filmu. Spróbuj ponownie.');
+        }
+    }
+
+    async updateMovieItem() {
+        const modal = document.getElementById('movie-modal');
+        const movie = modal.currentMovie;
+        const reviewText = document.getElementById('review-text').value;
+        const statusSelect = document.getElementById('movie-status');
+        const selectedStatus = statusSelect ? statusSelect.value : movie.status || 'watched';
+
+        if (!movie.id) {
+            this.showNotification('Błąd: Brak identyfikatora filmu.');
+            return;
+        }
+
+        const movieData = {
+            rating: this.currentRating,
+            review: reviewText,
+            status: selectedStatus,
+            watchedDate: movie.watchedDate || new Date().toISOString().split('T')[0]
+        };
+
+        try {
+            const response = await fetch(`/api/movies/${movie.id}`, {
+                method: 'PUT',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify(movieData)
+            });
+
+            if (response.ok) {
+                // Reload movies data to refresh the list
+                await this.loadMoviesData();
+                this.closeModal();
+                this.showNotification('Film został zaktualizowany!');
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update movie');
+            }
+        } catch (error) {
+            console.error('Error updating movie:', error);
+            this.showNotification('Błąd podczas aktualizacji filmu. Spróbuj ponownie.');
+        }
+    }
+
+    async removeFromList() {
+        const modal = document.getElementById('movie-modal');
+        const movie = modal.currentMovie;
+
+        if (!movie.id) {
+            this.showNotification('Błąd: Brak identyfikatora filmu.');
+            return;
+        }
+
+        if (!confirm(`Czy na pewno chcesz usunąć "${movie.title}" z listy?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/movies/${movie.id}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                // Reload movies data to refresh the list
+                await this.loadMoviesData();
+                this.closeModal();
+                this.showNotification(`Usunięto "${movie.title}" z listy`);
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to delete movie');
+            }
+        } catch (error) {
+            console.error('Error deleting movie:', error);
+            this.showNotification('Błąd podczas usuwania filmu. Spróbuj ponownie.');
         }
     }
 
@@ -895,32 +1014,45 @@ class MovieTracker {
         const item = this.watchedMovies.find(movie => movie.id === itemId);
         if (item) {
             console.log('Editing item:', item);
-            // TODO: Implement edit modal/form that uses PUT /api/movies/{id}
-            alert(`Edytowanie: ${item.title} - funkcja będzie dostępna wkrótce`);
+            // Open modal in edit mode
+            this.openMovieModal(item, true);
+        } else {
+            console.error('Item not found:', itemId);
+            this.showNotification('Nie znaleziono filmu do edycji.');
         }
     }
 
     async deleteItem(itemId) {
         // Delete item from list
         const item = this.watchedMovies.find(movie => movie.id === itemId);
-        if (item && confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
-            try {
-                const response = await fetch(`/api/movies/${itemId}`, {
-                    method: 'DELETE',
-                    headers: this.getAuthHeaders()
-                });
+        
+        if (!item) {
+            this.showNotification('Nie znaleziono filmu do usunięcia.');
+            return;
+        }
 
-                if (response.ok) {
-                    // Reload movies data to refresh the list
-                    await this.loadMoviesData();
-                    this.showNotification(`Usunięto "${item.title}" z listy`);
-                } else {
-                    throw new Error('Failed to delete movie');
-                }
-            } catch (error) {
-                console.error('Error deleting movie:', error);
-                this.showNotification('Błąd podczas usuwania filmu. Spróbuj ponownie.');
+        if (!confirm(`Czy na pewno chcesz usunąć "${item.title}" z listy?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/movies/${itemId}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                // Reload movies data to refresh the list
+                await this.loadMoviesData();
+                this.showNotification(`Usunięto "${item.title}" z listy`);
+            } else {
+                const errorData = await response.json();
+                console.error('Delete error response:', errorData);
+                throw new Error(errorData.error || 'Failed to delete movie');
             }
+        } catch (error) {
+            console.error('Error deleting movie:', error);
+            this.showNotification('Błąd podczas usuwania filmu. Spróbuj ponownie.');
         }
     }
 

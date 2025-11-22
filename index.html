@@ -229,10 +229,8 @@
         <!-- Profile Section -->
         <section id="profile" class="section">
             <div class="container">
-                <h1>Profil użytkownika</h1>
-                
-                <div class="profile-container">
-                    <div class="profile-info">
+                <div class="profile-header">
+                    <div class="profile-info-top">
                         <div class="avatar-container">
                             <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
                             <div class="avatar" id="avatar-wrapper">
@@ -246,26 +244,144 @@
                             </div>
                         </div>
                         <div class="user-details">
-                            <h2 id="profile-username">Nazwa użytkownika</h2>
+                            <h1 id="profile-username">Nazwa użytkownika</h1>
                             <p id="profile-email">email@example.com</p>
-                            <p>Członek od: <span id="member-since">2024</span></p>
+                            <p class="member-since">Członek od: <span id="member-since">2024</span></p>
                         </div>
                     </div>
                     
-                    <div class="profile-settings">
-                        <h3>Ustawienia</h3>
-                        <div class="setting-item">
-                            <label>Motyw</label>
-                            <select id="theme-select">
-                                <option value="light">Jasny</option>
-                                <option value="dark">Ciemny</option>
-                                <option value="auto">Automatyczny</option>
-                            </select>
+                    <!-- Profile Tabs -->
+                    <div class="profile-tabs">
+                        <button class="profile-tab-btn active" data-profile-tab="badges">
+                            <i class="fas fa-trophy"></i> Odznaki
+                        </button>
+                        <button class="profile-tab-btn" data-profile-tab="friends">
+                            <i class="fas fa-users"></i> Znajomi
+                        </button>
+                        <button class="profile-tab-btn" data-profile-tab="settings">
+                            <i class="fas fa-cog"></i> Ustawienia
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Badges Tab -->
+                <div id="profile-badges-tab" class="profile-tab-content active">
+                    <div class="badges-header">
+                        <h2>Moje Odznaki</h2>
+                        <a href="#badges-all" class="view-all-link">Zobacz wszystkie →</a>
+                    </div>
+                    <div id="badges-container" class="badges-grid">
+                        <!-- Badges will be loaded here -->
+                        <div class="badge-placeholder">
+                            <i class="fas fa-trophy"></i>
+                            <p>Brak odznak</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Friends Tab -->
+                <div id="profile-friends-tab" class="profile-tab-content">
+                    <div class="friends-header">
+                        <h2>Znajomi</h2>
+                        <button id="add-friend-btn" class="btn btn-primary">
+                            <i class="fas fa-user-plus"></i> Dodaj znajomego
+                        </button>
+                    </div>
+                    
+                    <div class="friends-stats">
+                        <div class="friend-stat">
+                            <span class="stat-number" id="friends-count">0</span>
+                            <span class="stat-label">Znajomych</span>
+                        </div>
+                        <div class="friend-stat">
+                            <span class="stat-number" id="pending-requests-count">0</span>
+                            <span class="stat-label">Oczekujących</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Friend Requests -->
+                    <div id="friend-requests-section" style="display: none;">
+                        <h3>Zaproszenia</h3>
+                        <div id="friend-requests-list" class="friends-list">
+                            <!-- Friend requests will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Friends List -->
+                    <div id="friends-section">
+                        <h3>Moi Znajomi</h3>
+                        <div id="friends-list" class="friends-list">
+                            <!-- Friends will be loaded here -->
+                            <div class="empty-state">
+                                <i class="fas fa-users"></i>
+                                <p>Nie masz jeszcze znajomych</p>
+                                <button class="btn btn-secondary" onclick="document.getElementById('add-friend-btn').click()">
+                                    Dodaj pierwszego znajomego
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab -->
+                <div id="profile-settings-tab" class="profile-tab-content">
+                    <h2>Ustawienia</h2>
+                    <div class="settings-container">
+                        <div class="setting-group">
+                            <h3>Wygląd</h3>
+                            <div class="setting-item">
+                                <label for="theme-select">
+                                    <i class="fas fa-palette"></i> Motyw aplikacji
+                                </label>
+                                <select id="theme-select">
+                                    <option value="light">☀️ Jasny</option>
+                                    <option value="dark">🌙 Ciemny</option>
+                                    <option value="auto">🔄 Automatyczny</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <h3>Prywatność</h3>
+                            <div class="setting-item">
+                                <label>
+                                    <i class="fas fa-eye"></i> Widoczność profilu
+                                </label>
+                                <select id="profile-visibility">
+                                    <option value="public">Publiczny</option>
+                                    <option value="friends">Tylko znajomi</option>
+                                    <option value="private">Prywatny</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <h3>Konto</h3>
+                            <button class="btn btn-secondary" id="change-password-btn">
+                                <i class="fas fa-key"></i> Zmień hasło
+                            </button>
+                            <button class="btn btn-danger" id="delete-account-btn">
+                                <i class="fas fa-exclamation-triangle"></i> Usuń konto
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
+        
+        <!-- Add Friend Modal -->
+        <div id="add-friend-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Dodaj znajomego</h2>
+                <div class="search-friend-container">
+                    <input type="text" id="friend-search-input" placeholder="Wyszukaj użytkownika...">
+                    <div id="friend-search-results" class="search-results">
+                        <!-- Search results will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Admin Panel Section -->
         <section id="admin" class="section" style="display: none;">

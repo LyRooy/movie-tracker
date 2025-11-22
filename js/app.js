@@ -241,6 +241,9 @@ class MovieTracker {
         // Generuj opcje roku dla filtra
         this.generateYearOptions();
         
+        // Event listenery dla profilu
+        this.bindProfileEvents();
+        
         // Kliknięcia elementów listy - deleguj do kontenera
         const myListContainer = document.getElementById('my-list-content');
         if (myListContainer) {
@@ -295,6 +298,8 @@ class MovieTracker {
             this.loadCharts();
         } else if (sectionName === 'my-list') {
             this.displayMyList();
+        } else if (sectionName === 'profile') {
+            this.loadProfileData();
         } else if (sectionName === 'admin') {
             this.loadAdminData();
         }
@@ -461,6 +466,478 @@ class MovieTracker {
             alert('Błąd podczas przesyłania avatara: ' + error.message);
         }
     }
+
+    // ============= FUNKCJE PROFILU =============
+
+    bindProfileEvents() {
+        // Zakładki profilu
+        document.querySelectorAll('.profile-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.profileTab;
+                this.switchProfileTab(tabName);
+            });
+        });
+
+        // Przycisk dodawania znajomego
+        const addFriendBtn = document.getElementById('add-friend-btn');
+        if (addFriendBtn) {
+            addFriendBtn.addEventListener('click', () => {
+                this.openAddFriendModal();
+            });
+        }
+
+        // Zamknięcie modalu
+        const closeModalBtn = document.querySelector('#add-friend-modal .close-modal');
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => {
+                this.closeAddFriendModal();
+            });
+        }
+
+        // Zamknięcie modalu przez kliknięcie tła
+        const addFriendModal = document.getElementById('add-friend-modal');
+        if (addFriendModal) {
+            addFriendModal.addEventListener('click', (e) => {
+                if (e.target === addFriendModal) {
+                    this.closeAddFriendModal();
+                }
+            });
+        }
+
+        // Wyszukiwanie użytkowników (debounced)
+        const userSearchInput = document.getElementById('user-search-input');
+        if (userSearchInput) {
+            let searchTimeout;
+            userSearchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+                
+                if (query.length < 2) {
+                    document.getElementById('user-search-results').innerHTML = '';
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => {
+                    this.searchUsers(query);
+                }, 300);
+            });
+        }
+
+        // Zobacz wszystkie odznaki
+        const viewAllBadgesBtn = document.getElementById('view-all-badges');
+        if (viewAllBadgesBtn) {
+            viewAllBadgesBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                // TODO: Implementacja strony z wszystkimi odznakami
+                alert('Strona ze wszystkimi odznakami będzie dostępna wkrótce!');
+            });
+        }
+    }
+
+    switchProfileTab(tabName) {
+        // Usuń active ze wszystkich zakładek
+        document.querySelectorAll('.profile-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelectorAll('.profile-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // Aktywuj wybraną zakładkę
+        const activeBtn = document.querySelector(`[data-profile-tab="${tabName}"]`);
+        const activeContent = document.getElementById(`${tabName}-tab`);
+        
+        if (activeBtn) activeBtn.classList.add('active');
+        if (activeContent) activeContent.classList.add('active');
+    }
+
+    async loadProfileData() {
+        // Załaduj wszystkie dane profilu
+        await Promise.all([
+            this.loadBadges(),
+            this.loadFriends(),
+            this.loadFriendRequests()
+        ]);
+    }
+
+    async loadBadges() {
+        try {
+            const response = await fetch('/api/badges?limit=6', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się załadować odznak');
+            }
+
+            const badges = await response.json();
+            this.displayBadges(badges);
+        } catch (error) {
+            console.error('Error loading badges:', error);
+            this.displayBadges([]);
+        }
+    }
+
+    displayBadges(badges) {
+        const container = document.getElementById('badges-container');
+        if (!container) return;
+
+        if (badges.length === 0) {
+            // Pokaż placeholder
+            container.innerHTML = `
+                <div class="badge-item badge-placeholder">
+                    <i class="fas fa-award"></i>
+                    <span>Zdobądź odznakę!</span>
+                </div>
+                <div class="badge-item badge-placeholder">
+                    <i class="fas fa-award"></i>
+                    <span>Zdobądź odznakę!</span>
+                </div>
+                <div class="badge-item badge-placeholder">
+                    <i class="fas fa-award"></i>
+                    <span>Zdobądź odznakę!</span>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = badges.map(badge => `
+            <div class="badge-item">
+                <img src="${badge.imageUrl}" alt="${badge.name}">
+                <h4>${badge.name}</h4>
+                <span class="badge-level ${badge.level}">${this.getBadgeLevelText(badge.level)}</span>
+            </div>
+        `).join('');
+    }
+
+    getBadgeLevelText(level) {
+        const levels = {
+            'silver': 'Srebrna',
+            'gold': 'Złota',
+            'platinum': 'Platynowa'
+        };
+        return levels[level] || level;
+    }
+
+    async loadFriends() {
+        try {
+            const response = await fetch('/api/friends?status=accepted', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się załadować znajomych');
+            }
+
+            const friends = await response.json();
+            this.displayFriends(friends);
+            this.updateFriendsStats(friends.length);
+        } catch (error) {
+            console.error('Error loading friends:', error);
+            this.displayFriends([]);
+            this.updateFriendsStats(0);
+        }
+    }
+
+    displayFriends(friends) {
+        const container = document.getElementById('friends-list');
+        if (!container) return;
+
+        if (friends.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-user-friends"></i>
+                    <p>Nie masz jeszcze znajomych</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('add-friend-btn').click()">
+                        Znajdź znajomych
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = friends.map(friend => `
+            <div class="friend-card">
+                <img src="${friend.avatar_url || '/images/default-avatar.png'}" alt="${friend.nickname}">
+                <div class="friend-info">
+                    <h4>${friend.nickname}</h4>
+                    <p>${friend.total_movies || 0} filmów</p>
+                </div>
+                <div class="friend-actions">
+                    <button class="btn-icon" onclick="app.viewFriendProfile(${friend.user_id})" title="Zobacz profil">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon btn-danger" onclick="app.removeFriend(${friend.friendship_id})" title="Usuń znajomego">
+                        <i class="fas fa-user-times"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    updateFriendsStats(count) {
+        const statsCount = document.querySelector('.friends-stats .stat-number');
+        if (statsCount) {
+            statsCount.textContent = count;
+        }
+    }
+
+    async loadFriendRequests() {
+        try {
+            const response = await fetch('/api/friends?status=pending', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się załadować zaproszeń');
+            }
+
+            const requests = await response.json();
+            // Filtruj tylko zaproszenia otrzymane (nie wysłane)
+            const receivedRequests = requests.filter(r => r.user2_id === this.currentUser.id);
+            this.displayFriendRequests(receivedRequests);
+        } catch (error) {
+            console.error('Error loading friend requests:', error);
+            this.displayFriendRequests([]);
+        }
+    }
+
+    displayFriendRequests(requests) {
+        const container = document.getElementById('friend-requests-list');
+        if (!container) return;
+
+        if (requests.length === 0) {
+            container.innerHTML = '<p>Brak nowych zaproszeń</p>';
+            return;
+        }
+
+        container.innerHTML = requests.map(request => `
+            <div class="friend-request-item">
+                <img src="${request.avatar_url || '/images/default-avatar.png'}" alt="${request.nickname}">
+                <div class="request-info">
+                    <h4>${request.nickname}</h4>
+                    <p>Wysłano ${this.formatDate(request.created_at)}</p>
+                </div>
+                <div class="request-actions">
+                    <button class="btn btn-primary btn-sm" onclick="app.acceptFriendRequest(${request.friendship_id})">
+                        Akceptuj
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="app.rejectFriendRequest(${request.friendship_id})">
+                        Odrzuć
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    openAddFriendModal() {
+        const modal = document.getElementById('add-friend-modal');
+        if (modal) {
+            modal.classList.add('active');
+            document.getElementById('user-search-input').focus();
+        }
+    }
+
+    closeAddFriendModal() {
+        const modal = document.getElementById('add-friend-modal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.getElementById('user-search-input').value = '';
+            document.getElementById('user-search-results').innerHTML = '';
+        }
+    }
+
+    async searchUsers(query) {
+        try {
+            const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=10`, {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się wyszukać użytkowników');
+            }
+
+            const users = await response.json();
+            this.displaySearchResults(users);
+        } catch (error) {
+            console.error('Error searching users:', error);
+            document.getElementById('user-search-results').innerHTML = 
+                '<p class="search-error">Błąd wyszukiwania</p>';
+        }
+    }
+
+    displaySearchResults(users) {
+        const container = document.getElementById('user-search-results');
+        if (!container) return;
+
+        if (users.length === 0) {
+            container.innerHTML = '<p class="no-results">Nie znaleziono użytkowników</p>';
+            return;
+        }
+
+        container.innerHTML = users.map(user => `
+            <div class="user-search-item">
+                <img src="${user.avatar_url || '/images/default-avatar.png'}" alt="${user.nickname}">
+                <div class="user-info">
+                    <h4>${user.nickname}</h4>
+                    <p>${user.total_movies || 0} filmów</p>
+                </div>
+                ${this.getFriendshipButton(user)}
+            </div>
+        `).join('');
+    }
+
+    getFriendshipButton(user) {
+        if (user.friendship_status === 'accepted') {
+            return '<span class="friendship-status accepted">Znajomy</span>';
+        } else if (user.friendship_status === 'pending') {
+            return '<span class="friendship-status pending">Oczekujące</span>';
+        } else {
+            return `<button class="btn btn-primary btn-sm" onclick="app.sendFriendRequest(${user.id})">Dodaj</button>`;
+        }
+    }
+
+    async sendFriendRequest(userId) {
+        try {
+            const response = await fetch('/api/friends', {
+                method: 'POST',
+                headers: {
+                    ...this.getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ friendId: userId })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Nie udało się wysłać zaproszenia');
+            }
+
+            // Odśwież wyniki wyszukiwania
+            const query = document.getElementById('user-search-input').value;
+            if (query) {
+                await this.searchUsers(query);
+            }
+
+            alert('Zaproszenie zostało wysłane!');
+        } catch (error) {
+            console.error('Error sending friend request:', error);
+            alert('Błąd: ' + error.message);
+        }
+    }
+
+    async acceptFriendRequest(friendshipId) {
+        try {
+            const response = await fetch('/api/friends', {
+                method: 'PUT',
+                headers: {
+                    ...this.getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    friendshipId: friendshipId,
+                    action: 'accept'
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Nie udało się zaakceptować zaproszenia');
+            }
+
+            // Odśwież listy
+            await Promise.all([
+                this.loadFriends(),
+                this.loadFriendRequests()
+            ]);
+
+            alert('Zaproszenie zostało zaakceptowane!');
+        } catch (error) {
+            console.error('Error accepting friend request:', error);
+            alert('Błąd: ' + error.message);
+        }
+    }
+
+    async rejectFriendRequest(friendshipId) {
+        try {
+            const response = await fetch('/api/friends', {
+                method: 'PUT',
+                headers: {
+                    ...this.getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    friendshipId: friendshipId,
+                    action: 'reject'
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Nie udało się odrzucić zaproszenia');
+            }
+
+            // Odśwież listę zaproszeń
+            await this.loadFriendRequests();
+
+            alert('Zaproszenie zostało odrzucone');
+        } catch (error) {
+            console.error('Error rejecting friend request:', error);
+            alert('Błąd: ' + error.message);
+        }
+    }
+
+    async removeFriend(friendshipId) {
+        if (!confirm('Czy na pewno chcesz usunąć tego znajomego?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/friends', {
+                method: 'DELETE',
+                headers: {
+                    ...this.getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ friendshipId: friendshipId })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Nie udało się usunąć znajomego');
+            }
+
+            // Odśwież listę znajomych
+            await this.loadFriends();
+
+            alert('Znajomy został usunięty');
+        } catch (error) {
+            console.error('Error removing friend:', error);
+            alert('Błąd: ' + error.message);
+        }
+    }
+
+    viewFriendProfile(userId) {
+        // TODO: Implementacja strony profilu znajomego
+        alert(`Profil użytkownika #${userId} będzie dostępny wkrótce!`);
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+        if (days === 0) return 'Dzisiaj';
+        if (days === 1) return 'Wczoraj';
+        if (days < 7) return `${days} dni temu`;
+        if (days < 30) return `${Math.floor(days / 7)} tyg. temu`;
+        if (days < 365) return `${Math.floor(days / 30)} mies. temu`;
+        return date.toLocaleDateString('pl-PL');
+    }
+
+    // ============= KONIEC FUNKCJI PROFILU =============
+
 
     async loadMoviesData() {
         try {

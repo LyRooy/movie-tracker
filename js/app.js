@@ -935,13 +935,13 @@ class MovieTracker {
             // Oznacz każdy nieobejrzany odcinek jako obejrzany
             for (const season of data.seasons) {
                 for (const episode of season.episodes) {
-                    if (!episode.watched) {
+                    // Sprawdź czy odcinek NIE jest już obejrzany
+                    if (!episode.isWatched) {
                         await fetch(`/api/series/${seriesId}/episodes`, {
                             method: 'POST',
                             headers: this.getAuthHeaders(),
                             body: JSON.stringify({
-                                season: season.season_number,
-                                episode: episode.episode_number,
+                                episodeId: episode.id,
                                 watched: true,
                                 markPrevious: false
                             })

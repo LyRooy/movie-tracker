@@ -805,10 +805,21 @@ class MovieTracker {
             });
 
             if (response.ok) {
+                const result = await response.json();
                 // Reload movies data to refresh the list
                 await this.loadMoviesData();
                 this.closeModal();
-                this.showNotification('Film został dodany do listy!');
+                
+                // Jeśli to serial, od razu otwórz modal odcinków
+                if (movie.type === 'series' && result.id) {
+                    this.showNotification('Serial został dodany! Zaznacz obejrzane odcinki.');
+                    // Poczekaj chwilę na załadowanie danych
+                    setTimeout(() => {
+                        this.openSeriesEpisodes(result.id);
+                    }, 300);
+                } else {
+                    this.showNotification('Film został dodany do listy!');
+                }
             } else {
                 throw new Error('Failed to add movie');
             }
@@ -1197,11 +1208,44 @@ class MovieTracker {
         // Otwórz modal odcinków dla serialu
         const series = this.watchedMovies.find(movie => movie.id === seriesId);
         
-        if (!series || series.type !== 'series') {
-            this.showNotification('Nie znaleziono serialu.');
+        // Jeśli nie znaleziono w watchedMovies, spróbuj pobrać z API
+        if (!series) {
+            try {
+                const movieResponse = await fetch(`/api/movies/${seriesId}`, {
+                    headers: this.getAuthHeaders()
+                });
+                
+                if (!movieResponse.ok) {
+                    this.showNotification('Nie znaleziono serialu.');
+                    return;
+                }
+                
+                const movieData = await movieResponse.json();
+                
+                if (movieData.type !== 'series') {
+                    this.showNotification('To nie jest serial.');
+                    return;
+                }
+                
+                // Kontynuuj z danymi z API
+                await this.loadSeriesEpisodesModal(seriesId, movieData.title);
+                return;
+            } catch (error) {
+                console.error('Error loading series data:', error);
+                this.showNotification('Błąd podczas ładowania serialu.');
+                return;
+            }
+        }
+        
+        if (series.type !== 'series') {
+            this.showNotification('To nie jest serial.');
             return;
         }
 
+        await this.loadSeriesEpisodesModal(seriesId, series.title);
+    }
+
+    async loadSeriesEpisodesModal(seriesId, seriesTitle) {
         try {
             // Pobierz dane odcinków
             const response = await fetch(`/api/series/${seriesId}/episodes`, {
@@ -1219,37 +1263,35 @@ class MovieTracker {
             const titleElement = document.getElementById('series-modal-title');
             const container = document.getElementById('series-seasons-container');
             
-            titleElement.textContent = series.title;
+            titleElement.textContent = data.series?.title || seriesTitle;
             container.innerHTML = '';
 
-            // Grupuj odcinki według sezonu
-            const seasonMap = new Map();
-            data.episodes.forEach(episode => {
-                if (!seasonMap.has(episode.seasonNumber)) {
-                    seasonMap.set(episode.seasonNumber, []);
-                }
-                seasonMap.get(episode.seasonNumber).push(episode);
-            });
+            // API zwraca seasons, każdy sezon ma episodes
+            if (!data.seasons || data.seasons.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 20px;">Brak odcinków do wyświetlenia. Serial może nie być jeszcze skonfigurowany.</p>';
+                modal.style.display = 'block';
+                return;
+            }
 
             // Renderuj sezony
-            seasonMap.forEach((episodes, seasonNumber) => {
-                const watchedCount = episodes.filter(ep => ep.isWatched).length;
-                const totalCount = episodes.length;
+            data.seasons.forEach(season => {
+                const watchedCount = season.episodes.filter(ep => ep.isWatched).length;
+                const totalCount = season.episodes.length;
                 
                 const seasonDiv = document.createElement('div');
                 seasonDiv.className = 'season-section';
                 seasonDiv.innerHTML = `
                     <div class="season-header" onclick="this.nextElementSibling.classList.toggle('active')">
-                        <h3>Sezon ${seasonNumber}</h3>
+                        <h3>Sezon ${season.seasonNumber}</h3>
                         <span class="season-progress">${watchedCount}/${totalCount} odcinków</span>
                     </div>
                     <div class="season-episodes">
-                        ${episodes.map(episode => `
+                        ${season.episodes.map(episode => `
                             <div class="episode-item ${episode.isWatched ? 'watched' : ''}" data-episode-id="${episode.id}">
                                 <input type="checkbox" 
                                     class="episode-checkbox" 
                                     ${episode.isWatched ? 'checked' : ''}
-                                    onchange="app.toggleEpisode(${seriesId}, ${episode.id}, ${episode.seasonNumber}, ${episode.episodeNumber}, this.checked)">
+                                    onchange="app.toggleEpisode(${seriesId}, ${episode.id}, ${season.seasonNumber}, ${episode.episodeNumber}, this.checked)">
                                 <label class="episode-label">Odcinek ${episode.episodeNumber}</label>
                             </div>
                         `).join('')}
@@ -1316,6 +1358,18 @@ class MovieTracker {
                     episodeItem.classList.add('watched');
                 } else {
                     episodeItem.classList.remove('watched');
+                }
+                
+                // Zaktualizuj licznik postępu sezonu
+                const seasonSection = episodeItem.closest('.season-section');
+                if (seasonSection) {
+                    const checkboxes = seasonSection.querySelectorAll('.episode-checkbox');
+                    const watchedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+                    const totalCount = checkboxes.length;
+                    const progressSpan = seasonSection.querySelector('.season-progress');
+                    if (progressSpan) {
+                        progressSpan.textContent = `${watchedCount}/${totalCount} odcinków`;
+                    }
                 }
             }
 
@@ -1852,7 +1906,7 @@ class MovieTracker {
             const movie = await movieResponse.json();
             
             // Pobierz istniejące sezony
-            const seasonsResponse = await fetch(`/api/movies/${seriesId}/seasons`, {
+            const seasonsResponse = await fetch(`/api/admin/movies/${seriesId}/seasons`, {
                 headers: this.getAuthHeaders()
             });
             

@@ -99,48 +99,75 @@ async function handleGet(db, request, url, corsHeaders) {
   try {
     const result = await db.prepare(query).bind(...params).all();
     
+    if (!result || !result.results) {
+      console.error('Query returned no results object:', result);
+      return new Response(JSON.stringify([]), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    console.log('Query returned', result.results.length, 'rows');
+    
     // For each series, fetch watched episodes count
     const transformedResults = await Promise.all(result.results.map(async row => {
-      let watchedEpisodes = 0;
-      
-      // If it's a series, count watched episodes
-      if (row.type === 'series') {
-        try {
-          const episodesResult = await db.prepare(`
-            SELECT COUNT(*) as count
-            FROM user_episodes_watched uew
-            JOIN episodes e ON uew.episode_id = e.id
-            JOIN seasons s ON e.season_id = s.id
-            WHERE s.series_id = ? AND uew.user_id = ?
-          `).bind(row.id, userId).first();
-          
-          watchedEpisodes = episodesResult?.count || 0;
-        } catch (e) {
-          console.warn('Could not fetch watched episodes:', e);
+      try {
+        let watchedEpisodes = 0;
+        
+        // If it's a series, count watched episodes
+        if (row.type === 'series') {
+          try {
+            const episodesResult = await db.prepare(`
+              SELECT COUNT(*) as count
+              FROM user_episodes_watched uew
+              JOIN episodes e ON uew.episode_id = e.id
+              JOIN seasons s ON e.season_id = s.id
+              WHERE s.series_id = ? AND uew.user_id = ?
+            `).bind(row.id, userId).first();
+            
+            watchedEpisodes = episodesResult?.count || 0;
+          } catch (e) {
+            console.warn('Could not fetch watched episodes:', e);
+          }
         }
+        
+        return {
+          id: row.id,
+          title: row.title,
+          type: row.type,
+          year: parseInt(row.year) || new Date().getFullYear(),
+          genre: row.genre || 'Unknown',
+          rating: row.rating || 0,
+          status: row.status || 'watched',
+          watchedDate: row.watchedDate || null,
+          poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
+          duration: row.duration || 120,
+          review: row.review || '',
+          // Series-specific fields
+          totalSeasons: row.total_seasons || null,
+          totalEpisodes: row.total_episodes || null,
+          watchedEpisodes: watchedEpisodes,
+          // Calculate progress for series
+          progress: row.type === 'series' && row.total_episodes > 0 
+            ? Math.round((watchedEpisodes / row.total_episodes) * 100) 
+            : null
+        };
+      } catch (rowError) {
+        console.error('Error processing row:', row.id, rowError);
+        // Return basic object on error
+        return {
+          id: row.id,
+          title: row.title,
+          type: row.type || 'movie',
+          year: parseInt(row.year) || new Date().getFullYear(),
+          genre: row.genre || 'Unknown',
+          rating: row.rating || 0,
+          status: row.status || 'watched',
+          watchedDate: row.watchedDate || null,
+          poster: `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title || 'Movie')}`,
+          duration: 120,
+          review: ''
+        };
       }
-      
-      return {
-        id: row.id,
-        title: row.title,
-        type: row.type,
-        year: parseInt(row.year) || new Date().getFullYear(),
-        genre: row.genre || 'Unknown',
-        rating: row.rating || 0,
-        status: row.status || 'watched',
-        watchedDate: row.watchedDate || null,
-        poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
-        duration: row.duration || 120,
-        review: row.review || '',
-        // Series-specific fields
-        totalSeasons: row.total_seasons || null,
-        totalEpisodes: row.total_episodes || null,
-        watchedEpisodes: watchedEpisodes,
-        // Calculate progress for series
-        progress: row.type === 'series' && row.total_episodes > 0 
-          ? Math.round((watchedEpisodes / row.total_episodes) * 100) 
-          : null
-      };
     }));
     
     return new Response(JSON.stringify(transformedResults), {

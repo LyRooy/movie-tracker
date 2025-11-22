@@ -77,7 +77,7 @@ export async function onRequest(context) {
       type: row.type,
       year: parseInt(row.year) || new Date().getFullYear(),
       genre: row.genre || 'Unknown',
-      poster: normalizePosterUrl(row.poster) || `https://via.placeholder.com/200x300/4CAF50/white?text=${encodeURIComponent(row.title)}`,
+      poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
       description: row.description || '',
       rating: 0,
       status: 'planning',

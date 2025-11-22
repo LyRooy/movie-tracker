@@ -695,7 +695,7 @@ class MovieTracker {
     }
 
     updateFriendsStats(count) {
-        const statsCount = document.querySelector('.friends-stats .stat-number');
+        const statsCount = document.getElementById('friends-count');
         if (statsCount) {
             statsCount.textContent = count;
         }
@@ -714,6 +714,13 @@ class MovieTracker {
             const requests = await response.json();
             // Filtruj tylko zaproszenia otrzymane (nie wysłane)
             const receivedRequests = requests.filter(r => r.request_direction === 'received');
+            
+            // Zaktualizuj licznik
+            const pendingCount = document.getElementById('pending-requests-count');
+            if (pendingCount) {
+                pendingCount.textContent = receivedRequests.length;
+            }
+            
             this.displayFriendRequests(receivedRequests);
         } catch (error) {
             console.error('Error loading friend requests:', error);
@@ -723,12 +730,16 @@ class MovieTracker {
 
     displayFriendRequests(requests) {
         const container = document.getElementById('friend-requests-list');
+        const section = document.getElementById('friend-requests-section');
+        
         if (!container) return;
 
         if (requests.length === 0) {
-            container.innerHTML = '<p>Brak nowych zaproszeń</p>';
+            if (section) section.style.display = 'none';
             return;
         }
+
+        if (section) section.style.display = 'block';
 
         container.innerHTML = requests.map(request => `
             <div class="friend-request-item">

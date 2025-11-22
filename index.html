@@ -268,14 +268,10 @@
                 <div id="profile-badges-tab" class="profile-tab-content active">
                     <div class="badges-header">
                         <h2>Moje Odznaki</h2>
-                        <a href="#badges-all" class="view-all-link">Zobacz wszystkie →</a>
+                        <a href="#badges-all" id="view-all-badges" class="view-all-link">Zobacz wszystkie →</a>
                     </div>
                     <div id="badges-container" class="badges-grid">
-                        <!-- Badges will be loaded here -->
-                        <div class="badge-placeholder">
-                            <i class="fas fa-trophy"></i>
-                            <p>Brak odznak</p>
-                        </div>
+                        <!-- Badges will be loaded here dynamically -->
                     </div>
                 </div>
                 
@@ -311,14 +307,7 @@
                     <div id="friends-section">
                         <h3>Moi Znajomi</h3>
                         <div id="friends-list" class="friends-list">
-                            <!-- Friends will be loaded here -->
-                            <div class="empty-state">
-                                <i class="fas fa-users"></i>
-                                <p>Nie masz jeszcze znajomych</p>
-                                <button class="btn btn-secondary" onclick="document.getElementById('add-friend-btn').click()">
-                                    Dodaj pierwszego znajomego
-                                </button>
-                            </div>
+                            <!-- Friends will be loaded here dynamically -->
                         </div>
                     </div>
                 </div>

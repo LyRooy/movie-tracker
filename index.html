@@ -357,6 +357,41 @@
                 </div>
             </div>
         </section>
+
+        <!-- All Badges Section -->
+        <section id="badges-all" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <button class="btn-back" onclick="app.showSection('profile')">
+                        <i class="fas fa-arrow-left"></i> Powrót do profilu
+                    </button>
+                    <h1>Wszystkie Odznaki</h1>
+                </div>
+                
+                <div class="badges-stats">
+                    <div class="badge-stat">
+                        <span class="stat-number" id="total-badges-count">0</span>
+                        <span class="stat-label">Zdobyte odznaki</span>
+                    </div>
+                    <div class="badge-stat">
+                        <span class="stat-number" id="platinum-badges-count">0</span>
+                        <span class="stat-label">Platynowe</span>
+                    </div>
+                    <div class="badge-stat">
+                        <span class="stat-number" id="gold-badges-count">0</span>
+                        <span class="stat-label">Złote</span>
+                    </div>
+                    <div class="badge-stat">
+                        <span class="stat-number" id="silver-badges-count">0</span>
+                        <span class="stat-label">Srebrne</span>
+                    </div>
+                </div>
+
+                <div id="all-badges-container" class="badges-grid-full">
+                    <!-- All badges will be loaded here -->
+                </div>
+            </div>
+        </section>
         
         <!-- Add Friend Modal -->
         <div id="add-friend-modal" class="modal">

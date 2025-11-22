@@ -512,7 +512,7 @@ class MovieTracker {
         }
 
         // Wyszukiwanie użytkowników (debounced)
-        const userSearchInput = document.getElementById('user-search-input');
+        const userSearchInput = document.getElementById('friend-search-input');
         if (userSearchInput) {
             let searchTimeout;
             userSearchInput.addEventListener('input', (e) => {
@@ -520,7 +520,7 @@ class MovieTracker {
                 const query = e.target.value.trim();
                 
                 if (query.length < 2) {
-                    document.getElementById('user-search-results').innerHTML = '';
+                    document.getElementById('friend-search-results').innerHTML = '';
                     return;
                 }
                 
@@ -535,8 +535,7 @@ class MovieTracker {
         if (viewAllBadgesBtn) {
             viewAllBadgesBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                // TODO: Implementacja strony z wszystkimi odznakami
-                alert('Strona ze wszystkimi odznakami będzie dostępna wkrótce!');
+                this.showAllBadges();
             });
         }
 
@@ -581,6 +580,76 @@ class MovieTracker {
             this.loadFriends(),
             this.loadFriendRequests()
         ]);
+    }
+
+    async showAllBadges() {
+        this.showSection('badges-all');
+        await this.loadAllBadges();
+    }
+
+    async loadAllBadges() {
+        try {
+            const response = await fetch('/api/badges', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się załadować odznak');
+            }
+
+            const badges = await response.json();
+            this.displayAllBadges(badges);
+        } catch (error) {
+            console.error('Error loading all badges:', error);
+            this.displayAllBadges([]);
+        }
+    }
+
+    displayAllBadges(badges) {
+        const container = document.getElementById('all-badges-container');
+        if (!container) return;
+
+        // Zaktualizuj statystyki
+        document.getElementById('total-badges-count').textContent = badges.length;
+        document.getElementById('platinum-badges-count').textContent = 
+            badges.filter(b => b.level === 'platinum').length;
+        document.getElementById('gold-badges-count').textContent = 
+            badges.filter(b => b.level === 'gold').length;
+        document.getElementById('silver-badges-count').textContent = 
+            badges.filter(b => b.level === 'silver').length;
+
+        if (badges.length === 0) {
+            container.innerHTML = `
+                <div class="no-badges-message">
+                    <i class="fas fa-award" style="font-size: 4rem; color: #ccc; margin-bottom: 1rem;"></i>
+                    <h3>Nie masz jeszcze żadnych odznak</h3>
+                    <p>Ukończ wyzwania, aby zdobyć odznaki!</p>
+                    <button class="btn btn-primary" onclick="app.showSection('challenges')">
+                        <i class="fas fa-trophy"></i> Zobacz wyzwania
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = badges.map(badge => `
+            <div class="badge-item-full">
+                <div class="badge-icon">
+                    ${badge.imageUrl 
+                        ? `<img src="${badge.imageUrl}" alt="${badge.name}">` 
+                        : '<i class="fas fa-award"></i>'
+                    }
+                </div>
+                <div class="badge-details">
+                    <h4>${badge.name}</h4>
+                    <span class="badge-level ${badge.level}">${this.getBadgeLevelText(badge.level)}</span>
+                    ${badge.description ? `<p class="badge-description">${badge.description}</p>` : ''}
+                    <span class="badge-earned-date">
+                        <i class="fas fa-calendar"></i> Zdobyte: ${this.formatDate(badge.earned_at)}
+                    </span>
+                </div>
+            </div>
+        `).join('');
     }
 
     async loadBadges() {
@@ -640,9 +709,20 @@ class MovieTracker {
         const levels = {
             'silver': 'Srebrna',
             'gold': 'Złota',
-            'platinum': 'Platynowa'
+            'platinum': 'Platynowa',
+            'none': 'Podstawowa'
         };
         return levels[level] || level;
+    }
+
+    formatDate(dateString) {
+        if (!dateString) return 'Nieznana data';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pl-PL', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
     }
 
     async loadFriends() {
@@ -782,7 +862,7 @@ class MovieTracker {
             modal.classList.remove('active');
             const searchInput = document.getElementById('friend-search-input');
             if (searchInput) searchInput.value = '';
-            document.getElementById('user-search-results').innerHTML = '';
+            document.getElementById('friend-search-results').innerHTML = '';
         }
     }
 
@@ -800,13 +880,13 @@ class MovieTracker {
             this.displaySearchResults(users);
         } catch (error) {
             console.error('Error searching users:', error);
-            document.getElementById('user-search-results').innerHTML = 
+            document.getElementById('friend-search-results').innerHTML = 
                 '<p class="search-error">Błąd wyszukiwania</p>';
         }
     }
 
     displaySearchResults(users) {
-        const container = document.getElementById('user-search-results');
+        const container = document.getElementById('friend-search-results');
         if (!container) return;
 
         if (users.length === 0) {
@@ -853,7 +933,7 @@ class MovieTracker {
             }
 
             // Odśwież wyniki wyszukiwania
-            const query = document.getElementById('user-search-input').value;
+            const query = document.getElementById('friend-search-input').value;
             if (query) {
                 await this.searchUsers(query);
             }
@@ -1094,7 +1174,10 @@ class MovieTracker {
         try {
             const response = await fetch('/api/auth/password', {
                 method: 'PUT',
-                headers: this.getAuthHeaders(),
+                headers: {
+                    ...this.getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     currentPassword,
                     newPassword

@@ -1,4 +1,14 @@
 // API endpoint for movie search in D1 database
+
+// Helper function to ensure poster URLs use HTTPS
+function normalizePosterUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -67,7 +77,7 @@ export async function onRequest(context) {
       type: row.type,
       year: parseInt(row.year) || new Date().getFullYear(),
       genre: row.genre || 'Unknown',
-      poster: row.poster || `https://via.placeholder.com/200x300/4CAF50/white?text=${encodeURIComponent(row.title)}`,
+      poster: normalizePosterUrl(row.poster) || `https://via.placeholder.com/200x300/4CAF50/white?text=${encodeURIComponent(row.title)}`,
       description: row.description || '',
       rating: 0,
       status: 'planning',

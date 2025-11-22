@@ -64,7 +64,7 @@ async function handleGet(db, request, url, corsHeaders) {
       r.rating,
       r.content as review,
       w.watched_date as watchedDate,
-      COALESCE(w.status, 'planning') as status,
+      COALESCE(w.status, 'watched') as status,
       120 as duration,
       (
         SELECT COUNT(*) 
@@ -82,8 +82,9 @@ async function handleGet(db, request, url, corsHeaders) {
   let params = [userId, userId, userId];
   let additionalWhere = [];
 
+  // Filter by status if provided (and not 'all')
   if (status && status !== 'all') {
-    additionalWhere.push('COALESCE(w.status, CASE WHEN w.id IS NOT NULL THEN \'watched\' ELSE \'planning\' END) = ?');
+    additionalWhere.push('COALESCE(w.status, \'watched\') = ?');
     params.push(status);
   }
 
@@ -110,7 +111,7 @@ async function handleGet(db, request, url, corsHeaders) {
     rating: row.rating || 0,
     status: row.status,
     watchedDate: row.watchedDate || null,
-    poster: row.poster || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
+    poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
     duration: row.duration || 120,
     review: row.review || '',
     // Series-specific fields

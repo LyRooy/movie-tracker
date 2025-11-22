@@ -1,4 +1,14 @@
 // User endpoint for managing individual movies in their watch list
+
+// Helper function to ensure poster URLs use HTTPS
+function normalizePosterUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
 export async function onRequest(context) {
   const { request, env, params } = context;
   const method = request.method;
@@ -92,7 +102,7 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
     rating: movie.rating || 0,
     status: movie.status,
     watchedDate: movie.watchedDate || null,
-    poster: movie.poster || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(movie.title)}`,
+    poster: normalizePosterUrl(movie.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(movie.title)}`,
     duration: movie.duration || 120,
     review: movie.review || ''
   };

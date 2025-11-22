@@ -118,7 +118,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     data.type,
     data.releaseDate || data.year ? `${data.year}-01-01` : new Date().toISOString().split('T')[0],
     data.genre || 'Unknown',
-    data.poster || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
+    normalizePosterUrl(data.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
     data.description || '',
     data.trailerUrl || null,
     totalSeasons,
@@ -198,7 +198,7 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   }
   if (data.poster) {
     updates.push('poster_url = ?');
-    params.push(data.poster);
+    params.push(normalizePosterUrl(data.poster));
   }
   if (data.description !== undefined) {
     updates.push('description = ?');

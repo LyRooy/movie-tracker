@@ -561,7 +561,7 @@ class MovieTracker {
 
         // Aktywuj wybraną zakładkę
         const activeBtn = document.querySelector(`[data-profile-tab="${tabName}"]`);
-        const activeContent = document.getElementById(`${tabName}-tab`);
+        const activeContent = document.getElementById(`profile-${tabName}-tab`);
         
         if (activeBtn) activeBtn.classList.add('active');
         if (activeContent) activeContent.classList.add('active');
@@ -619,7 +619,10 @@ class MovieTracker {
 
         container.innerHTML = badges.map(badge => `
             <div class="badge-item">
-                <img src="${badge.imageUrl || '/images/default-badge.png'}" alt="${badge.name}">
+                ${badge.imageUrl 
+                    ? `<img src="${badge.imageUrl}" alt="${badge.name}">` 
+                    : '<i class="fas fa-award"></i>'
+                }
                 <h4>${badge.name}</h4>
                 <span class="badge-level ${badge.level}">${this.getBadgeLevelText(badge.level)}</span>
             </div>
@@ -710,7 +713,7 @@ class MovieTracker {
 
             const requests = await response.json();
             // Filtruj tylko zaproszenia otrzymane (nie wysłane)
-            const receivedRequests = requests.filter(r => r.user2_id === this.currentUser.id);
+            const receivedRequests = requests.filter(r => r.request_direction === 'received');
             this.displayFriendRequests(receivedRequests);
         } catch (error) {
             console.error('Error loading friend requests:', error);
@@ -732,7 +735,7 @@ class MovieTracker {
                 <img src="${request.avatar_url || '/images/default-avatar.png'}" alt="${request.nickname}">
                 <div class="request-info">
                     <h4>${request.nickname}</h4>
-                    <p>Wysłano ${this.formatDate(request.created_at)}</p>
+                    <p>Wysłano ${this.formatDate(request.requested_at)}</p>
                 </div>
                 <div class="request-actions">
                     <button class="btn btn-primary btn-sm" onclick="app.acceptFriendRequest(${request.friendship_id})">

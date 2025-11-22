@@ -28,7 +28,11 @@ export async function onRequest(context) {
         });
     }
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Error in movies API:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      stack: error.stack 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
@@ -49,6 +53,18 @@ async function handleGet(db, request, url, corsHeaders) {
   const status = url.searchParams.get('status');
   const type = url.searchParams.get('type');
 
+  // Check if status column exists in watched table
+  let hasStatusColumn = true;
+  try {
+    const checkResult = await db.prepare(`PRAGMA table_info(watched)`).all();
+    hasStatusColumn = checkResult.results.some(col => col.name === 'status');
+  } catch (e) {
+    console.warn('Could not check for status column, assuming it exists:', e);
+  }
+
+  // Build query based on whether status column exists
+  const statusField = hasStatusColumn ? `COALESCE(w.status, 'watched')` : `'watched'`;
+  
   // Join Movies with Reviews and Watched tables
   // Return only movies that user has interacted with (watched or reviewed)
   let query = `
@@ -59,20 +75,20 @@ async function handleGet(db, request, url, corsHeaders) {
       strftime('%Y', m.release_date) as year,
       m.genre,
       m.poster_url as poster,
-      m.total_seasons,
-      m.total_episodes,
+      COALESCE(m.total_seasons, 1) as total_seasons,
+      COALESCE(m.total_episodes, 1) as total_episodes,
       r.rating,
       r.content as review,
       w.watched_date as watchedDate,
-      COALESCE(w.status, 'watched') as status,
+      ${statusField} as status,
       120 as duration,
-      (
+      COALESCE((
         SELECT COUNT(*) 
         FROM user_episodes_watched uew
         JOIN episodes e ON uew.episode_id = e.id
         JOIN seasons s ON e.season_id = s.id
         WHERE s.series_id = m.id AND uew.user_id = ?
-      ) as watchedEpisodes
+      ), 0) as watchedEpisodes
     FROM movies m
     LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
     LEFT JOIN watched w ON m.id = w.movie_id AND w.user_id = ?
@@ -83,8 +99,8 @@ async function handleGet(db, request, url, corsHeaders) {
   let additionalWhere = [];
 
   // Filter by status if provided (and not 'all')
-  if (status && status !== 'all') {
-    additionalWhere.push('COALESCE(w.status, \'watched\') = ?');
+  if (status && status !== 'all' && hasStatusColumn) {
+    additionalWhere.push(`${statusField} = ?`);
     params.push(status);
   }
 
@@ -99,34 +115,46 @@ async function handleGet(db, request, url, corsHeaders) {
 
   query += ' ORDER BY COALESCE(w.watched_date, m.created_at) DESC';
 
-  const result = await db.prepare(query).bind(...params).all();
-  
-  // Transform to match frontend format
-  const transformedResults = result.results.map(row => ({
-    id: row.id,
-    title: row.title,
-    type: row.type,
-    year: parseInt(row.year) || new Date().getFullYear(),
-    genre: row.genre || 'Unknown',
-    rating: row.rating || 0,
-    status: row.status,
-    watchedDate: row.watchedDate || null,
-    poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
-    duration: row.duration || 120,
-    review: row.review || '',
-    // Series-specific fields
-    totalSeasons: row.total_seasons || null,
-    totalEpisodes: row.total_episodes || null,
-    watchedEpisodes: row.watchedEpisodes || 0,
-    // Calculate progress for series
-    progress: row.type === 'series' && row.total_episodes > 0 
-      ? Math.round((row.watchedEpisodes / row.total_episodes) * 100) 
-      : null
-  }));
-  
-  return new Response(JSON.stringify(transformedResults), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
+  try {
+    const result = await db.prepare(query).bind(...params).all();
+    
+    // Transform to match frontend format
+    const transformedResults = result.results.map(row => ({
+      id: row.id,
+      title: row.title,
+      type: row.type,
+      year: parseInt(row.year) || new Date().getFullYear(),
+      genre: row.genre || 'Unknown',
+      rating: row.rating || 0,
+      status: row.status || 'watched',
+      watchedDate: row.watchedDate || null,
+      poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
+      duration: row.duration || 120,
+      review: row.review || '',
+      // Series-specific fields
+      totalSeasons: row.total_seasons || null,
+      totalEpisodes: row.total_episodes || null,
+      watchedEpisodes: row.watchedEpisodes || 0,
+      // Calculate progress for series
+      progress: row.type === 'series' && row.total_episodes > 0 
+        ? Math.round((row.watchedEpisodes / row.total_episodes) * 100) 
+        : null
+    }));
+    
+    return new Response(JSON.stringify(transformedResults), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('Error in handleGet:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      query: query,
+      params: params 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 }
 
 // Add movie to user's watched list (not create new movie!)

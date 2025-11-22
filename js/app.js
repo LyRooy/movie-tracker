@@ -366,7 +366,8 @@ class MovieTracker {
 
     async loadMoviesData() {
         try {
-            const response = await fetch('/api/movies?status=watched', {
+            // Load ALL movies (watched, watching, planning, dropped)
+            const response = await fetch('/api/movies?status=all', {
                 headers: this.getAuthHeaders()
             });
             if (response.ok) {
@@ -400,6 +401,8 @@ class MovieTracker {
         listContainer.innerHTML = '';
 
         if (filteredItems.length === 0) {
+            // Remove grid class for empty state
+            listContainer.classList.remove('my-list-grid');
             listContainer.innerHTML = `
                 <div class="empty-list">
                     <i class="fas fa-film"></i>
@@ -409,6 +412,9 @@ class MovieTracker {
             `;
             return;
         }
+
+        // Add grid class when there are items
+        listContainer.classList.add('my-list-grid');
 
         filteredItems.forEach(item => {
             const statusBadge = this.getStatusBadge(item.status || 'watched');

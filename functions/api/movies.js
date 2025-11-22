@@ -50,6 +50,7 @@ async function handleGet(db, request, url, corsHeaders) {
   const type = url.searchParams.get('type');
 
   // Join Movies with Reviews and Watched tables
+  // Return only movies that user has interacted with (watched or reviewed)
   let query = `
     SELECT 
       m.id,
@@ -61,34 +62,29 @@ async function handleGet(db, request, url, corsHeaders) {
       r.rating,
       r.content as review,
       w.watched_date as watchedDate,
-      CASE 
-        WHEN w.id IS NOT NULL THEN 'watched'
-        ELSE 'planning'
-      END as status,
+      COALESCE(w.status, CASE WHEN w.id IS NOT NULL THEN 'watched' ELSE 'planning' END) as status,
       120 as duration
     FROM movies m
     LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
     LEFT JOIN watched w ON m.id = w.movie_id AND w.user_id = ?
+    WHERE (w.id IS NOT NULL OR r.id IS NOT NULL)
   `;
   
   let params = [userId, userId];
-  let whereClause = [];
+  let additionalWhere = [];
 
   if (status && status !== 'all') {
-    if (status === 'watched') {
-      whereClause.push('w.id IS NOT NULL');
-    } else {
-      whereClause.push('w.id IS NULL');
-    }
+    additionalWhere.push('COALESCE(w.status, CASE WHEN w.id IS NOT NULL THEN \'watched\' ELSE \'planning\' END) = ?');
+    params.push(status);
   }
 
   if (type) {
-    whereClause.push('m.media_type = ?');
+    additionalWhere.push('m.media_type = ?');
     params.push(type);
   }
 
-  if (whereClause.length > 0) {
-    query += ' WHERE ' + whereClause.join(' AND ');
+  if (additionalWhere.length > 0) {
+    query += ' AND ' + additionalWhere.join(' AND ');
   }
 
   query += ' ORDER BY COALESCE(w.watched_date, m.created_at) DESC';

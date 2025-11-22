@@ -65,10 +65,7 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
       r.rating,
       r.content as review,
       w.watched_date as watchedDate,
-      CASE 
-        WHEN w.id IS NOT NULL THEN 'watched'
-        ELSE 'planning'
-      END as status,
+      COALESCE(w.status, CASE WHEN w.id IS NOT NULL THEN 'watched' ELSE 'planning' END) as status,
       120 as duration
     FROM movies m
     LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
@@ -137,26 +134,19 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
         'SELECT id FROM watched WHERE user_id = ? AND movie_id = ?'
       ).bind(userId, movieId).first();
       
-      if (data.status === 'watched') {
-        if (existingWatched) {
-          // Update existing record
-          await db.prepare(`
-            UPDATE watched 
-            SET watched_date = ?
-            WHERE user_id = ? AND movie_id = ?
-          `).bind(watchedDate, userId, movieId).run();
-        } else {
-          // Insert new record
-          await db.prepare(`
-            INSERT INTO watched (user_id, movie_id, watched_date)
-            VALUES (?, ?, ?)
-          `).bind(userId, movieId, watchedDate).run();
-        }
-      } else {
-        // Remove from watched if status is not 'watched'
+      if (existingWatched) {
+        // Update existing record with new status
         await db.prepare(`
-          DELETE FROM watched WHERE user_id = ? AND movie_id = ?
-        `).bind(userId, movieId).run();
+          UPDATE watched 
+          SET watched_date = ?, status = ?
+          WHERE user_id = ? AND movie_id = ?
+        `).bind(watchedDate, data.status, userId, movieId).run();
+      } else {
+        // Insert new record with status
+        await db.prepare(`
+          INSERT INTO watched (user_id, movie_id, watched_date, status)
+          VALUES (?, ?, ?, ?)
+        `).bind(userId, movieId, watchedDate, data.status).run();
       }
     }
     

@@ -14,15 +14,21 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Log for debugging
+  console.log(`[movies/[id].js] Method: ${method}, Movie ID: ${movieId}`);
+
   try {
     // Check authentication
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
+      console.error('[movies/[id].js] No userId found');
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    console.log(`[movies/[id].js] User ID: ${userId}`);
 
     switch (method) {
       case 'GET':
@@ -38,8 +44,8 @@ export async function onRequest(context) {
         });
     }
   } catch (error) {
-    console.error('Error in movies/[id]:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[movies/[id].js] Error:', error);
+    return new Response(JSON.stringify({ error: error.message, stack: error.stack }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

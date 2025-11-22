@@ -430,7 +430,6 @@ class MovieTracker {
                         </div>
                         <div class="list-item-actions">
                             <button class="action-btn edit-btn" onclick="app.editItem(${item.id})">Edytuj</button>
-                            <button class="action-btn delete-btn" onclick="app.deleteItem(${item.id})">Usuń</button>
                         </div>
                     </div>
                 </div>

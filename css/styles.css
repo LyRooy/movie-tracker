@@ -730,6 +730,16 @@ h3 {
     background-color: var(--border-color);
 }
 
+#remove-from-list {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+}
+
+#remove-from-list:hover {
+    background-color: #c0392b;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .hamburger {

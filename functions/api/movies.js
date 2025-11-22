@@ -21,10 +21,6 @@ export async function onRequest(context) {
         return handleGet(env.db, request, url, corsHeaders);
       case 'POST':
         return handlePost(env.db, request, corsHeaders);
-      case 'PUT':
-        return handlePut(env.db, request, url, corsHeaders);
-      case 'DELETE':
-        return handleDelete(env.db, request, url, corsHeaders);
       default:
         return new Response('Method not allowed', { 
           status: 405,
@@ -214,89 +210,6 @@ async function handlePost(db, request, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
-}
-
-// Update movie/series
-async function handlePut(db, request, url, corsHeaders) {
-  const userId = await getUserIdFromRequest(request);
-  
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Authentication required' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-  
-  const id = url.pathname.split('/').pop();
-  const data = await request.json();
-  
-  try {
-    await db.prepare('BEGIN').run();
-    
-    // Update movie
-    await db.prepare(`
-      UPDATE Movies 
-      SET title = ?, media_type = ?, release_date = ?, genre = ?, poster_url = ?
-      WHERE id = ?
-    `).bind(
-      data.title,
-      data.type,
-      `${data.year}-01-01`,
-      data.genre,
-      data.poster,
-      id
-    ).run();
-    
-    // Update watched status
-    if (data.status === 'watched') {
-      await db.prepare(`
-        INSERT OR REPLACE INTO Watched (user_id, movie_id, watched_date)
-        VALUES (?, ?, ?)
-      `).bind(userId, id, data.watchedDate).run();
-    } else {
-      await db.prepare(`
-        DELETE FROM watched WHERE user_id = ? AND movie_id = ?
-      `).bind(userId, id).run();
-    }
-    
-    // Update review
-    if (data.rating > 0) {
-      await db.prepare(`
-        INSERT OR REPLACE INTO Reviews (user_id, movie_id, content, rating)
-        VALUES (?, ?, ?, ?)
-      `).bind(userId, id, data.review || '', data.rating).run();
-    }
-    
-    await db.prepare('COMMIT').run();
-    
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    await db.prepare('ROLLBACK').run();
-    throw error;
-  }
-}
-
-// Delete movie/series
-async function handleDelete(db, request, url, corsHeaders) {
-  const userId = await getUserIdFromRequest(request);
-  
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Authentication required' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
-  const id = url.pathname.split('/').pop();
-  
-  // Delete movie (cascading will handle watched and reviews)
-  await db.prepare('DELETE FROM movies WHERE id = ?').bind(id).run();
-
-  return new Response(JSON.stringify({ success: true }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
 }
 
 // Extract user ID from Authorization header

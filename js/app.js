@@ -110,10 +110,28 @@ class MovieTracker {
         }
 
         if (searchInput) {
+            // Wyszukiwanie po naciśnięciu Enter
             searchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     this.performSearch();
                 }
+            });
+
+            // Sugestie na żywo podczas pisania (z opóźnieniem)
+            let liveSearchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(liveSearchTimeout);
+                const query = e.target.value.trim();
+                if (query.length < 1) {
+                    const resultsContainer = document.getElementById('search-results');
+                    if (resultsContainer) resultsContainer.innerHTML = '';
+                    return;
+                }
+
+                liveSearchTimeout = setTimeout(() => {
+                    // Wykonaj wyszukiwanie
+                    this.performSearch();
+                }, 250);
             });
         }
 
@@ -1331,7 +1349,9 @@ class MovieTracker {
                 this.watchedMovies = this.watchedMovies.map(item => {
                     const raw = item.year || item.release_date || item.releaseDate || null;
                     const normalized = this.normalizeYear(raw);
-                    return { ...item, year: normalized || (item.year || raw) };
+                    // Normalizuj też pole plakatu z różnych możliwych nazw
+                    const poster = item.poster || item.poster_url || item.posterUrl || item.image || item.image_url || '/images/placeholder.png';
+                    return { ...item, year: normalized || (item.year || raw), poster };
                 });
             } else {
                 console.warn('Failed to load movies from API, using empty array');
@@ -1534,14 +1554,15 @@ class MovieTracker {
         results.forEach(item => {
             const movieCard = document.createElement('div');
             movieCard.className = 'movie-card';
+            const poster = item.poster || item.poster_url || item.posterUrl || item.image || item.image_url || '/images/placeholder.png';
             movieCard.innerHTML = `
-                <img src="${item.poster}" alt="${item.title}">
+                <img src="${poster}" alt="${item.title}">
                 <div class="movie-card-content">
                     <h3>${item.title}</h3>
-                    <p>${item.description}</p>
+                    <p>${item.description || ''}</p>
                     <div class="movie-rating">
-                        <span class="stars">${'★'.repeat(Math.floor(item.rating))}${'☆'.repeat(5-Math.floor(item.rating))}</span>
-                        <span>${item.rating}</span>
+                        <span class="stars">${'★'.repeat(Math.floor(item.rating || 0))}${'☆'.repeat(5-Math.floor(item.rating || 0))}</span>
+                        <span>${item.rating || 0}</span>
                     </div>
                 </div>
             `;
@@ -2407,9 +2428,9 @@ class MovieTracker {
                 alert('Twoja sesja wygasła. Zostaniesz wylogowany.');
                 this.logout();
             }
-        }, 5 * 60 * 1000); // Check every 5 minutes
+        }, 5 * 60 * 1000); // Sprawdzaj co 5 minut
         
-        // Also check 1 minute before expiration to warn user
+        // Sprawdź również 1 minutę przed wygaśnięciem, aby ostrzec użytkownika
         const token = this.authToken;
         try {
             const payload = JSON.parse(atob(token));
@@ -2539,9 +2560,9 @@ class MovieTracker {
         location.reload();
     }
 
-    // Admin Panel Methods
+    // Metody panelu admina
     bindAdminEvents() {
-        // Tab switching
+        // Przełączanie zakładek
         document.querySelectorAll('.admin-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tab = e.target.dataset.tab;
@@ -2549,7 +2570,7 @@ class MovieTracker {
             });
         });
 
-        // Add buttons
+        // Przyciski dodawania
         document.getElementById('add-movie-btn').addEventListener('click', () => this.showAdminMovieModal());
         document.getElementById('add-challenge-btn').addEventListener('click', () => this.showAdminChallengeModal());
         document.getElementById('add-badge-btn').addEventListener('click', () => this.showAdminBadgeModal());
@@ -2573,7 +2594,7 @@ class MovieTracker {
             this.updateBulkDeleteButton('badges');
         });
 
-        // Modal close buttons
+        // Przyciski zamykania modalów
         document.querySelectorAll('#admin-movie-modal .close').forEach(btn => {
             btn.addEventListener('click', () => this.closeAdminModal('admin-movie-modal'));
         });
@@ -2587,7 +2608,7 @@ class MovieTracker {
             btn.addEventListener('click', () => this.closeAdminModal('admin-seasons-modal'));
         });
 
-        // Form submissions
+        // Obsługa formularzy
         document.getElementById('admin-movie-form').addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveAdminMovie();
@@ -2784,7 +2805,7 @@ class MovieTracker {
         `).join('');
     }
 
-    // Movie CRUD
+    // CRUD filmów
     showAdminMovieModal(movie = null) {
         const modal = document.getElementById('admin-movie-modal');
         const title = document.getElementById('admin-movie-modal-title');
@@ -2940,7 +2961,7 @@ class MovieTracker {
         }
     }
 
-    // Challenge CRUD
+    // CRUD wyzwań
     showAdminChallengeModal(challenge = null) {
         const modal = document.getElementById('admin-challenge-modal');
         const title = document.getElementById('admin-challenge-modal-title');
@@ -2985,21 +3006,78 @@ class MovieTracker {
 
     async saveAdminChallenge() {
         const id = document.getElementById('admin-challenge-id').value;
-        const data = {
-            name: document.getElementById('admin-challenge-name').value,
-            description: document.getElementById('admin-challenge-description').value || null,
-            type: document.getElementById('admin-challenge-type').value,
-            criteria_value: document.getElementById('admin-challenge-criteria').value || null,
-            target_count: parseInt(document.getElementById('admin-challenge-target').value),
-            start_date: document.getElementById('admin-challenge-start').value || null,
-            end_date: document.getElementById('admin-challenge-end').value || null,
-            badge_id: parseInt(document.getElementById('admin-challenge-badge').value) || null
+        // Funkcja pomocnicza do parsowania daty
+        const parseDateInput = (raw) => {
+            if (!raw) return null;
+            const s = String(raw).trim();
+            if (s === '') return null;
+
+            // Jeśli już w formacie ISO
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+            // DD.MM.YYYY lub DD/MM/YYYY
+            const dmy = s.match(/^(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})$/);
+            if (dmy) {
+                const day = dmy[1].padStart(2, '0');
+                const month = dmy[2].padStart(2, '0');
+                const year = dmy[3];
+                return `${year}-${month}-${day}`;
+            }
+
+            // Próba parsowania daty jako fallback
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                const yyyy = parsed.getFullYear();
+                const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+                const dd = String(parsed.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+
+            return null;
         };
+
+        const rawName = document.getElementById('admin-challenge-name').value;
+        const rawType = document.getElementById('admin-challenge-type').value;
+        const rawTarget = document.getElementById('admin-challenge-target').value;
+        const rawStart = document.getElementById('admin-challenge-start').value;
+        const rawEnd = document.getElementById('admin-challenge-end').value;
+        const rawBadge = document.getElementById('admin-challenge-badge').value;
+
+        // Podstawowa walidacja po stronie klienta
+        if (!rawName || rawName.trim().length === 0) {
+            this.showNotification('Nazwa wyzwania jest wymagana', 'error');
+            return;
+        }
+
+        if (!rawType || rawType.trim().length === 0) {
+            this.showNotification('Typ wyzwania jest wymagany', 'error');
+            return;
+        }
+
+        const targetCount = parseInt(rawTarget);
+        if (isNaN(targetCount) || targetCount <= 0) {
+            this.showNotification('Cel (liczba) musi być dodatnią liczbą', 'error');
+            return;
+        }
+
+        const data = {
+            name: rawName.trim(),
+            description: document.getElementById('admin-challenge-description').value || null,
+            type: rawType.trim(),
+            criteria_value: document.getElementById('admin-challenge-criteria').value || null,
+            target_count: targetCount,
+            start_date: parseDateInput(rawStart),
+            end_date: parseDateInput(rawEnd),
+            badge_id: (rawBadge && rawBadge.trim() !== '') ? (parseInt(rawBadge) || null) : null
+        };
+
+        // Debug log danych wyzwania
+        console.log('Saving challenge payload:', data);
 
         try {
             const url = id ? `/api/admin/challenges/${id}` : '/api/admin/challenges';
             const method = id ? 'PUT' : 'POST';
-            
+
             const response = await fetch(url, {
                 method,
                 headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -3010,13 +3088,29 @@ class MovieTracker {
                 this.showNotification(id ? 'Wyzwanie zaktualizowane' : 'Wyzwanie dodane', 'success');
                 this.closeAdminModal('admin-challenge-modal');
                 this.loadAdminChallenges();
-            } else {
-                const error = await response.json();
-                this.showNotification(error.error || 'Błąd podczas zapisywania wyzwania', 'error');
+                return;
             }
+
+            // Sprób dokładnie przeanalizować odpowiedź błędu
+            let errorBody = null;
+            try {
+                errorBody = await response.json();
+            } catch (jsonErr) {
+                try {
+                    const text = await response.text();
+                    errorBody = { text };
+                } catch (txtErr) {
+                    errorBody = { text: 'Unable to parse server response' };
+                }
+            }
+
+            console.error('Error saving challenge, status:', response.status, 'body:', errorBody);
+            const message = (errorBody && (errorBody.error || errorBody.message)) ? (errorBody.error || errorBody.message) : (errorBody.text || 'Błąd podczas zapisywania wyzwania');
+            this.showNotification(`Błąd: ${message}`, 'error');
+
         } catch (error) {
-            console.error('Error saving challenge:', error);
-            this.showNotification('Błąd podczas zapisywania wyzwania', 'error');
+            console.error('Błąd podczas zapisywania wyzwania (połączenie):', error);
+            this.showNotification('Błąd podczas zapisywania wyzwania (połączenie)', 'error');
         }
     }
 
@@ -3042,7 +3136,7 @@ class MovieTracker {
         }
     }
 
-    // Badge CRUD
+    // CRUD odznak
     showAdminBadgeModal(badge = null) {
         const modal = document.getElementById('admin-badge-modal');
         const title = document.getElementById('admin-badge-modal-title');
@@ -3059,6 +3153,34 @@ class MovieTracker {
             document.getElementById('admin-badge-id').value = '';
         }
         
+        // Dodaj pole uploadu obrazu
+        const form = document.getElementById('admin-badge-form');
+        if (form && !document.getElementById('admin-badge-file')) {
+            const uploadGroup = document.createElement('div');
+            uploadGroup.className = 'form-group';
+            uploadGroup.innerHTML = `
+                <label>Prześlij obraz odznaki (opcjonalnie)</label>
+            `;
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.id = 'admin-badge-file';
+            fileInput.className = 'form-control';
+            uploadGroup.appendChild(fileInput);
+            const hint = document.createElement('p');
+            hint.className = 'form-hint';
+            hint.textContent = 'Plik zostanie przesłany do R2 (binding: BADGES) i użyty jako URL odznaki.';
+            uploadGroup.appendChild(hint);
+
+            // Wstaw przed przyciskami formularza
+            const submitBtn = form.querySelector('[type="submit"]');
+            if (submitBtn) {
+                form.insertBefore(uploadGroup, submitBtn);
+            } else {
+                form.appendChild(uploadGroup);
+            }
+        }
+
         modal.style.display = 'block';
     }
 
@@ -3082,16 +3204,58 @@ class MovieTracker {
 
     async saveAdminBadge() {
         const id = document.getElementById('admin-badge-id').value;
-        const data = {
-            name: document.getElementById('admin-badge-name').value,
-            description: document.getElementById('admin-badge-description').value,
-            image_url: document.getElementById('admin-badge-icon').value || null
-        };
+        // Pobierz podstawowe pola formularza
+        const name = document.getElementById('admin-badge-name').value;
+        const description = document.getElementById('admin-badge-description').value || null;
+        let imageUrl = document.getElementById('admin-badge-icon').value || null; // pole z URL
+
+        // Obsługa uploadu pliku (jeśli admin dostarczył plik)
+        const fileInput = document.getElementById('admin-badge-file');
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            try {
+                const fd = new FormData();
+                fd.append('badge', file);
+
+                // Nie ustawiaj Content-Type dla FormData
+                const headers = { ...this.getAuthHeaders() };
+                if (headers['Content-Type']) delete headers['Content-Type'];
+
+                // Wyślij plik do endpointu upload (backend musi to obsłużyć i zapisać do R2)
+                const uploadResp = await fetch('/api/admin/badges/upload', {
+                    method: 'POST',
+                    headers,
+                    body: fd
+                });
+
+                if (!uploadResp.ok) {
+                    // Spróbuj odczytać odpowiedź, aby pokazać pomocny komunikat
+                    let errText = 'Błąd podczas uploadu pliku';
+                    try { const jb = await uploadResp.json(); errText = jb.error || jb.message || JSON.stringify(jb); } catch (e) {
+                        try { errText = await uploadResp.text(); } catch (e2) {}
+                    }
+                    this.showNotification('Upload pliku nie powiódł się: ' + errText, 'error');
+                    return; // przerwij zapisywanie odznaki
+                }
+
+                const uploadJson = await uploadResp.json();
+                // Oczekujemy: { image_url: 'https://.../badge.png' }
+                imageUrl = uploadJson.image_url || uploadJson.url || imageUrl;
+                console.log('Upload badge response:', uploadJson);
+            } catch (err) {
+                console.error('Upload error:', err);
+                this.showNotification('Błąd podczas wysyłania pliku', 'error');
+                return;
+            }
+        }
+
+        // Przygotuj payload i wyślij dane odznaki
+        const data = { name: name, description: description, image_url: imageUrl };
 
         try {
             const url = id ? `/api/admin/badges/${id}` : '/api/admin/badges';
             const method = id ? 'PUT' : 'POST';
-            
+
             const response = await fetch(url, {
                 method,
                 headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -3103,12 +3267,15 @@ class MovieTracker {
                 this.closeAdminModal('admin-badge-modal');
                 this.loadAdminBadges();
             } else {
-                const error = await response.json();
-                this.showNotification(error.error || 'Błąd podczas zapisywania odznaki', 'error');
+                let errBody = null;
+                try { errBody = await response.json(); } catch (e) { errBody = { text: await response.text().catch(()=>'') }; }
+                console.error('Error saving badge:', response.status, errBody);
+                const msg = (errBody && (errBody.error || errBody.message)) ? (errBody.error || errBody.message) : (errBody.text || 'Błąd podczas zapisywania odznaki');
+                this.showNotification(msg, 'error');
             }
         } catch (error) {
-            console.error('Error saving badge:', error);
-            this.showNotification('Błąd podczas zapisywania odznaki', 'error');
+            console.error('Error saving badge (network):', error);
+            this.showNotification('Błąd podczas zapisywania odznaki (połączenie)', 'error');
         }
     }
 
@@ -3393,5 +3560,5 @@ class MovieTracker {
     
 }
 
-// Initialize the app
+// Inicjalizacja aplikacji
 const app = new MovieTracker();

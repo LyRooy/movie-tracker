@@ -445,6 +445,21 @@ h3 {
     color: var(--text-secondary);
 }
 
+/* Make action buttons in empty states sit slightly away from the modal edge */
+.empty-state button,
+.empty-state .btn,
+.empty-state .btn-primary {
+    margin-left: 8px;
+}
+
+/* Slightly more padding for add-friend modal contents */
+#add-friend-modal .modal-content {
+    padding: 0; /* keep existing layout */
+}
+#add-friend-modal .modal-body {
+    padding: 1.25rem 1.5rem;
+}
+
 /* Center empty content inside lists */
 .friends-list.empty-center,
 .badges-grid.empty-center,

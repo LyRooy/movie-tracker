@@ -11,11 +11,12 @@ function normalizePosterUrl(url) {
 
   function normalizeGenre(genre) {
     if (!genre || typeof genre !== 'string') return '';
-    return genre.split(/[,;|]+/)
+        return genre.split(/[,;|]+/)
       .map(s => s.trim())
       .map(s => {
         const key = s.toLowerCase().replace(/_/g, ' ');
         if (key === 'science fiction' || key === 'science_fiction' || key === 'science-fiction') return 'Sci-Fi';
+            if (key === 'drama' || key === 'dramat') return 'Dramat';
         return s.replace(/_/g, ' ');
       })
       .filter(Boolean)

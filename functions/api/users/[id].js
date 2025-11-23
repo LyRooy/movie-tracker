@@ -128,7 +128,13 @@ export async function onRequest(context) {
         ...a,
         poster_url: (a.poster_url && a.poster_url.startsWith('http://')) ? a.poster_url.replace('http://', 'https://') : a.poster_url,
         poster: (a.poster_url && a.poster_url.startsWith('http://')) ? a.poster_url.replace('http://', 'https://') : a.poster_url || `https://placehold.co/60x90/cccccc/666666/png?text=${encodeURIComponent(a.title)}`,
-        genre: (a.genre || '').replace(/_/g, ' ')
+        genre: (function(g) {
+          if (!g) return '';
+          const key = g.toLowerCase().replace(/_/g, ' ').trim();
+          if (key === 'drama' || key === 'dramat') return 'Dramat';
+          if (key === 'science fiction' || key === 'science_fiction' || key === 'science-fiction') return 'Sci-Fi';
+          return g.replace(/_/g, ' ');
+        })(a.genre)
       })),
       friendship: friendship ? {
         id: friendship.friendship_id,

@@ -63,6 +63,7 @@ async function handleGet(db, request, url, corsHeaders) {
       m.release_date,
       strftime('%Y', m.release_date) as year,
       m.genre,
+      m.poster_url as poster_url,
       m.poster_url as poster,
       m.description,
       m.duration,
@@ -98,15 +99,22 @@ async function handleGet(db, request, url, corsHeaders) {
 
   query += ' ORDER BY COALESCE(w.watched_date, m.created_at) DESC';
 
-  try {
+    function normalizePosterUrl(url) {
+      if (!url) return null;
+      if (url.startsWith('http://')) return url.replace('http://', 'https://');
+      return url;
+    }
+
+    try {
     function normalizeGenre(genre) {
       if (!genre || typeof genre !== 'string') return '';
-      return genre.split(/[,;|]+/)
+        return genre.split(/[,;|]+/)
         .map(s => s.trim())
         .map(s => s.replace(/_/g, ' '))
         .map(s => {
           const key = s.toLowerCase();
           if (key === 'science fiction' || key === 'science_fiction' || key === 'science-fiction') return 'Sci-Fi';
+          if (key === 'drama' || key === 'dramat') return 'Dramat';
           return s;
         })
         .filter(Boolean)
@@ -183,8 +191,8 @@ async function handleGet(db, request, url, corsHeaders) {
             watchedDate: row.watchedDate || null,
             description: row.description || '',
             // Expose canonical `poster_url` (if available) and keep `poster` for backwards compatibility
-            poster_url: normalizePosterUrl(row.poster) || null,
-            poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
+            poster_url: normalizePosterUrl(row.poster_url || row.poster) || null,
+            poster: normalizePosterUrl(row.poster_url || row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
             // For movies prefer explicit movieDuration; for series expose avgEpisodeLength if available
             duration: row.type === 'movie' ? movieDuration : (avgEpisodeLength || null),
             // no trailer_url — duration is used for movies, series durations come from episodes

@@ -919,15 +919,19 @@ class MovieTracker {
             'science_fiction': 'Sci-Fi',
             'science fiction': 'Sci-Fi',
             'sci-fi': 'Sci-Fi',
+            'sci fi': 'Sci-Fi',
             'dramat': 'Dramat',
+            'drama': 'Dramat',
             'komedia': 'Komedia',
             'horror': 'Horror',
             'akcja': 'Akcja'
         };
-        return parts.map(p => {
+        // Normalize, map, and dedupe
+        const normalized = parts.map(p => {
             const key = p.toLowerCase().replace(/_/g, ' ').trim();
             return map[key] || p.replace(/_/g, ' ');
         });
+        return Array.from(new Set(normalized));
     }
 
     // Case-insensitive genre compare: returns true when 'filter' is in item.genre string
@@ -1835,6 +1839,7 @@ class MovieTracker {
                         poster = poster.replace('http://', 'https://');
                     }
                     if (!poster) {
+                        console.warn('Movie item missing poster for', item.id, item.title);
                         poster = `https://placehold.co/200x300/cccccc/666666/png?text=${encodeURIComponent(item.title || 'Movie')}`;
                     }
 
@@ -1902,25 +1907,29 @@ class MovieTracker {
 
     // Populate `#genre-filter` with unique genres found in the provided list (adds to existing options, ensures proper labels)
     populateGenreFilterFromList(list) {
-        const genreSelect = document.getElementById('genre-filter');
-        if (!genreSelect || !Array.isArray(list)) return;
-
-        const existing = new Set(Array.from(genreSelect.options).map(o => o.value.toLowerCase()));
+        if (!Array.isArray(list)) return;
+        const selectIds = ['genre-filter', 'list-genre-filter'];
         const found = new Set();
         list.forEach(item => {
             const genres = this.parseGenres(item.genre || '');
-            genres.forEach(g => found.add(g));
+            // Normalize and dedupe per item
+            genres.map(g => g.trim()).filter(Boolean).forEach(g => found.add(g));
         });
 
         // Insert new options (keep order: 'All' stays on top)
         const values = Array.from(found).sort((a,b) => a.localeCompare(b, 'pl'));
-        values.forEach(g => {
-            if (!existing.has(g.toLowerCase())) {
-                const opt = document.createElement('option');
-                opt.value = g;
-                opt.textContent = g;
-                genreSelect.appendChild(opt);
-            }
+        selectIds.forEach(id => {
+            const genreSelect = document.getElementById(id);
+            if (!genreSelect) return;
+            const existingDisplay = new Set(Array.from(genreSelect.options).map(o => (o.textContent || o.value || '').toLowerCase().trim()));
+            values.forEach(g => {
+                if (!existingDisplay.has(g.toLowerCase())) {
+                    const opt = document.createElement('option');
+                    opt.value = g;
+                    opt.textContent = g;
+                    genreSelect.appendChild(opt);
+                }
+            });
         });
     }
 
@@ -1989,6 +1998,14 @@ class MovieTracker {
             const typeInfo = item.type === 'movie'
                 ? (item.duration ? `${item.duration} min` : 'Film')
                 : `${seasons ? seasons + ' sez.' : 'Serial'} • ${episodes ? episodes + ' odc.' : ''}`;
+
+            // Debug: warn if item lacks duration for movies or years
+            if (item.type === 'movie' && !item.duration) {
+                console.debug('Movie missing duration:', item.id, item.title);
+            }
+            if (!displayYear) {
+                console.debug('Movie missing year:', item.id, item.title, item.release_date);
+            }
 
             // Informacje o postępie dla seriali
             const progressInfo = item.type === 'series'
@@ -2198,15 +2215,34 @@ class MovieTracker {
         try { this.populateGenreFilterFromList(results); } catch (e) { /* ignore */ }
     }
 
-    openMovieModal(movie, isEdit = false) {
+    async openMovieModal(movie, isEdit = false) {
         const modal = document.getElementById('movie-modal');
+        // Try to fetch full movie details from API to ensure we have poster, year, description, duration
+        try {
+            try {
+                let id = movie.id;
+                if (typeof id === 'string' && id.startsWith('db_')) id = id.replace(/^db_/, '');
+                if (id) {
+                    const res = await fetch(`/api/movies/${id}`, { headers: this.getAuthHeaders() });
+                    if (res.ok) {
+                        const full = await res.json();
+                        // Merge known fields from API into the movie object
+                        movie = { ...movie, ...full };
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to fetch full movie details for modal:', e);
+            }
+        } catch (e) {
+            console.warn('Failed to fetch movie details for modal:', e);
+        }
         // Upewnij się, że modal dostaje prawidłowy URL plakatu (schemat DB)
-        const poster = this.getPosterUrl(movie);
-        document.getElementById('modal-poster').src = poster;
+            const poster = this.getPosterUrl(movie);
+            document.getElementById('modal-poster').src = poster;
         document.getElementById('modal-title').textContent = movie.title;
         document.getElementById('modal-description').textContent = movie.description && movie.description.trim() !== '' ? movie.description : 'Brak opisu';
         
-        // Extract year from release_date or use year field directly
+            // Extract year from release_date or use year field directly
         let displayYear = '';
         if (typeof movie.year === 'number' && this.safeYear(movie.year)) {
             displayYear = String(movie.year);

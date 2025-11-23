@@ -25,6 +25,7 @@ class MovieTracker {
         this.bindEvents();
         this.loadUserData();
         this.generateCalendar();
+        await this.loadGenres();
         await this.loadMoviesData();
         this.setupTheme();
 
@@ -44,6 +45,42 @@ class MovieTracker {
             const yearEl = document.getElementById('footer-year');
             if (yearEl) yearEl.textContent = new Date().getFullYear();
         } catch (e) { /* ignore */ }
+    }
+
+    async loadGenres() {
+        try {
+            const res = await fetch('/api/genres', { headers: this.getAuthHeaders() });
+            if (!res.ok) {
+                console.warn('Failed to load genres from /api/genres');
+                return;
+            }
+            const genres = await res.json();
+            if (!Array.isArray(genres)) return;
+            this.populateGenreFilterFromValues(genres);
+        } catch (e) {
+            console.error('Error loading genres:', e);
+        }
+    }
+
+    // Populate select boxes with provided array of normalized genre strings
+    populateGenreFilterFromValues(values) {
+        if (!Array.isArray(values)) return;
+        const selectIds = ['genre-filter', 'list-genre-filter'];
+        selectIds.forEach(id => {
+            const genreSelect = document.getElementById(id);
+            if (!genreSelect) return;
+            const existingDisplay = new Set(Array.from(genreSelect.options).map(o => (o.textContent || o.value || '').toLowerCase().trim()));
+            values.forEach(g => {
+                if (!g) return;
+                const label = g.trim();
+                if (!existingDisplay.has(label.toLowerCase())) {
+                    const opt = document.createElement('option');
+                    opt.value = label;
+                    opt.textContent = label;
+                    genreSelect.appendChild(opt);
+                }
+            });
+        });
     }
     // ============= BIND EVENTS =============
     bindEvents() {
@@ -911,7 +948,18 @@ class MovieTracker {
 
     // Helper: split and normalize comma/pipe/separator genres stored in DB
     parseGenres(genreField) {
-        if (!genreField || typeof genreField !== 'string') return [];
+        if (!genreField) return [];
+        if (Array.isArray(genreField)) {
+            // Flatten array values and normalize each entry
+            const arr = genreField.map(g => (typeof g === 'string' ? g : '')).filter(Boolean);
+            if (arr.length === 0) return [];
+            // Map each string entry through normal parser to merge tokens
+            const tokens = arr.map(s => {
+                return this.parseGenres(s);
+            }).flat();
+            return Array.from(new Set(tokens));
+        }
+        if (typeof genreField !== 'string') return [];
         // Split on common separators: comma, semicolon, pipe
         const parts = genreField.split(/[,;|]+/).map(s => s.trim()).filter(Boolean);
         // Normalize common values (e.g., Science_fiction -> Sci-Fi) and drop underscores
@@ -1901,8 +1949,10 @@ class MovieTracker {
         this.updateStats();
         this.displayRecentActivity();
         this.displayMyList();
-        // Populate the genre filter on the search page based on the user's movies (helpful for filtering by genres you already have)
+        // Populate the genre filter on the search page based on the user's movies
         try { this.populateGenreFilterFromList(this.watchedMovies); } catch (e) { /* ignore */ }
+        // Refresh global genres as well (handles admin updates/new entries)
+        try { await this.loadGenres(); } catch (e) { /* ignore */ }
     }
 
     // Populate `#genre-filter` with unique genres found in the provided list (adds to existing options, ensures proper labels)
@@ -1985,8 +2035,13 @@ class MovieTracker {
                     displayYear = String(item.year);
                 }
             } else if (item.release_date) {
-                const yearMatch = String(item.release_date).match(/^(\d{4})/);
-                displayYear = yearMatch ? yearMatch[1] : '';
+                const rawStr = String(item.release_date);
+                if (item.type === 'series' && /[-–—]/.test(rawStr)) {
+                    displayYear = rawStr;
+                } else {
+                    const yearMatch = rawStr.match(/^(\d{4})/);
+                    displayYear = yearMatch ? yearMatch[1] : '';
+                }
             }
 
             // Dane serialu
@@ -1997,7 +2052,7 @@ class MovieTracker {
             // Tekst z typem i dodatkowymi informacjami (minuty dla filmu, sezony/odcinki dla serialu)
             const typeInfo = item.type === 'movie'
                 ? (item.duration ? `${item.duration} min` : 'Film')
-                : `${seasons ? seasons + ' sez.' : 'Serial'} • ${episodes ? episodes + ' odc.' : ''}`;
+                : `${seasons ? seasons + ' sez.' : 'Serial'} • ${episodes ? episodes + ' odc.' : ''}${avg ? ' • śr. ' + avg + ' min' : ''}`;
 
             // Debug: warn if item lacks duration for movies or years
             if (item.type === 'movie' && !item.duration) {
@@ -2161,9 +2216,18 @@ class MovieTracker {
             }
 
             if (yearFilter) {
-                filteredResults = filteredResults.filter(item => 
-                    item.year.toString() === yearFilter
-                );
+                // Support both single-year filters and range (e.g., '2014-2019')
+                if (/\d{4}-/.test(yearFilter)) {
+                    filteredResults = filteredResults.filter(item => {
+                        const rd = String(item.release_date || item.releaseDate || item.year || '');
+                        return rd === yearFilter || rd.indexOf(yearFilter) !== -1;
+                    });
+                } else {
+                    filteredResults = filteredResults.filter(item => {
+                        if (!item.year) return false;
+                        return String(item.year) === String(yearFilter);
+                    });
+                }
             }
 
             this.displaySearchResults(filteredResults);
@@ -2189,10 +2253,22 @@ class MovieTracker {
             movieCard.className = 'movie-card';
             const poster = this.getPosterUrl(item);
                 const cardGenre = this.parseGenres(item.genre).join(', ');
+                const rawYear = item.release_date || item.year || '';
+                let cardYear = '';
+                if (item.type === 'series' && rawYear && /[-–—]/.test(String(rawYear))) {
+                    cardYear = String(rawYear);
+                } else if (item.year) {
+                    cardYear = String(item.year);
+                } else if (rawYear) {
+                    const ym = String(rawYear).match(/^(\d{4})/);
+                    cardYear = ym ? ym[1] : String(rawYear);
+                }
+                const avg = item.avgEpisodeLength || item.avg_episode_length || item.duration || null;
                 movieCard.innerHTML = `
                 <img src="${poster}" alt="${item.title}">
                 <div class="movie-card-content">
                     <h3>${item.title}</h3>
+                    <p class="movie-card-meta">${cardYear}${cardYear && (cardGenre || avg) ? ' • ' : ''}${cardGenre}${(avg && item.type === 'series') ? ' • śr. ' + avg + ' min' : ''}</p>
                     <p>${item.description || ''}</p>
                     <p class="movie-card-genre">${cardGenre}</p>
                     <div class="movie-rating">
@@ -2257,11 +2333,17 @@ class MovieTracker {
         if (!displayYear) {
             const rawYear = movie.release_date || movie.releaseDate || null;
             if (rawYear) {
-                const yearMatch = String(rawYear).match(/^(\d{4})/);
-                if (yearMatch) {
-                    displayYear = yearMatch[1];
+                const rawStr = String(rawYear);
+                // If it's a series and the release_date is a range (contains hyphen), use the full range string
+                if (movie.type === 'series' && /[-–—]/.test(rawStr)) {
+                    displayYear = rawStr;
                 } else {
-                    displayYear = this.safeYear(rawYear) || this.normalizeYear(rawYear) || '';
+                    const yearMatch = rawStr.match(/^(\d{4})/);
+                    if (yearMatch) {
+                        displayYear = yearMatch[1];
+                    } else {
+                        displayYear = this.safeYear(rawYear) || this.normalizeYear(rawYear) || '';
+                    }
                 }
             }
         }
@@ -3569,7 +3651,10 @@ class MovieTracker {
             }
             document.getElementById('admin-movie-year').value = yearValue;
             document.getElementById('admin-movie-genre').value = movie.genre || '';
-            document.getElementById('admin-movie-duration').value = movie.duration || '';
+            // If editing a series, pre-fill duration with average episode length when available
+            const durationPrefill = movie.type === 'series' ? (movie.avgEpisodeLength || movie.duration || '') : (movie.duration || '');
+            console.debug('Prefilling admin movie duration:', durationPrefill);
+            document.getElementById('admin-movie-duration').value = durationPrefill;
             document.getElementById('admin-movie-description').value = movie.description || '';
             document.getElementById('admin-movie-poster').value = movie.poster_url || '';
         } else {
@@ -3629,8 +3714,10 @@ class MovieTracker {
         }
 
         try {
+            console.debug('Saving admin movie payload', data);
             const url = id ? `/api/admin/movies/${id}` : '/api/admin/movies';
             const method = id ? 'PUT' : 'POST';
+            if (id) data.id = id; // include ID in body for older API compatibility
             
             const response = await fetch(url, {
                 method,
@@ -3661,6 +3748,8 @@ class MovieTracker {
                     this.showSeasonsConfigModal(seriesId, seasonCount, data.title);
                 } else {
                     this.loadAdminMovies();
+                    // Also refresh global movies list so UI reflects new durations/years
+                    try { await this.loadMoviesData(); } catch (e) { /* ignore */ }
                 }
             } else {
                 const error = await response.json();

@@ -212,6 +212,12 @@ async function handleCreateMovie(db, request, corsHeaders) {
 // Zaktualizuj istniejący film
 async function handleUpdateMovie(db, request, corsHeaders) {
   const data = await request.json();
+  // If the ID was sent in the URL as /api/admin/movies/:id, allow that.
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split('/');
+  const pathId = pathParts[pathParts.length - 1] !== 'movies' ? pathParts[pathParts.length - 1] : null;
+  if (!data.id && pathId) data.id = pathId;
+  console.log('[admin/movies] Update payload:', data);
   
   if (!data.id) {
     return new Response(JSON.stringify({ error: 'Movie ID is required' }), {
@@ -220,6 +226,9 @@ async function handleUpdateMovie(db, request, corsHeaders) {
     });
   }
 
+  // Fetch existing movie to know the current media_type for cases where `data.type` isn't provided
+  const existingMovie = await db.prepare('SELECT id, media_type FROM movies WHERE id = ?').bind(data.id).first();
+  const existingType = existingMovie ? existingMovie.media_type : null;
   const updates = [];
   const params = [];
 
@@ -252,8 +261,10 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   if (data.duration !== undefined) {
     episodeDuration = Number(data.duration) || null;
     // For movies duration should be minutes; for series it should be null in movies table
+    // Determine whether this film is treated as series or movie; prefer provided data.type then the existing movie type
+    const isSeries = (data.type !== undefined) ? (data.type === 'series') : (existingType === 'series');
     updates.push('duration = ?');
-    params.push(data.type === 'series' ? null : episodeDuration);
+    params.push(isSeries ? null : episodeDuration);
   }
 
   if (updates.length === 0) {
@@ -267,14 +278,16 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   
   // Ensure duration column exists before updating
   await ensureMoviesHasDuration(db);
-
+  console.log('[admin/movies] Updates:', updates, 'Params:', params);
   await db.prepare(`
     UPDATE movies SET ${updates.join(', ')} WHERE id = ?
   `).bind(...params).run();
 
   // If admin provided duration for a series, propagate it to all episodes
   try {
-    if (episodeDuration !== null && data.type === 'series') {
+    // Decide if we should propagate episode duration: if the target is series and an episodeDuration was provided
+    const isSeriesForPropagate = (data.type !== undefined) ? (data.type === 'series') : (existingType === 'series');
+    if (episodeDuration !== null && isSeriesForPropagate) {
       await db.prepare(`
         UPDATE episodes SET duration = ?
         WHERE season_id IN (SELECT id FROM seasons WHERE series_id = ?)

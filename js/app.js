@@ -304,6 +304,8 @@ class MovieTracker {
             this.displayMyList();
         } else if (sectionName === 'profile') {
             this.loadProfileData();
+        } else if (sectionName === 'challenges') {
+            this.loadChallenges();
         } else if (sectionName === 'admin') {
             this.loadAdminData();
         }
@@ -579,6 +581,53 @@ class MovieTracker {
         ]);
     }
 
+    async loadChallenges() {
+        try {
+            const response = await fetch('/api/challenges', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się załadować wyzwań');
+            }
+
+            const challenges = await response.json();
+            this.displayChallenges(challenges);
+        } catch (error) {
+            console.error('Error loading challenges:', error);
+            this.displayChallenges([]);
+        }
+    }
+
+    displayChallenges(challenges) {
+        const container = document.getElementById('challenges-container');
+        if (!container) return;
+
+        if (!Array.isArray(challenges) || challenges.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-flag" style="font-size:48px;color:#ccc;margin-bottom:12px"></i>
+                    <h3>Brak aktywnych wyzwań</h3>
+                    <p>Sprawdź ponownie później lub zobacz odznaki.</p>
+                    <button class="btn btn-primary" onclick="app.showSection('badges-all')">Zobacz odznaki</button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = challenges.map(ch => `
+            <div class="challenge-card">
+                <h3>${ch.title}</h3>
+                <p class="challenge-desc">${ch.description || ''}</p>
+                <div class="challenge-meta">
+                    <span>${ch.type || ''}</span>
+                    <span>Cel: ${ch.target_count || '-'}</span>
+                    <span>${ch.start_date ? this.formatDate(ch.start_date) : ''} - ${ch.end_date ? this.formatDate(ch.end_date) : ''}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
     async showAllBadges() {
         this.showSection('badges-all');
         await this.loadAllBadges();
@@ -774,19 +823,26 @@ class MovieTracker {
     displayFriends(friends) {
         const container = document.getElementById('friends-list');
         if (!container) return;
+        const headerAddBtn = document.getElementById('add-friend-btn');
 
         if (friends.length === 0) {
+            // Hide the header add button to avoid duplication with the empty-state action
+            if (headerAddBtn) headerAddBtn.style.display = 'none';
+
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-user-friends"></i>
-                    <p>Nie masz jeszcze znajomych</p>
+                    <p class="empty-state-text">Nie masz jeszcze znajomych</p>
                     <button class="btn btn-primary" onclick="document.getElementById('add-friend-btn').click()">
-                        Znajdź znajomych
+                        Dodaj znajomego
                     </button>
                 </div>
             `;
             return;
         }
+
+        // Ensure header button is visible when there are friends
+        if (headerAddBtn) headerAddBtn.style.display = '';
 
         container.innerHTML = friends.map(friend => `
             <div class="friend-card">

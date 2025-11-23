@@ -392,6 +392,59 @@ h3 {
     color: var(--primary-color);
 }
 
+/* Challenges list styles */
+.challenges-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1rem;
+}
+
+.challenge-card {
+    background-color: var(--surface-color);
+    padding: 1rem 1.25rem;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+}
+
+.challenge-card h3 {
+    margin-bottom: 0.5rem;
+    color: var(--secondary-color);
+}
+
+.challenge-desc {
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.challenge-meta {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* Empty state common styles */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    text-align: center;
+    gap: 0.75rem;
+}
+
+.empty-state i {
+    font-size: 3.5rem;
+    color: var(--border-color);
+}
+
+.empty-state .empty-state-text {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+}
+
 .movie-rating {
     display: flex;
     align-items: center;

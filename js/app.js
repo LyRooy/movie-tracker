@@ -1522,7 +1522,8 @@ class MovieTracker {
                     return {
                         ...item,
                         year: normalized || null,
-                        poster,
+                        poster: poster,  // Save the poster URL
+                        poster_url: poster,  // Save as poster_url too
                         description: item.description || '',
                         release_date: item.release_date || null,
                         avgEpisodeLength: avgEp ? Number(avgEp) : null,

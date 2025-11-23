@@ -75,11 +75,29 @@ export async function onRequest(context) {
     `).bind(searchQuery, searchQuery, searchQuery).all();
 
     // Przekształć do formatu zgodnego z frontendem
-    const transformedResults = result.results.map(row => {
+    const transformedResults = await Promise.all(result.results.map(async row => {
       const rawYear = parseInt(row.year);
       const currentYear = new Date().getFullYear();
       const year = (Number.isFinite(rawYear) && rawYear >= 1800 && rawYear <= currentYear + 5) ? rawYear : null;
       const duration = (row.duration !== undefined && row.duration !== null) ? Number(row.duration) : null;
+      
+      // For series, calculate average episode duration
+      let avgEpisodeLength = null;
+      if (row.type === 'series') {
+        try {
+          const avgRes = await env.db.prepare(`
+            SELECT AVG(e.duration) as avg_duration
+            FROM episodes e
+            JOIN seasons s ON e.season_id = s.id
+            WHERE s.series_id = ?
+          `).bind(row.id).first();
+          if (avgRes && avgRes.avg_duration !== null) {
+            avgEpisodeLength = Math.round(avgRes.avg_duration);
+          }
+        } catch (e) {
+          console.warn('Could not compute avg episode duration for search:', e);
+        }
+      }
       
       return {
         id: `db_${row.id}`,
@@ -92,14 +110,15 @@ export async function onRequest(context) {
         poster_url: normalizePosterUrl(row.poster) || null,
         poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
         description: row.description || '',
-        duration: duration,
+        duration: row.type === 'movie' ? duration : (avgEpisodeLength || null),
+        avgEpisodeLength: avgEpisodeLength,
         totalSeasons: row.total_seasons || null,
         totalEpisodes: row.total_episodes || null,
         rating: 0,
         status: 'planning',
         watchedDate: new Date().toISOString().split('T')[0]
       };
-    });
+    }));
 
     return new Response(JSON.stringify(transformedResults), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

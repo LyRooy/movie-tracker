@@ -864,44 +864,23 @@ class MovieTracker {
     // Jeśli brak, generuje placeholder używając placehold.co (z tytułem filmu).
     // Zapisuje znormalizowany URL do `item.poster` dla wygody frontendu.
     getPosterUrl(item) {
-        const origin = window.location ? window.location.origin : '';
-        if (!item) return this._generatePlaceholderUrl('Brak');
+        if (!item) return 'https://placehold.co/200x300/cccccc/666666/png?text=Brak';
 
-        let p = null;
-        // Preferuj `poster_url` (pochodzące z bazy). Jeśli API zwraca `poster`, zaakceptuj je jako fallback.
-        if (typeof item.poster_url === 'string' && item.poster_url.trim() !== '') {
-            p = item.poster_url.trim();
-        } else if (typeof item.posterUrl === 'string' && item.posterUrl.trim() !== '') {
-            p = item.posterUrl.trim();
-        } else if (typeof item.poster === 'string' && item.poster.trim() !== '') {
-            p = item.poster.trim();
+        // Preferuj poster_url z bazy danych
+        let poster = item.poster_url || item.posterUrl || item.poster || null;
+        
+        // Normalizuj na https
+        if (poster && poster.startsWith('http://')) {
+            poster = poster.replace('http://', 'https://');
         }
-
-        // If we got a URL that's already a placeholder from backend with generic text, regenerate it
-        // But keep placeholders that have movie titles
-        if (p && p.includes('placehold.co')) {
-            const hasTitle = item.title && p.includes(encodeURIComponent(item.title));
-            if (!hasTitle) {
-                const title = item.title ? String(item.title) : 'No Image';
-                p = this._generatePlaceholderUrl(title);
-            }
+        
+        // Jeśli brak postera, użyj placeholder
+        if (!poster) {
+            const title = item.title || item.name || 'Movie';
+            poster = `https://placehold.co/200x300/cccccc/666666/png?text=${encodeURIComponent(title)}`;
         }
-
-        if (!p) {
-            // Użyj tytułu, jeśli dostępny, aby stworzyć czytelny placeholder
-            const title = item.title ? String(item.title) : 'No Image';
-            p = this._generatePlaceholderUrl(title);
-        }
-
-        if (p.startsWith('/')) p = origin + p;
-        item.poster = p;
-        return p;
-    }
-
-    _generatePlaceholderUrl(title) {
-        const text = encodeURIComponent(title || 'No Image');
-        // Rozmiar 300x450 — używany jako uniwersalny placeholder
-        return `https://placehold.co/300x450/cccccc/000000/png?text=${text}`;
+        
+        return poster;
     }
 
     async loadFriends() {
@@ -1629,8 +1608,14 @@ class MovieTracker {
                     } else {
                         normalized = null;
                     }
-                    // Normalizuj też pole plakatu — użyj helpera, który obsługuje różne pola
-                    const poster = this.getPosterUrl(item);
+                    // Normalizuj pole plakatu - użyj poster_url z bazy danych
+                    let poster = item.poster_url || item.poster || item.posterUrl || null;
+                    if (poster && poster.startsWith('http://')) {
+                        poster = poster.replace('http://', 'https://');
+                    }
+                    if (!poster) {
+                        poster = `https://placehold.co/200x300/cccccc/666666/png?text=${encodeURIComponent(item.title || 'Movie')}`;
+                    }
 
                     // Normalizuj pola seriali: liczba sezonów/odcinków, średnia długość odcinka
                     let avgEp = item.avg_episode_length || item.avgEpisodeLength || item.average_episode_length || item.episode_length || item.episodeLength || item.avgEpisodeMinutes || item.duration || null;
@@ -1725,8 +1710,14 @@ class MovieTracker {
         filteredItems.forEach(item => {
             const statusBadge = this.getStatusBadge(item.status || 'watched');
             const stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
-            // Upewnij się, że mamy poprawny URL plakatu — użyj helpera, który obsługuje różne pola
-            const poster = this.getPosterUrl(item);
+            // Użyj poster_url z bazy danych
+            let poster = item.poster_url || item.poster || item.posterUrl || null;
+            if (poster && poster.startsWith('http://')) {
+                poster = poster.replace('http://', 'https://');
+            }
+            if (!poster) {
+                poster = `https://placehold.co/200x300/cccccc/666666/png?text=${encodeURIComponent(item.title || 'Movie')}`;
+            }
 
             // Extract year from release_date or year field
             let displayYear = '';
@@ -1816,7 +1807,13 @@ class MovieTracker {
         recentItems.forEach(item => {
             const activityItem = document.createElement('div');
             activityItem.className = 'activity-item';
-            const poster = this.getPosterUrl(item);
+            let poster = item.poster_url || item.poster || item.posterUrl || null;
+            if (poster && poster.startsWith('http://')) {
+                poster = poster.replace('http://', 'https://');
+            }
+            if (!poster) {
+                poster = `https://placehold.co/60x90/cccccc/666666/png?text=${encodeURIComponent(item.title || 'Movie')}`;
+            }
             activityItem.innerHTML = `
                 <img src="${poster}" alt="${item.title}">
                 <div class="activity-info">
@@ -3349,7 +3346,18 @@ class MovieTracker {
 
             if (response.ok) {
                 const result = await response.json();
-                this.showNotification(id ? 'Film/serial zaktualizowany' : 'Film/serial dodany', 'success');
+                
+                // Show progress notification for updates
+                if (id) {
+                    if (movieType === 'series' && durationValue) {
+                        this.showNotification('Aktualizowanie czasu trwania odcinków...', 'info');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                    this.showNotification('Film/serial zaktualizowany pomyślnie!', 'success');
+                } else {
+                    this.showNotification('Film/serial dodany pomyślnie!', 'success');
+                }
+                
                 this.closeAdminModal('admin-movie-modal');
                 
                 // If it's a new series, open seasons config modal

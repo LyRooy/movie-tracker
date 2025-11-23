@@ -115,7 +115,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     // Ensure DB has duration column so we can persist minutes
     await ensureMoviesHasDuration(db);
     
-    console.log('Creating movie with data:', data);
+    console.log('[admin/movies] Creating movie with data:', JSON.stringify(data).slice(0, 1000));
     
     if (!data.title || !data.type) {
       return new Response(JSON.stringify({ error: 'Title and type are required' }), {
@@ -217,7 +217,7 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   const pathParts = url.pathname.split('/');
   const pathId = pathParts[pathParts.length - 1] !== 'movies' ? pathParts[pathParts.length - 1] : null;
   if (!data.id && pathId) data.id = pathId;
-  console.log('[admin/movies] Update payload:', data);
+  console.log('[admin/movies] Update payload:', JSON.stringify(data).slice(0, 1000));
   
   if (!data.id) {
     return new Response(JSON.stringify({ error: 'Movie ID is required' }), {

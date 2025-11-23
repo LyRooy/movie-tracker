@@ -3643,12 +3643,21 @@ class MovieTracker {
             document.getElementById('admin-movie-title').value = movie.title;
             document.getElementById('admin-movie-type').value = movie.media_type;
             
-            // Extract year from release_date field
+            // Extract year/year-range from release_date field - prefer full range for series
             let yearValue = '';
             if (movie.release_date) {
-                const yearMatch = String(movie.release_date).match(/^(\d{4})/);
-                yearValue = yearMatch ? yearMatch[1] : '';
+                const raw = String(movie.release_date);
+                // If series and the release_date is a range, use range string
+                if (movie.media_type === 'series' && /[-–—]/.test(raw)) {
+                    yearValue = raw;
+                } else {
+                    const yearMatch = raw.match(/^(\d{4})/);
+                    yearValue = yearMatch ? yearMatch[1] : raw;
+                }
+            } else if (movie.year) {
+                yearValue = String(movie.year);
             }
+            console.debug('Prefilling admin movie year:', yearValue);
             document.getElementById('admin-movie-year').value = yearValue;
             document.getElementById('admin-movie-genre').value = movie.genre || '';
             // If editing a series, pre-fill duration with average episode length when available
@@ -3694,7 +3703,13 @@ class MovieTracker {
             yearValue = yearValue + '-01-01';
         }
         
-        const durationValue = parseInt(document.getElementById('admin-movie-duration').value) || null;
+        // Read admin duration input and only include in payload if non-empty
+        const rawDurationInput = (document.getElementById('admin-movie-duration').value || '').toString().trim();
+        let durationValue = undefined;
+        if (rawDurationInput !== '') {
+            const parsed = parseInt(rawDurationInput, 10);
+            durationValue = Number.isNaN(parsed) ? null : parsed;
+        }
         
         const data = {
             title: document.getElementById('admin-movie-title').value,
@@ -3702,7 +3717,8 @@ class MovieTracker {
             year: yearValue,
             genre: document.getElementById('admin-movie-genre').value || null,
             // Duration: for movies it's the movie length, for series it's episode length
-            duration: durationValue,
+            // Include `duration` only if user provided a value (keep undefined otherwise)
+            ...(durationValue !== undefined ? { duration: durationValue } : {}),
             description: document.getElementById('admin-movie-description').value || null,
             poster: document.getElementById('admin-movie-poster').value || null
         };

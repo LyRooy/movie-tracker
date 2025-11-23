@@ -429,6 +429,22 @@ class MovieTracker {
             
             if (profileUsername) profileUsername.textContent = this.currentUser.nickname;
             if (profileEmail) profileEmail.textContent = this.currentUser.email;
+            // Ustaw rok członkostwa na podstawie daty utworzenia konta (jeśli dostępna), inaczej użyj bieżącego roku
+            const memberSinceEl = document.getElementById('member-since');
+            if (memberSinceEl) {
+                const rawDate = this.currentUser.created_at || this.currentUser.createdAt || this.currentUser.registered_at || this.currentUser.registeredAt || this.currentUser.joined_at || null;
+                let year = null;
+                if (rawDate) {
+                    try {
+                        // spróbuj znormalizować
+                        year = this.normalizeYear(String(rawDate));
+                    } catch (e) {
+                        year = null;
+                    }
+                }
+                if (!year) year = String(new Date().getFullYear());
+                memberSinceEl.textContent = year;
+            }
             
             // Załaduj awatar jeśli istnieje
             const userAvatar = document.getElementById('user-avatar');
@@ -1015,22 +1031,45 @@ class MovieTracker {
 
     async searchUsers(query) {
         try {
+            const resultsContainer = document.getElementById('friend-search-results');
             const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=10`, {
                 headers: this.getAuthHeaders()
             });
 
             if (!response.ok) {
+                // Pokaż komunikat błędu w UI
+                if (resultsContainer) resultsContainer.innerHTML = '<p class="search-error">Błąd wyszukiwania</p>';
                 throw new Error('Nie udało się wyszukać użytkowników');
             }
 
             const data = await response.json();
-            // API może zwracać tablicę lub obiekt z results
-            const users = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
-            this.displaySearchResults(users);
+            // Obsłuż różne formaty odpowiedzi: tablica, { results: [] }, { users: [] }, { data: [] }
+            let users = [];
+            if (Array.isArray(data)) {
+                users = data;
+            } else if (Array.isArray(data.results)) {
+                users = data.results;
+            } else if (Array.isArray(data.users)) {
+                users = data.users;
+            } else if (Array.isArray(data.data)) {
+                users = data.data;
+            } else if (Array.isArray(data.items)) {
+                users = data.items;
+            } else {
+                // próbuj znaleźć pierwszą tablicę wewnątrz obiektu
+                for (const k of Object.keys(data || {})) {
+                    if (Array.isArray(data[k])) {
+                        users = data[k];
+                        break;
+                    }
+                }
+            }
+
+            this.displaySearchResults(users || []);
         } catch (error) {
             console.error('Error searching users:', error);
-            document.getElementById('friend-search-results').innerHTML = 
-                '<p class="search-error">Błąd wyszukiwania</p>';
+            const resultsContainer = document.getElementById('friend-search-results');
+            if (resultsContainer) resultsContainer.innerHTML = '<p class="search-error">Błąd wyszukiwania</p>';
         }
     }
 
@@ -1038,27 +1077,28 @@ class MovieTracker {
         const container = document.getElementById('friend-search-results');
         if (!container) return;
         // Upewnij się, że mamy tablicę
-        if (!Array.isArray(users)) {
-            console.warn('displaySearchResults expected array, got:', users);
-            container.innerHTML = '<p class="no-results">Nie znaleziono użytkowników</p>';
-            return;
-        }
+        if (!Array.isArray(users)) users = [];
 
         if (users.length === 0) {
             container.innerHTML = '<p class="no-results">Nie znaleziono użytkowników</p>';
             return;
         }
 
-        container.innerHTML = users.map(user => `
+        container.innerHTML = users.map(user => {
+            const avatar = user.avatar_url || user.avatar || '/images/default-avatar.png';
+            const nickname = user.nickname || user.name || user.login || 'Użytkownik';
+            const total = user.total_movies || user.totalMovies || 0;
+            const id = user.id || user.user_id || user.userId || user.uid || 0;
+            return `
             <div class="user-search-item">
-                <img src="${user.avatar_url || '/images/default-avatar.png'}" alt="${user.nickname}">
+                <img src="${avatar}" alt="${nickname}">
                 <div class="user-info">
-                    <h4>${user.nickname}</h4>
-                    <p>${user.total_movies || 0} filmów</p>
+                    <h4>${nickname}</h4>
+                    <p>${total} filmów</p>
                 </div>
-                ${this.getFriendshipButton(user)}
+                ${this.getFriendshipButton({ ...user, id })}
             </div>
-        `).join('');
+        `}).join('');
     }
 
     getFriendshipButton(user) {

@@ -54,7 +54,8 @@ body {
 .nav-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 2rem;
+    /* Przyciasnij padding po bokach aby logo nie wyglądało na przyciśnięte przy adminie */
+    padding: 0 1.25rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -578,17 +579,18 @@ h3 {
 /* Profile styles */
 .profile-header {
     background-color: var(--surface-color);
-    padding: 2rem;
+    /* mniejsze padding aby sekcja profilowa nie wypychała treści zbyt daleko w dół */
+    padding: 1.25rem;
     border-radius: 10px;
     box-shadow: var(--shadow);
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
 }
 
 .profile-info-top {
     display: flex;
     align-items: center;
-    gap: 2rem;
-    margin-bottom: 2rem;
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
 .avatar-container {
@@ -597,8 +599,9 @@ h3 {
 
 .avatar {
     position: relative;
-    width: 120px;
-    height: 120px;
+    /* nieco mniejszy avatar by zmieścić przycisk 'Dodaj znajomego' nad foldem */
+    width: 100px;
+    height: 100px;
     cursor: pointer;
 }
 
@@ -948,7 +951,8 @@ h3 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    /* mniejsze odsunięcie w pionie, aby przycisk był widoczny szybciej */
+    margin-bottom: 1rem;
 }
 
 .friends-header h2 {
@@ -957,9 +961,9 @@ h3 {
 
 .friends-stats {
     display: flex;
-    gap: 2rem;
-    margin-bottom: 2rem;
-    padding: 1.5rem;
+    gap: 1.25rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
     background-color: var(--surface-color);
     border-radius: 10px;
     box-shadow: var(--shadow);

@@ -871,8 +871,16 @@ class MovieTracker {
         // Preferuj `poster_url` (pochodzące z bazy). Jeśli API zwraca `poster`, zaakceptuj je jako fallback.
         if (typeof item.poster_url === 'string' && item.poster_url.trim() !== '') {
             p = item.poster_url.trim();
+        } else if (typeof item.posterUrl === 'string' && item.posterUrl.trim() !== '') {
+            p = item.posterUrl.trim();
         } else if (typeof item.poster === 'string' && item.poster.trim() !== '') {
             p = item.poster.trim();
+        }
+
+        // Skip placeholder URLs and treat them as missing
+        if (p && p.includes('placehold.co')) {
+            const title = item.title ? String(item.title) : 'No Image';
+            p = this._generatePlaceholderUrl(title);
         }
 
         if (!p) {
@@ -1118,15 +1126,15 @@ class MovieTracker {
         container.innerHTML = users.map(user => {
             const avatar = user.avatar_url || user.avatar || user.avatarUrl || '/images/default-avatar.png';
             const nickname = user.nickname || user.name || user.login || 'Użytkownik';
-            const total = user.total_movies || user.totalMovies || 0;
+            const description = user.description || 'Brak opisu';
             const id = user.id || user.user_id || user.userId || user.uid || 0;
             const normalized = { ...user, id, avatar_url: avatar, nickname };
             return `
             <div class="user-search-item">
-                <img src="${avatar}" alt="${nickname}">
-                <div class="user-info">
-                    <h4>${nickname}</h4>
-                    <p>${total} filmów</p>
+                <img src="${avatar}" alt="${nickname}" class="user-search-avatar">
+                <div class="user-search-info">
+                    <div class="user-search-name">${nickname}</div>
+                    <div class="user-search-description">${description}</div>
                 </div>
                 ${this.getFriendshipButton(normalized)}
             </div>
@@ -1567,6 +1575,20 @@ class MovieTracker {
             // Upewnij się, że mamy poprawny URL plakatu — użyj helpera, który obsługuje różne pola
             const poster = this.getPosterUrl(item);
 
+            // Extract year from release_date or year field
+            let displayYear = '';
+            if (item.year) {
+                if (typeof item.year === 'string') {
+                    const yearMatch = item.year.match(/^(\d{4})/);
+                    displayYear = yearMatch ? yearMatch[1] : item.year;
+                } else {
+                    displayYear = String(item.year);
+                }
+            } else if (item.release_date) {
+                const yearMatch = String(item.release_date).match(/^(\d{4})/);
+                displayYear = yearMatch ? yearMatch[1] : '';
+            }
+
             // Dane serialu
             const seasons = item.totalSeasons || (Array.isArray(item.seasons) ? item.seasons.length : null);
             const episodes = item.totalEpisodes || (Array.isArray(item.seasons) ? item.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0) : null);
@@ -1596,7 +1618,7 @@ class MovieTracker {
                     ${this.currentView === 'list' ? `
                     <div class="list-item-info">
                         <h3>${item.title}</h3>
-                        <p>${item.year} • ${item.genre} • ${typeInfo}</p>
+                        <p>${displayYear}${displayYear && (item.genre || typeInfo) ? ' • ' : ''}${item.genre || ''}${item.genre && typeInfo ? ' • ' : ''}${typeInfo}</p>
                         ${progressInfo}
                         <div class="list-item-rating">
                             <span class="stars">${stars}</span>
@@ -1777,17 +1799,31 @@ class MovieTracker {
         document.getElementById('modal-poster').src = poster;
         document.getElementById('modal-title').textContent = movie.title;
         document.getElementById('modal-description').textContent = movie.description || '';
-        // Użyj bezpiecznego roku (najpierw safeYear, potem normalizeYear)
-        // Determine display year: prefer numeric `movie.year` from API when valid
+        
+        // Extract year from release_date or use year field directly
         let displayYear = '';
         if (typeof movie.year === 'number' && this.safeYear(movie.year)) {
             displayYear = String(movie.year);
-        } else if (typeof movie.year === 'string' && /^\d{4}$/.test(movie.year)) {
-            displayYear = movie.year;
-        } else {
-            const rawYear = movie.release_date || movie.releaseDate || null;
-            displayYear = this.safeYear(rawYear) || this.normalizeYear(rawYear) || '';
+        } else if (typeof movie.year === 'string') {
+            // Try to extract year from date string (YYYY-MM-DD or just YYYY)
+            const yearMatch = movie.year.match(/^(\d{4})/);
+            if (yearMatch) {
+                displayYear = yearMatch[1];
+            }
         }
+        
+        if (!displayYear) {
+            const rawYear = movie.release_date || movie.releaseDate || null;
+            if (rawYear) {
+                const yearMatch = String(rawYear).match(/^(\d{4})/);
+                if (yearMatch) {
+                    displayYear = yearMatch[1];
+                } else {
+                    displayYear = this.safeYear(rawYear) || this.normalizeYear(rawYear) || '';
+                }
+            }
+        }
+        
         document.getElementById('modal-year').textContent = displayYear;
         document.getElementById('modal-genre').textContent = movie.genre;
         const modalDurationEl = document.getElementById('modal-duration');
@@ -1798,8 +1834,11 @@ class MovieTracker {
             let avg = movie.avgEpisodeLength || movie.avg_episode_length || movie.duration || null;
 
             const setModalSeriesInfo = (sCount, eCount, avgMins) => {
-                const avgText = avgMins ? ` • śr. odcinek: ${avgMins} min` : '';
-                modalDurationEl.textContent = `${sCount ? sCount + ' sezon(y)' : 'Serial'} • ${eCount ? eCount + ' odc.' : ''}${avgText}`;
+                const seasonText = sCount ? `${sCount} ${sCount === 1 ? 'sezon' : sCount < 5 ? 'sezony' : 'sezonów'}` : 'Serial';
+                const episodeText = eCount ? `${eCount} ${eCount === 1 ? 'odcinek' : 'odc.'}` : '';
+                const avgText = avgMins ? `śr. ${avgMins} min` : '';
+                const parts = [seasonText, episodeText, avgText].filter(p => p);
+                modalDurationEl.textContent = parts.join(' • ');
             };
 
             if ((episodes && seasons) || avg) {
@@ -3113,12 +3152,21 @@ class MovieTracker {
         const id = document.getElementById('admin-movie-id').value;
         const movieType = document.getElementById('admin-movie-type').value;
         
+        // Handle year input - if only year provided, append -01-01
+        let yearValue = document.getElementById('admin-movie-year').value || null;
+        if (yearValue && /^\d{4}$/.test(yearValue)) {
+            yearValue = yearValue + '-01-01';
+        }
+        
+        const durationValue = parseInt(document.getElementById('admin-movie-duration').value) || null;
+        
         const data = {
             title: document.getElementById('admin-movie-title').value,
             type: movieType,
-            year: document.getElementById('admin-movie-year').value || null,
+            year: yearValue,
             genre: document.getElementById('admin-movie-genre').value || null,
-            duration: parseInt(document.getElementById('admin-movie-duration').value) || null,
+            // Duration: for movies it's the movie length, for series it's episode length
+            duration: durationValue,
             description: document.getElementById('admin-movie-description').value || null,
             poster: document.getElementById('admin-movie-poster').value || null
         };

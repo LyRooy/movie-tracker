@@ -60,16 +60,18 @@ async function handleGet(db, request, url, corsHeaders) {
       m.id,
       m.title,
       m.media_type as type,
+      m.release_date,
       strftime('%Y', m.release_date) as year,
       m.genre,
       m.poster_url as poster,
+      m.description,
+      m.duration,
       COALESCE(m.total_seasons, 1) as total_seasons,
       COALESCE(m.total_episodes, 1) as total_episodes,
       COALESCE(r.rating, 0) as rating,
       r.content as review,
       w.watched_date as watchedDate,
-      COALESCE(w.status, 'watched') as status,
-      120 as duration
+      COALESCE(w.status, 'watched') as status
     FROM movies m
     LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
     LEFT JOIN watched w ON m.id = w.movie_id AND w.user_id = ?
@@ -161,10 +163,12 @@ async function handleGet(db, request, url, corsHeaders) {
             title: row.title,
             type: row.type,
             year: year,
+            release_date: row.release_date || null,
             genre: row.genre || 'Unknown',
             rating: row.rating || 0,
             status: row.status || 'watched',
             watchedDate: row.watchedDate || null,
+            description: row.description || '',
             // Expose canonical `poster_url` (if available) and keep `poster` for backwards compatibility
             poster_url: normalizePosterUrl(row.poster) || null,
             poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,

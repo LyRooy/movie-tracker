@@ -69,14 +69,16 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
       m.id,
       m.title,
       m.media_type as type,
+      m.release_date,
       strftime('%Y', m.release_date) as year,
       m.genre,
       m.poster_url as poster,
+      m.description,
+      m.duration,
       r.rating,
       r.content as review,
       w.watched_date as watchedDate,
-      COALESCE(w.status, CASE WHEN w.id IS NOT NULL THEN 'watched' ELSE 'planning' END) as status,
-      120 as duration
+      COALESCE(w.status, CASE WHEN w.id IS NOT NULL THEN 'watched' ELSE 'planning' END) as status
     FROM movies m
     LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
     LEFT JOIN watched w ON m.id = w.movie_id AND w.user_id = ?
@@ -104,7 +106,9 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
     title: movie.title,
     type: movie.type,
     year: year,
+    release_date: movie.release_date || null,
     genre: movie.genre || 'Unknown',
+    description: movie.description || '',
     rating: movie.rating || 0,
     status: movie.status,
     watchedDate: movie.watchedDate || null,

@@ -159,6 +159,9 @@ async function handleCreateMovie(db, request, corsHeaders) {
 
     // Jeśli to serial, utwórz sezony i odcinki
     if (data.type === 'series') {
+      // Use provided duration for episodes, or default to 45
+      const episodeDuration = data.duration !== undefined ? Number(data.duration) : 45;
+      
       for (let seasonNum = 1; seasonNum <= totalSeasons; seasonNum++) {
         // Utwórz sezon
         const seasonResult = await db.prepare(`
@@ -182,7 +185,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
             seasonId,
             episodeNum,
             `Odcinek ${episodeNum}`,
-            data.duration || 45 // użyj podanego czasu lub domyślnie 45
+            episodeDuration
           ).run();
         }
       }

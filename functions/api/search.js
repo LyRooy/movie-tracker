@@ -57,10 +57,14 @@ export async function onRequest(context) {
         id,
         title,
         media_type as type,
+        release_date,
         strftime('%Y', release_date) as year,
         genre,
         poster_url as poster,
         description,
+        duration,
+        COALESCE(total_seasons, 1) as total_seasons,
+        COALESCE(total_episodes, 1) as total_episodes,
         0 as rating,
         'planning' as status,
         date('now') as watchedDate
@@ -75,16 +79,22 @@ export async function onRequest(context) {
       const rawYear = parseInt(row.year);
       const currentYear = new Date().getFullYear();
       const year = (Number.isFinite(rawYear) && rawYear >= 1800 && rawYear <= currentYear + 5) ? rawYear : null;
+      const duration = (row.duration !== undefined && row.duration !== null) ? Number(row.duration) : null;
+      
       return {
         id: `db_${row.id}`,
         title: row.title,
         type: row.type,
         year: year,
+        release_date: row.release_date || null,
         genre: row.genre || 'Unknown',
         // expose canonical poster_url and keep poster fallback
         poster_url: normalizePosterUrl(row.poster) || null,
         poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
         description: row.description || '',
+        duration: duration,
+        totalSeasons: row.total_seasons || null,
+        totalEpisodes: row.total_episodes || null,
         rating: 0,
         status: 'planning',
         watchedDate: new Date().toISOString().split('T')[0]

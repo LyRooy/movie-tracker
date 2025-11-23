@@ -321,8 +321,8 @@ h3 {
 
 .results-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
 }
 
 .movie-card {
@@ -341,7 +341,7 @@ h3 {
 
 .movie-card img {
     width: 100%;
-    height: 300px;
+    height: 270px;
     object-fit: cover;
 }
 
@@ -350,15 +350,24 @@ h3 {
 }
 
 .movie-card h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     margin-bottom: 0.5rem;
     color: var(--primary-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .movie-card p {
     color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.4;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 2.6em;
 }
 
 /* Admin panel counters (small stat tiles matching site style) */

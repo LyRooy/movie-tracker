@@ -135,18 +135,52 @@ async function handleSendRequest(db, userId, request, corsHeaders) {
     });
   }
 
-  // Sprawdź czy już nie są znajomymi
+  // Sprawdź czy już istnieje relacja znajomości (dowolne porządkowanie user1/user2)
   const existing = await db.prepare(`
-    SELECT id FROM friends 
+    SELECT * FROM friends 
     WHERE (user1_id = ? AND user2_id = ?) 
     OR (user1_id = ? AND user2_id = ?)
   `).bind(userId, friendId, friendId, userId).first();
 
   if (existing) {
-    return new Response(JSON.stringify({ error: 'Friend request already exists' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    // Obsłuż różne stany istniejącej relacji
+    switch (existing.status) {
+      case 'accepted':
+        return new Response(JSON.stringify({ error: 'Users are already friends' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      case 'pending':
+        return new Response(JSON.stringify({ error: 'Friend request already exists' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      case 'blocked':
+        return new Response(JSON.stringify({ error: 'Cannot send request. User is blocked' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      case 'rejected': {
+        // Pozwól wysłać ponownie – zaktualizuj istniejący rekord zamiast tworzyć nowy
+        const now = new Date().toISOString();
+        // Zaktualizuj ordering (user1 -> wysyłający, user2 -> odbiorca)
+        await db.prepare(`
+          UPDATE friends
+          SET user1_id = ?, user2_id = ?, status = 'pending', requested_at = ?, responded_at = NULL
+          WHERE id = ?
+        `).bind(userId, friendId, now, existing.id).run();
+
+        return new Response(JSON.stringify({ success: true, resent: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      default:
+        return new Response(JSON.stringify({ error: 'Cannot send request' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+    }
   }
 
   // Utwórz zaproszenie

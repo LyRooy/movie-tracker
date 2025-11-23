@@ -33,8 +33,14 @@ class MovieTracker {
             const adminSection = document.getElementById('admin');
             if (adminSection) adminSection.style.display = '';
         }
-        
-        // Włącz przejścia po załadowaniu strony, aby zapobiec przejściu motywu przy załadowaniu
+
+                // Parse response to detect resend vs new
+                let resBody;
+                try {
+                    resBody = await response.json();
+                } catch (e) { resBody = null; }
+
+                // Odśwież wyniki wyszukiwania
         setTimeout(() => {
             document.body.classList.add('transitions-enabled');
         }, 100);
@@ -1113,7 +1119,7 @@ class MovieTracker {
             const id = user.id || user.user_id || user.userId || user.uid || 0;
             const normalized = { ...user, id, avatar_url: avatar, nickname };
             return `
-            <div class="user-search-item">
+                <div class="user-search-item" data-user-id="${id}">
                 <img src="${avatar}" alt="${nickname}" class="user-search-avatar">
                 <div class="user-search-info">
                     <div class="user-search-name">${nickname}</div>
@@ -1126,10 +1132,20 @@ class MovieTracker {
 
     getFriendshipButton(user) {
         const status = user.friendship_status || user.friendshipStatus || null;
+        const friendshipId = user.friendship_id || user.friendshipId || null;
+        const direction = user.friendship_direction || user.friendshipDirection || null;
         if (status === 'accepted') {
             return '<span class="friendship-status accepted">Znajomy</span>';
         } else if (status === 'pending') {
+            if (direction === 'sent') {
+                return `<span class="friendship-status pending">Oczekujące</span> <button class="btn btn-danger btn-sm" onclick="app.removeFriend(${friendshipId})">Anuluj</button>`;
+            }
             return '<span class="friendship-status pending">Oczekujące</span>';
+        } else if (status === 'rejected') {
+            // Show rejected and allow resending
+            return `<span class="friendship-status rejected">Odrzucone</span> <button class="btn btn-primary btn-sm" onclick="app.sendFriendRequest(${user.id})">Wyślij ponownie</button>`;
+        } else if (status === 'blocked') {
+            return '<span class="friendship-status blocked">Zablokowany</span>';
         } else {
             return `<button class="btn btn-primary btn-sm" onclick="app.sendFriendRequest(${user.id})">Dodaj</button>`;
         }
@@ -1137,6 +1153,17 @@ class MovieTracker {
 
     async sendFriendRequest(userId) {
         try {
+            // Optimistic UI update for search result button
+            try {
+                const el = document.querySelector(`.user-search-item[data-user-id="${userId}"]`);
+                if (el) {
+                    const btn = el.querySelector('button');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.textContent = 'Wysyłanie...';
+                    }
+                }
+            } catch (e) { /* ignore */ }
             const response = await fetch('/api/friends', {
                 method: 'POST',
                 headers: {
@@ -1151,6 +1178,8 @@ class MovieTracker {
                 throw new Error(error.error || 'Nie udało się wysłać zaproszenia');
             }
 
+            const body = await response.json().catch(() => ({}));
+
             // Odśwież wyniki wyszukiwania
             const query = document.getElementById('friend-search-input').value;
             if (query) {
@@ -1158,18 +1187,42 @@ class MovieTracker {
             }
 
             // Odśwież profil aby zaktualizować licznik oczekujących
-            if (this.currentSection === 'profil') {
+            if (this.currentSection === 'profile') {
                 await this.loadProfileData();
             }
+            // If profile modal for that user is open, reload it to update controls
+            if (document.getElementById('friend-profile-modal')) {
+                await this.viewFriendProfile(userId);
+            }
 
-            this.showNotification('Zaproszenie zostało wysłane!', 'success');
+            if (body && body.resent) {
+                this.showNotification('Zaproszenie wysłane ponownie!', 'success');
+            } else {
+                this.showNotification('Zaproszenie zostało wysłane!', 'success');
+            }
+            if (resBody && resBody.resent) {
+                this.showNotification('Zaproszenie wysłane ponownie!', 'success');
+            } else {
+                this.showNotification('Zaproszenie zostało wysłane!', 'success');
+            }
         } catch (error) {
             console.error('Error sending friend request:', error);
+            // Re-enable sending button if available
+            try {
+                const el = document.querySelector(`.user-search-item[data-user-id="${userId}"]`);
+                if (el) {
+                    const btn = el.querySelector('button');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Dodaj';
+                    }
+                }
+            } catch (e) { /* ignore */ }
             this.showNotification('Błąd: ' + error.message, 'error');
         }
     }
 
-    async acceptFriendRequest(friendshipId) {
+    async acceptFriendRequest(friendshipId, userId) {
         try {
             const response = await fetch('/api/friends', {
                 method: 'PUT',
@@ -1193,6 +1246,10 @@ class MovieTracker {
                 this.loadFriends(),
                 this.loadFriendRequests()
             ]);
+            // If profile modal is open for this user, reload it
+            if (userId && document.getElementById('friend-profile-modal')) {
+                await this.viewFriendProfile(userId);
+            }
 
             alert('Zaproszenie zostało zaakceptowane!');
         } catch (error) {
@@ -1201,7 +1258,7 @@ class MovieTracker {
         }
     }
 
-    async rejectFriendRequest(friendshipId) {
+    async rejectFriendRequest(friendshipId, userId) {
         try {
             const response = await fetch('/api/friends', {
                 method: 'PUT',
@@ -1222,6 +1279,9 @@ class MovieTracker {
 
             // Odśwież listę zaproszeń
             await this.loadFriendRequests();
+            if (userId && document.getElementById('friend-profile-modal')) {
+                await this.viewFriendProfile(userId);
+            }
 
             alert('Zaproszenie zostało odrzucone');
         } catch (error) {
@@ -1252,11 +1312,50 @@ class MovieTracker {
 
             // Odśwież listę znajomych
             await this.loadFriends();
+            // Jeżeli otwarty był profil, odśwież dane profilu
+            if (this.currentSection === 'profile') await this.loadProfileData();
 
             alert('Znajomy został usunięty');
         } catch (error) {
             console.error('Error removing friend:', error);
             alert('Błąd: ' + error.message);
+        }
+    }
+
+    // Dismiss a 'rejected' friendship without confirmation and refresh UI
+    async dismissRejected(friendshipId, userId) {
+        try {
+            const response = await fetch('/api/friends', {
+                method: 'DELETE',
+                headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ friendshipId })
+            });
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || 'Błąd usuwania rekordu');
+            }
+
+            this.showNotification('Odrzucenie zostało potwierdzone. Możesz ponownie wysłać zaproszenie.', 'success');
+            // Odśwież widok: search results, friends, and profile modal
+            await Promise.all([
+                this.loadFriends(),
+                this.loadFriendRequests(),
+            ]);
+            // If search is open and query exists, refresh search results
+            const qInput = document.getElementById('friend-search-input');
+            if (qInput && qInput.value && qInput.value.length > 1) {
+                await this.searchUsers(qInput.value);
+            }
+            // If modal is open for this user, re-open to refresh controls; else ensure profile data is refreshed for current user
+            if (document.getElementById('friend-profile-modal')) {
+                // re-open profile for the same userId to refresh buttons
+                await this.viewFriendProfile(userId);
+            } else if (this.currentSection === 'profile') {
+                await this.loadProfileData();
+            }
+        } catch (error) {
+            console.error('Error dismissing rejected friend request', error);
+            this.showNotification('Błąd: ' + error.message, 'error');
         }
     }
 
@@ -1279,13 +1378,19 @@ class MovieTracker {
     }
 
     showFriendProfileModal(profile) {
+        // Defensive defaults in case some fields are missing
+        profile = profile || {};
+        profile.badges = Array.isArray(profile.badges) ? profile.badges : (profile.badges || []);
+        profile.recentActivity = Array.isArray(profile.recentActivity) ? profile.recentActivity : (profile.recentActivity || []);
+        profile.stats = profile.stats || {};
+
         const avatar = profile.avatar_url || '/images/default-avatar.png';
         const memberSince = new Date(profile.created_at).toLocaleDateString('pl-PL', { 
             year: 'numeric', 
             month: 'long' 
         });
 
-        const badgesHtml = profile.badges.length > 0
+        const badgesHtml = (profile.badges || []).length > 0
             ? profile.badges.map(badge => `
                 <div class="badge-item" title="${badge.description}">
                     <i class="fas ${badge.image_url || 'fa-award'}"></i>
@@ -1295,7 +1400,7 @@ class MovieTracker {
             `).join('')
             : '<p class="no-badges">Brak odznak</p>';
 
-        const recentActivityHtml = profile.recentActivity.length > 0
+        const recentActivityHtml = (profile.recentActivity || []).length > 0
             ? profile.recentActivity.map(item => {
                 const poster = this.getPosterUrl(item);
                 const stars = item.rating ? '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating) : 'Brak oceny';
@@ -1320,6 +1425,7 @@ class MovieTracker {
                         <img src="${avatar}" alt="${profile.nickname}" class="profile-avatar-large">
                         <div class="profile-info">
                             <h2>${profile.nickname}</h2>
+                            ${profile.friendship ? `<span class="friendship-status ${profile.friendship.status}">${profile.friendship.status === 'pending' ? 'Oczekujące' : profile.friendship.status === 'accepted' ? 'Znajomi' : profile.friendship.status === 'rejected' ? 'Odrzucone' : profile.friendship.status}</span>` : ''}
                             <p class="profile-description">${profile.description || 'Brak opisu'}</p>
                             <p class="profile-member-since">Członek od ${memberSince}</p>
                         </div>
@@ -1329,35 +1435,35 @@ class MovieTracker {
                         <div class="stat-item">
                             <i class="fas fa-film"></i>
                             <div>
-                                <strong>${profile.stats.watchedMovies}</strong>
+                                <strong>${profile.stats.watchedMovies || 0}</strong>
                                 <span>Filmy</span>
                             </div>
                         </div>
                         <div class="stat-item">
                             <i class="fas fa-tv"></i>
                             <div>
-                                <strong>${profile.stats.watchedSeries}</strong>
+                                <strong>${profile.stats.watchedSeries || 0}</strong>
                                 <span>Seriale</span>
                             </div>
                         </div>
                         <div class="stat-item">
                             <i class="fas fa-eye"></i>
                             <div>
-                                <strong>${profile.stats.watching}</strong>
+                                <strong>${profile.stats.watching || 0}</strong>
                                 <span>Oglądane</span>
                             </div>
                         </div>
                         <div class="stat-item">
                             <i class="fas fa-calendar"></i>
                             <div>
-                                <strong>${profile.stats.planning}</strong>
+                                <strong>${profile.stats.planning || 0}</strong>
                                 <span>Planowane</span>
                             </div>
                         </div>
                         <div class="stat-item">
                             <i class="fas fa-user-friends"></i>
                             <div>
-                                <strong>${profile.stats.friends}</strong>
+                                <strong>${profile.stats.friends || 0}</strong>
                                 <span>Znajomi</span>
                             </div>
                         </div>
@@ -1368,6 +1474,10 @@ class MovieTracker {
                         <div class="badges-list">
                             ${badgesHtml}
                         </div>
+                    </div>
+
+                    <div class="profile-actions">
+                        ${this.getProfileFriendshipControls(profile)}
                     </div>
 
                     <div class="profile-section">
@@ -1396,6 +1506,35 @@ class MovieTracker {
                 this.closeFriendProfileModal();
             }
         });
+    }
+
+    getProfileFriendshipControls(profile) {
+        // profile.friendship: { id, status, direction }
+        const f = profile.friendship || null;
+        if (!f) {
+            return `<button class="btn btn-primary" onclick="app.sendFriendRequest(${profile.id})">Dodaj znajomego</button>`;
+        }
+
+        switch (f.status) {
+            case 'pending':
+                if (f.direction === 'received') {
+                    return `
+                        <button class="btn btn-primary" onclick="app.acceptFriendRequest(${f.id}, ${profile.id})">Akceptuj</button>
+                        <button class="btn btn-secondary" onclick="app.rejectFriendRequest(${f.id}, ${profile.id})">Odrzuć</button>
+                    `;
+                }
+                // 'sent' direction
+                return `<span class="friendship-status pending">Oczekujące</span> <button class="btn btn-danger" onclick="app.removeFriend(${f.id})">Anuluj</button>`;
+            case 'rejected':
+                // allow removing the 'rejected' entry so it can be resent later
+                return `<span class="friendship-status rejected">Odrzucone</span> <button class="btn btn-secondary" onclick="app.dismissRejected(${f.id}, ${profile.id})">Potwierdź odrzucenie</button> <button class="btn btn-primary" onclick="app.sendFriendRequest(${profile.id})">Wyślij ponownie</button>`;
+            case 'accepted':
+                return `<button class="btn btn-danger" onclick="app.removeFriend(${f.id})">Usuń znajomego</button>`;
+            case 'blocked':
+                return `<span class="friendship-status blocked">Zablokowany</span>`;
+            default:
+                return `<button class="btn btn-primary" onclick="app.sendFriendRequest(${profile.id})">Dodaj znajomego</button>`;
+        }
     }
 
     closeFriendProfileModal() {

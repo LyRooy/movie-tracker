@@ -94,13 +94,13 @@ export async function onRequest(context) {
 
     // Sprawdź status znajomości
     const friendship = await env.db.prepare(`
-      SELECT status,
+      SELECT f.id as friendship_id, f.status,
         CASE 
           WHEN user1_id = ? THEN 'sent'
           ELSE 'received'
         END as direction
       FROM friends
-      WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
+      WHERE (f.user1_id = ? AND f.user2_id = ?) OR (f.user1_id = ? AND f.user2_id = ?)
     `).bind(userId, userId, targetUserId, targetUserId, userId).first();
 
     // Normalize avatar
@@ -125,6 +125,7 @@ export async function onRequest(context) {
       badges: badges.results || [],
       recentActivity: recentActivity.results || [],
       friendship: friendship ? {
+        id: friendship.friendship_id,
         status: friendship.status,
         direction: friendship.direction
       } : null

@@ -45,13 +45,15 @@ export async function onRequest(context) {
     const result = await env.db.prepare(`
       SELECT 
         u.id,
+        f.id as friendship_id,
         u.nickname,
         u.avatar_url,
         u.description,
         CASE 
           WHEN f.id IS NOT NULL THEN f.status
           ELSE NULL
-        END as friendship_status
+        END as friendship_status,
+        CASE WHEN f.id IS NOT NULL THEN (CASE WHEN f.user1_id = ? THEN 'sent' ELSE 'received' END) ELSE NULL END as friendship_direction
       FROM users u
       LEFT JOIN friends f ON (
         (f.user1_id = ? AND f.user2_id = u.id) OR 
@@ -61,7 +63,7 @@ export async function onRequest(context) {
       AND u.nickname LIKE ?
       ORDER BY u.nickname
       LIMIT ?
-    `).bind(userId, userId, userId, `%${query}%`, limit).all();
+    `).bind(userId, userId, userId, userId, `%${query}%`, limit).all();
 
     // Normalize results to include both snake_case and camelCase fields
     const users = result.results.map(row => {
@@ -76,6 +78,7 @@ export async function onRequest(context) {
 
       return {
         id: row.id,
+        friendship_id: row.friendship_id,
         nickname: row.nickname,
         description: row.description,
         // provide both conventions to make client tolerant
@@ -83,7 +86,9 @@ export async function onRequest(context) {
         avatarUrl: avatar,
         avatar: avatar,
         friendship_status: row.friendship_status,
-        friendshipStatus: row.friendship_status
+        friendshipStatus: row.friendship_status,
+        friendship_direction: row.friendship_direction,
+        friendshipDirection: row.friendship_direction
       };
     });
 

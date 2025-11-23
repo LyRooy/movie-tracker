@@ -1032,17 +1032,33 @@ class MovieTracker {
     async searchUsers(query) {
         try {
             const resultsContainer = document.getElementById('friend-search-results');
+            console.log('[searchUsers] Query:', query);
             const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}&limit=10`, {
                 headers: this.getAuthHeaders()
             });
+            console.log('[searchUsers] Response status:', response.status);
 
             if (!response.ok) {
+                // Jeśli brak autoryzacji, pokaż przyjazny komunikat
+                if (response.status === 401) {
+                    if (resultsContainer) resultsContainer.innerHTML = '<p class="search-error">Wymagana autoryzacja — zaloguj się.</p>';
+                    console.warn('[searchUsers] Unauthorized (401)');
+                    return;
+                }
                 // Pokaż komunikat błędu w UI
                 if (resultsContainer) resultsContainer.innerHTML = '<p class="search-error">Błąd wyszukiwania</p>';
                 throw new Error('Nie udało się wyszukać użytkowników');
             }
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                console.warn('[searchUsers] Failed to parse JSON response', e);
+                if (resultsContainer) resultsContainer.innerHTML = '<p class="search-error">Błąd odczytu odpowiedzi</p>';
+                return;
+            }
+            console.log('[searchUsers] Response data:', data);
             // Obsłuż różne formaty odpowiedzi: tablica, { results: [] }, { users: [] }, { data: [] }
             let users = [];
             if (Array.isArray(data)) {
@@ -1085,10 +1101,11 @@ class MovieTracker {
         }
 
         container.innerHTML = users.map(user => {
-            const avatar = user.avatar_url || user.avatar || '/images/default-avatar.png';
+            const avatar = user.avatar_url || user.avatar || user.avatarUrl || '/images/default-avatar.png';
             const nickname = user.nickname || user.name || user.login || 'Użytkownik';
             const total = user.total_movies || user.totalMovies || 0;
             const id = user.id || user.user_id || user.userId || user.uid || 0;
+            const normalized = { ...user, id, avatar_url: avatar, nickname };
             return `
             <div class="user-search-item">
                 <img src="${avatar}" alt="${nickname}">
@@ -1096,15 +1113,16 @@ class MovieTracker {
                     <h4>${nickname}</h4>
                     <p>${total} filmów</p>
                 </div>
-                ${this.getFriendshipButton({ ...user, id })}
+                ${this.getFriendshipButton(normalized)}
             </div>
         `}).join('');
     }
 
     getFriendshipButton(user) {
-        if (user.friendship_status === 'accepted') {
+        const status = user.friendship_status || user.friendshipStatus || null;
+        if (status === 'accepted') {
             return '<span class="friendship-status accepted">Znajomy</span>';
-        } else if (user.friendship_status === 'pending') {
+        } else if (status === 'pending') {
             return '<span class="friendship-status pending">Oczekujące</span>';
         } else {
             return `<button class="btn btn-primary btn-sm" onclick="app.sendFriendRequest(${user.id})">Dodaj</button>`;
@@ -1430,7 +1448,30 @@ class MovieTracker {
                     const normalized = this.normalizeYear(raw);
                     // Normalizuj też pole plakatu — użyj helpera, który obsługuje różne pola
                     const poster = this.getPosterUrl(item);
-                    return { ...item, year: normalized || (item.year || raw), poster };
+
+                    // Normalizuj pola seriali: liczba sezonów/odcinków, średnia długość odcinka
+                    const avgEp = item.avg_episode_length || item.avgEpisodeLength || item.average_episode_length || item.episode_length || item.episodeLength || item.avgEpisodeMinutes || item.duration || null;
+                    let totalEpisodes = item.totalEpisodes || item.total_episodes || item.episodesCount || item.episodes_total || null;
+                    let totalSeasons = item.totalSeasons || item.total_seasons || null;
+
+                    // Jeśli API zwraca strukturę seasons, policz odcinki
+                    if ((!totalEpisodes || !totalSeasons) && Array.isArray(item.seasons)) {
+                        totalSeasons = totalSeasons || item.seasons.length;
+                        totalEpisodes = totalEpisodes || item.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0);
+                    }
+
+                    const watchedEpisodes = item.watchedEpisodes || item.watched_episodes || item.watched_count || item.watched || 0;
+
+                    // Ustal ujednolicone pola na obiekcie
+                    return {
+                        ...item,
+                        year: normalized || (item.year || raw),
+                        poster,
+                        avgEpisodeLength: avgEp ? Number(avgEp) : null,
+                        totalEpisodes: totalEpisodes ? Number(totalEpisodes) : (item.totalEpisodes ? Number(item.totalEpisodes) : null),
+                        totalSeasons: totalSeasons ? Number(totalSeasons) : (item.totalSeasons ? Number(item.totalSeasons) : null),
+                        watchedEpisodes: Number(watchedEpisodes) || 0
+                    };
                 });
             } else {
                 console.warn('Failed to load movies from API, using empty array');
@@ -1481,18 +1522,28 @@ class MovieTracker {
             const stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
             // Upewnij się, że mamy poprawny URL plakatu — użyj helpera, który obsługuje różne pola
             const poster = this.getPosterUrl(item);
-            
+
+            // Dane serialu
+            const seasons = item.totalSeasons || (Array.isArray(item.seasons) ? item.seasons.length : null);
+            const episodes = item.totalEpisodes || (Array.isArray(item.seasons) ? item.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0) : null);
+            const avg = item.avgEpisodeLength || item.avg_episode_length || item.duration || null;
+
+            // Tekst z typem i dodatkowymi informacjami (minuty dla filmu, sezony/odcinki dla serialu)
+            const typeInfo = item.type === 'movie'
+                ? (item.duration ? `${item.duration} min` : 'Film')
+                : `${seasons ? seasons + ' sez.' : 'Serial'} • ${episodes ? episodes + ' odc.' : ''}`;
+
             // Informacje o postępie dla seriali
-            const progressInfo = item.type === 'series' && item.totalEpisodes 
+            const progressInfo = item.type === 'series'
                 ? `<p class="series-progress">
-                     <i class="fas fa-tv"></i> 
-                     ${item.watchedEpisodes || 0}/${item.totalEpisodes} odcinków (${item.progress || 0}%)
-                     <div class="progress-bar">
-                       <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
-                     </div>
+                       <i class="fas fa-tv"></i>
+                       ${item.watchedEpisodes || 0}/${episodes || 0} odcinków (${item.progress || 0}%)
+                       <div class="progress-bar">
+                         <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
+                       </div>
                    </p>`
                 : '';
-            
+
             const viewClass = this.currentView === 'list' ? 'list-item-list' : 'list-item-grid';
             const listItemHtml = `
                 <div class="list-item ${viewClass}" data-status="${item.status || 'watched'}" data-id="${item.id}" data-type="${item.type}">
@@ -1501,7 +1552,7 @@ class MovieTracker {
                     ${this.currentView === 'list' ? `
                     <div class="list-item-info">
                         <h3>${item.title}</h3>
-                        <p>${item.year} • ${item.genre} • ${item.type === 'movie' ? 'Film' : 'Serial'}</p>
+                        <p>${item.year} • ${item.genre} • ${typeInfo}</p>
                         ${progressInfo}
                         <div class="list-item-rating">
                             <span class="stars">${stars}</span>
@@ -1563,7 +1614,23 @@ class MovieTracker {
         // Licz tylko filmy/seriale ze statusem 'watched'
         const movies = this.watchedMovies.filter(item => item.type === 'movie' && item.status === 'watched');
         const series = this.watchedMovies.filter(item => item.type === 'series' && item.status === 'watched');
-        const totalHours = Math.round(this.watchedMovies.reduce((total, item) => total + item.duration, 0) / 60);
+        // Oblicz czas oglądania w minutach uwzględniając filmy i seriale
+        let totalMinutes = 0;
+        this.watchedMovies.forEach(item => {
+            if (item.type === 'movie') {
+                const dur = item.duration || item.runtime || item.durationMinutes || 0;
+                totalMinutes += Number(dur) || 0;
+            } else if (item.type === 'series') {
+                const avg = item.avgEpisodeLength || item.avg_episode_length || item.duration || 0;
+                const watched = item.watchedEpisodes || item.watched_episodes || item.watched_count || 0;
+                if (watched && avg) {
+                    totalMinutes += Number(avg) * Number(watched);
+                } else if ((item.status === 'watched' || item.status === 'completed') && item.totalEpisodes && avg) {
+                    totalMinutes += Number(avg) * Number(item.totalEpisodes);
+                }
+            }
+        });
+        const totalHours = Math.round(totalMinutes / 60);
         const avgRating = this.watchedMovies.length > 0 
             ? (this.watchedMovies.reduce((total, item) => total + item.rating, 0) / this.watchedMovies.length).toFixed(1)
             : 0;
@@ -1668,7 +1735,17 @@ class MovieTracker {
         document.getElementById('modal-description').textContent = movie.description || '';
         document.getElementById('modal-year').textContent = this.normalizeYear(movie.year || movie.release_date || movie.releaseDate) || (movie.year || '');
         document.getElementById('modal-genre').textContent = movie.genre;
-        document.getElementById('modal-duration').textContent = movie.duration ? `${movie.duration} min` : '';
+        // Dla seriali pokaż sezony/odcinki i średnią długość odcinka zamiast pojedynczych minut
+        const modalDurationEl = document.getElementById('modal-duration');
+        if (movie.type === 'series') {
+            const seasons = movie.totalSeasons || (Array.isArray(movie.seasons) ? movie.seasons.length : null);
+            const episodes = movie.totalEpisodes || (Array.isArray(movie.seasons) ? movie.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0) : null);
+            const avg = movie.avgEpisodeLength || movie.avg_episode_length || movie.duration || null;
+            const avgText = avg ? ` • śr. odcinek: ${avg} min` : '';
+            modalDurationEl.textContent = `${seasons ? seasons + ' sezon(y)' : 'Serial'} • ${episodes ? episodes + ' odc.' : ''}${avgText}`;
+        } else {
+            modalDurationEl.textContent = movie.duration ? `${movie.duration} min` : '';
+        }
 
         // Ustaw status jeśli dostępny
         const statusSelect = document.getElementById('movie-status');

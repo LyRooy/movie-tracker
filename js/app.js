@@ -38,6 +38,12 @@ class MovieTracker {
         setTimeout(() => {
             document.body.classList.add('transitions-enabled');
         }, 100);
+        
+        // Set footer year
+        try {
+            const yearEl = document.getElementById('footer-year');
+            if (yearEl) yearEl.textContent = new Date().getFullYear();
+        } catch (e) { /* ignore */ }
     }
     // ============= BIND EVENTS =============
     bindEvents() {
@@ -949,7 +955,7 @@ class MovieTracker {
                 <img src="${friend.avatar_url || '/images/default-avatar.png'}" alt="${friend.nickname}">
                     <div class="friend-info">
                     <h4>${friend.nickname}</h4>
-                    <p>${friend.total_movies || 0} filmów • ${friend.total_series || 0} seriali</p>
+                    <p>${friend.total_movies || 0} filmów&nbsp;&bull;&nbsp;${friend.total_series || 0}&nbsp;seriali</p>
                 </div>
                 <div class="friend-actions">
                     <button type="button" class="btn-icon" onclick="app.viewFriendProfile(${friend.user_id})" title="Zobacz profil">
@@ -1132,7 +1138,7 @@ class MovieTracker {
                 <div class="user-search-info">
                         <div class="user-search-name">${nickname}</div>
                         <div class="user-search-description">${description}</div>
-                        <div class="user-search-stats">${normalized.total_movies || 0} filmów • ${normalized.total_series || 0} seriali</div>
+                        <div class="user-search-stats">${normalized.total_movies || 0} filmów&nbsp;&bull;&nbsp;${normalized.total_series || 0}&nbsp;seriali</div>
                     </div>
                 ${this.getFriendshipButton(normalized)}
             </div>
@@ -1529,6 +1535,8 @@ class MovieTracker {
 
         // Zamknij modal po kliknięciu poza nim
         const modal = document.getElementById('friend-profile-modal');
+        // Ensure it's visible including for cases where .active class may not be applied by CSS
+        try { modal.style.display = 'block'; } catch (e) {}
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeFriendProfileModal();

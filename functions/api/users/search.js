@@ -46,6 +46,18 @@ export async function onRequest(context) {
       SELECT 
         u.id,
         f.id as friendship_id,
+        (
+          SELECT COUNT(1)
+          FROM watched w
+          JOIN movies m ON w.movie_id = m.id
+          WHERE w.user_id = u.id AND w.status = 'watched' AND m.media_type = 'movie'
+        ) AS total_movies,
+        (
+          SELECT COUNT(1)
+          FROM watched w2
+          JOIN movies m2 ON w2.movie_id = m2.id
+          WHERE w2.user_id = u.id AND w2.status = 'watched' AND m2.media_type = 'series'
+        ) AS total_series,
         u.nickname,
         u.avatar_url,
         u.description,
@@ -78,6 +90,8 @@ export async function onRequest(context) {
 
       return {
         id: row.id,
+        total_movies: row.total_movies || 0,
+        total_series: row.total_series || 0,
         friendship_id: row.friendship_id,
         nickname: row.nickname,
         description: row.description,

@@ -56,7 +56,7 @@ async function handleGetFriends(db, userId, url, corsHeaders) {
   const status = url.searchParams.get('status') || 'accepted';
   const search = url.searchParams.get('search') || '';
 
-  let query = `
+    let query = `
     SELECT 
       f.id as friendship_id,
       f.status,
@@ -66,6 +66,18 @@ async function handleGetFriends(db, userId, url, corsHeaders) {
       u.nickname,
       u.avatar_url,
       u.description,
+      (
+        SELECT COUNT(1)
+        FROM watched w
+        JOIN movies m ON w.movie_id = m.id
+        WHERE w.user_id = u.id AND w.status = 'watched' AND m.media_type = 'movie'
+      ) AS total_movies,
+      (
+        SELECT COUNT(1)
+        FROM watched w2
+        JOIN movies m2 ON w2.movie_id = m2.id
+        WHERE w2.user_id = u.id AND w2.status = 'watched' AND m2.media_type = 'series'
+      ) AS total_series,
       CASE 
         WHEN f.user1_id = ? THEN f.user2_id 
         ELSE f.user1_id 
@@ -106,6 +118,8 @@ async function handleGetFriends(db, userId, url, corsHeaders) {
     nickname: row.nickname,
     avatar_url: row.avatar_url,
     description: row.description
+  , total_movies: row.total_movies || 0,
+  total_series: row.total_series || 0
   }));
 
   return new Response(JSON.stringify(friends), {

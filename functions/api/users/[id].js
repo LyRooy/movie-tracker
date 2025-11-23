@@ -96,10 +96,10 @@ export async function onRequest(context) {
     const friendship = await env.db.prepare(`
       SELECT f.id as friendship_id, f.status,
         CASE 
-          WHEN user1_id = ? THEN 'sent'
+          WHEN f.user1_id = ? THEN 'sent'
           ELSE 'received'
         END as direction
-      FROM friends
+      FROM friends f
       WHERE (f.user1_id = ? AND f.user2_id = ?) OR (f.user1_id = ? AND f.user2_id = ?)
     `).bind(userId, userId, targetUserId, targetUserId, userId).first();
 

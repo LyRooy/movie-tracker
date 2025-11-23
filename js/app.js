@@ -518,7 +518,10 @@ class MovieTracker {
         // Zakładki profilu
         document.querySelectorAll('.profile-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const tabName = e.target.dataset.profileTab;
+                // Use currentTarget so inner elements (icons/spans) won't break behavior
+                const el = e.currentTarget || e.target.closest('.profile-tab-btn');
+                const tabName = el?.dataset?.profileTab;
+                if (!tabName) return;
                 this.switchProfileTab(tabName);
             });
         });
@@ -615,6 +618,17 @@ class MovieTracker {
         
         if (activeBtn) activeBtn.classList.add('active');
         if (activeContent) activeContent.classList.add('active');
+
+        // Load content for specific tabs to ensure UI is up-to-date
+        if (tabName === 'friends') {
+            // Load both friends and incoming requests for friends tab
+            this.loadFriends();
+            this.loadFriendRequests();
+        } else if (tabName === 'badges') {
+            this.loadBadges();
+        } else if (tabName === 'settings') {
+            // settings UI doesn't require loading network data, but could sync local values
+        }
     }
 
     async loadProfileData() {
@@ -933,15 +947,15 @@ class MovieTracker {
         container.innerHTML = friends.map(friend => `
             <div class="friend-card">
                 <img src="${friend.avatar_url || '/images/default-avatar.png'}" alt="${friend.nickname}">
-                <div class="friend-info">
+                    <div class="friend-info">
                     <h4>${friend.nickname}</h4>
-                    <p>${friend.total_movies || 0} filmów</p>
+                    <p>${friend.total_movies || 0} filmów • ${friend.total_series || 0} seriali</p>
                 </div>
                 <div class="friend-actions">
                     <button class="btn-icon" onclick="app.viewFriendProfile(${friend.user_id})" title="Zobacz profil">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn-icon btn-danger" onclick="app.removeFriend(${friend.friendship_id})" title="Usuń znajomego">
+                    <button class="btn-icon btn-danger" onclick="app.removeFriend(${friend.friendship_id}, 'friend')" title="Usuń znajomego">
                         <i class="fas fa-user-times"></i>
                     </button>
                 </div>
@@ -1116,9 +1130,10 @@ class MovieTracker {
                 <div class="user-search-item" data-user-id="${id}">
                 <img src="${avatar}" alt="${nickname}" class="user-search-avatar">
                 <div class="user-search-info">
-                    <div class="user-search-name">${nickname}</div>
-                    <div class="user-search-description">${description}</div>
-                </div>
+                        <div class="user-search-name">${nickname}</div>
+                        <div class="user-search-description">${description}</div>
+                        <div class="user-search-stats">${normalized.total_movies || 0} filmów • ${normalized.total_series || 0} seriali</div>
+                    </div>
                 ${this.getFriendshipButton(normalized)}
             </div>
         `}).join('');
@@ -1132,7 +1147,7 @@ class MovieTracker {
             return '<span class="friendship-status accepted">Znajomy</span>';
         } else if (status === 'pending') {
             if (direction === 'sent') {
-                return `<span class="friendship-status pending">Oczekujące</span> <button class="btn btn-danger btn-sm" onclick="app.removeFriend(${friendshipId})">Anuluj</button>`;
+                return `<span class="friendship-status pending">Oczekujące</span> <button class="btn btn-danger btn-sm" onclick="app.removeFriend(${friendshipId}, 'invitation')">Anuluj</button>`;
             }
             return '<span class="friendship-status pending">Oczekujące</span>';
         } else if (status === 'rejected') {
@@ -1282,8 +1297,11 @@ class MovieTracker {
         }
     }
 
-    async removeFriend(friendshipId) {
-        if (!confirm('Czy na pewno chcesz usunąć tego znajomego?')) {
+    async removeFriend(friendshipId, context = 'friend') {
+        const isInvitation = context === 'invitation';
+        const title = isInvitation ? 'Anuluj zaproszenie' : 'Usuń znajomego';
+        const message = isInvitation ? 'Czy na pewno chcesz anulować to zaproszenie?' : 'Czy na pewno chcesz usunąć tego znajomego?';
+        if (!(await this.showConfirm(message, title))) {
             return;
         }
 
@@ -1312,7 +1330,7 @@ class MovieTracker {
             // Jeżeli otwarty był profil, odśwież dane profilu
             if (this.currentSection === 'profile') await this.loadProfileData();
 
-            alert('Znajomy został usunięty');
+            this.showNotification(isInvitation ? 'Zaproszenie zostało anulowane' : 'Znajomy został usunięty', 'success');
         } catch (error) {
             console.error('Error removing friend:', error);
             alert('Błąd: ' + error.message);
@@ -1363,7 +1381,13 @@ class MovieTracker {
             });
 
             if (!response.ok) {
-                throw new Error('Nie udało się pobrać profilu użytkownika');
+                // Try to extract a helpful error message from the server
+                let errMsg = 'Nie udało się pobrać profilu użytkownika';
+                try {
+                    const json = await response.json();
+                    if (json && json.error) errMsg = json.error;
+                } catch (e) { /* ignore invalid json */ }
+                throw new Error(errMsg);
             }
 
             const profile = await response.json();
@@ -1521,12 +1545,12 @@ class MovieTracker {
                     `;
                 }
                 // 'sent' direction
-                return `<span class="friendship-status pending">Oczekujące</span> <button class="btn btn-danger" onclick="app.removeFriend(${f.id})">Anuluj</button>`;
+                return `<span class="friendship-status pending">Oczekujące</span> <button class="btn btn-danger" onclick="app.removeFriend(${f.id}, 'invitation')">Anuluj</button>`;
             case 'rejected':
                 // allow removing the 'rejected' entry so it can be resent later
                 return `<span class="friendship-status rejected">Odrzucone</span> <button class="btn btn-secondary" onclick="app.dismissRejected(${f.id}, ${profile.id})">Potwierdź odrzucenie</button> <button class="btn btn-primary" onclick="app.sendFriendRequest(${profile.id})">Wyślij ponownie</button>`;
             case 'accepted':
-                return `<button class="btn btn-danger" onclick="app.removeFriend(${f.id})">Usuń znajomego</button>`;
+                return `<button class="btn btn-danger" onclick="app.removeFriend(${f.id}, 'friend')">Usuń znajomego</button>`;
             case 'blocked':
                 return `<span class="friendship-status blocked">Zablokowany</span>`;
             default:

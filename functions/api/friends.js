@@ -161,17 +161,15 @@ async function handleSendRequest(db, userId, request, corsHeaders) {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       case 'rejected': {
-        // Pozwól wysłać ponownie – zaktualizuj istniejący rekord zamiast tworzyć nowy
-        const now = new Date().toISOString();
-        // Zaktualizuj ordering (user1 -> wysyłający, user2 -> odbiorca)
-        await db.prepare(`
-          UPDATE friends
-          SET user1_id = ?, user2_id = ?, status = 'pending', requested_at = ?, responded_at = NULL
-          WHERE id = ?
-        `).bind(userId, friendId, now, existing.id).run();
+        // Usuń stary rekord i utwórz nowy, aby zachować chronologię przy ponownym wysłaniu
+        await db.prepare('DELETE FROM friends WHERE id = ?').bind(existing.id).run();
+        const insert = await db.prepare(`
+          INSERT INTO friends (user1_id, user2_id, status, requested_at)
+          VALUES (?, ?, 'pending', ?)
+        `).bind(userId, friendId, new Date().toISOString()).run();
 
-        return new Response(JSON.stringify({ success: true, resent: true }), {
-          status: 200,
+        return new Response(JSON.stringify({ success: true, resent: true, created: insert.lastInsertRowId || null }), {
+          status: 201,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }

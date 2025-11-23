@@ -34,12 +34,6 @@ class MovieTracker {
             if (adminSection) adminSection.style.display = '';
         }
 
-                // Parse response to detect resend vs new
-                let resBody;
-                try {
-                    resBody = await response.json();
-                } catch (e) { resBody = null; }
-
                 // Odśwież wyniki wyszukiwania
         setTimeout(() => {
             document.body.classList.add('transitions-enabled');
@@ -1142,7 +1136,10 @@ class MovieTracker {
             }
             return '<span class="friendship-status pending">Oczekujące</span>';
         } else if (status === 'rejected') {
-            // Show rejected and allow resending
+            // Show rejected and allow resending + confirm rejection
+            if (friendshipId) {
+                return `<span class="friendship-status rejected">Odrzucone</span> <button class="btn btn-secondary btn-sm" onclick="app.dismissRejected(${friendshipId}, ${user.id})">Potwierdź odrzucenie</button> <button class="btn btn-primary btn-sm" onclick="app.sendFriendRequest(${user.id})">Wyślij ponownie</button>`;
+            }
             return `<span class="friendship-status rejected">Odrzucone</span> <button class="btn btn-primary btn-sm" onclick="app.sendFriendRequest(${user.id})">Wyślij ponownie</button>`;
         } else if (status === 'blocked') {
             return '<span class="friendship-status blocked">Zablokowany</span>';
@@ -1196,11 +1193,6 @@ class MovieTracker {
             }
 
             if (body && body.resent) {
-                this.showNotification('Zaproszenie wysłane ponownie!', 'success');
-            } else {
-                this.showNotification('Zaproszenie zostało wysłane!', 'success');
-            }
-            if (resBody && resBody.resent) {
                 this.showNotification('Zaproszenie wysłane ponownie!', 'success');
             } else {
                 this.showNotification('Zaproszenie zostało wysłane!', 'success');
@@ -1312,6 +1304,11 @@ class MovieTracker {
 
             // Odśwież listę znajomych
             await this.loadFriends();
+            // Odśwież search results if search is open
+            const qInput = document.getElementById('friend-search-input');
+            if (qInput && qInput.value && qInput.value.length > 1) {
+                await this.searchUsers(qInput.value);
+            }
             // Jeżeli otwarty był profil, odśwież dane profilu
             if (this.currentSection === 'profile') await this.loadProfileData();
 

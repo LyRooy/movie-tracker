@@ -63,13 +63,31 @@ export async function onRequest(context) {
       LIMIT ?
     `).bind(userId, userId, userId, `%${query}%`, limit).all();
 
-    const users = result.results.map(row => ({
-      id: row.id,
-      nickname: row.nickname,
-      avatarUrl: row.avatar_url,
-      description: row.description,
-      friendshipStatus: row.friendship_status
-    }));
+    // Normalize results to include both snake_case and camelCase fields
+    const users = result.results.map(row => {
+      // Ensure avatar uses https when possible
+      let avatar = (row.avatar_url && String(row.avatar_url).trim()) ? String(row.avatar_url).trim() : null;
+      if (avatar && avatar.startsWith('http://')) avatar = avatar.replace('http://', 'https://');
+
+      // If no avatar provided, generate a simple placeholder with initials via placehold.co
+      if (!avatar) {
+        const name = (row.nickname || '').trim();
+        const initials = name ? name.split(/\s+/).map(w => w[0]).join('').slice(0,2).toUpperCase() : 'U';
+        avatar = `https://placehold.co/80x80/cccccc/000000/png?text=${encodeURIComponent(initials)}`;
+      }
+
+      return {
+        id: row.id,
+        nickname: row.nickname,
+        description: row.description,
+        // provide both conventions to make client tolerant
+        avatar_url: avatar,
+        avatarUrl: avatar,
+        avatar: avatar,
+        friendship_status: row.friendship_status,
+        friendshipStatus: row.friendship_status
+      };
+    });
 
     return new Response(JSON.stringify({ users }), {
       status: 200,

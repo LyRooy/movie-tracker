@@ -166,8 +166,8 @@ async function handleCreateMovie(db, request, corsHeaders) {
     // Jeśli to serial, utwórz sezony i odcinki
     if (data.type === 'series') {
       // Use provided duration for episodes, or default to 45
-      const episodeDuration = data.duration !== undefined ? Number(data.duration) : 45;
-      if (Number.isNaN(episodeDuration)) episodeDuration = 45;
+        let episodeDuration = data.duration !== undefined ? Number(data.duration) : 45;
+        if (Number.isNaN(episodeDuration)) episodeDuration = 45;
       console.log(`[admin/movies] Creating series: episodeDuration=${episodeDuration}`);
       const hasEpisodeDisplay = await hasColumn(db, 'episodes', 'display_number');
       

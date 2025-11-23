@@ -142,11 +142,6 @@ functions/
 | **Cloudflare D1** | Baza danych SQLite |
 | **Cloudflare R2** | Object storage |
 
-### Narzędzia Deweloperskie
-- **Wrangler CLI** - zarządzanie Cloudflare
-- **Git** - kontrola wersji
-- **VS Code** - IDE
-
 ---
 
 ## 🗄 Struktura Bazy Danych
@@ -462,29 +457,6 @@ showNotification(message, type, autoHide)
 }
 ```
 
----
-
-## 🗺 Roadmap
-
-### Wersja 1.1 (Q1 2025)
-- [ ] Integracja z więcej źródeł (IMDb, Rotten Tomatoes)
-- [ ] System rekomendacji AI
-- [ ] Export danych (CSV, JSON)
-- [ ] Kalendarz premier
-
-### Wersja 1.2 (Q2 2025)
-- [ ] Aplikacja mobilna (PWA)
-- [ ] Watchparty - wspólne oglądanie
-- [ ] Integracja z social media
-- [ ] System komentarzy
-
-### Wersja 2.0 (Q3 2025)
-- [ ] Machine Learning rekomendacje
-- [ ] Live chat z przyjaciółmi
-- [ ] Streaming integrations
-- [ ] Advanced analytics
-
----
 
 ## 📊 Diagram Bazy Danych
 
@@ -514,7 +486,7 @@ schemaspy -t sqlite -db movie-tracker.db -o docs/schema
 
 ## 👨‍💻 Autor
 
-**Łukasz Rooy**
+**LRooy**
 - GitHub: [@LyRooy](https://github.com/LyRooy)
 - Projekt: Praca inżynierska - Politechnika Częstochowska
 
@@ -525,21 +497,3 @@ schemaspy -t sqlite -db movie-tracker.db -o docs/schema
 MIT License - szczegóły w pliku `LICENSE`
 
 ---
-
-## 🙏 Podziękowania
-
-- **Cloudflare** - za infrastrukturę serverless
-- **Font Awesome** - za zestaw ikon
-- **Chart.js** - za bibliotekę wykresów
-
----
-
-## 📞 Kontakt
-
-W przypadku pytań lub problemów:
-- Otwórz issue na GitHub
-- Email: kontakt@example.com
-
----
-
-**⭐ Jeśli projekt Ci się podoba, zostaw gwiazdkę na GitHub!**

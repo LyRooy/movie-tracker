@@ -69,11 +69,9 @@ export async function onRequest(context) {
       let avatar = (row.avatar_url && String(row.avatar_url).trim()) ? String(row.avatar_url).trim() : null;
       if (avatar && avatar.startsWith('http://')) avatar = avatar.replace('http://', 'https://');
 
-      // If no avatar provided, generate a simple placeholder with initials via placehold.co
+      // If no avatar provided, use default avatar
       if (!avatar) {
-        const name = (row.nickname || '').trim();
-        const initials = name ? name.split(/\s+/).map(w => w[0]).join('').slice(0,2).toUpperCase() : 'U';
-        avatar = `https://placehold.co/80x80/cccccc/000000/png?text=${encodeURIComponent(initials)}`;
+        avatar = '/images/default-avatar.png';
       }
 
       return {

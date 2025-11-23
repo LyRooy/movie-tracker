@@ -64,6 +64,20 @@ async function handleGetMovie(db, movieId, corsHeaders) {
     });
   }
 
+  // Dla seriali pobierz średni czas trwania odcinka z tabeli episodes
+  if (movie.media_type === 'series') {
+    const episodeDurations = await db.prepare(`
+      SELECT AVG(e.duration) as avg_duration
+      FROM episodes e
+      JOIN seasons s ON e.season_id = s.id
+      WHERE s.series_id = ?
+    `).bind(movieId).first();
+    
+    if (episodeDurations && episodeDurations.avg_duration) {
+      movie.duration = Math.round(episodeDurations.avg_duration);
+    }
+  }
+
   return new Response(JSON.stringify(movie), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }

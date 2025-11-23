@@ -1178,10 +1178,15 @@ class MovieTracker {
                 await this.searchUsers(query);
             }
 
-            alert('Zaproszenie zostało wysłane!');
+            // Odśwież profil aby zaktualizować licznik oczekujących
+            if (this.currentSection === 'profil') {
+                await this.loadProfileData();
+            }
+
+            this.showNotification('Zaproszenie zostało wysłane!', 'success');
         } catch (error) {
             console.error('Error sending friend request:', error);
-            alert('Błąd: ' + error.message);
+            this.showNotification('Błąd: ' + error.message, 'error');
         }
     }
 
@@ -1276,9 +1281,150 @@ class MovieTracker {
         }
     }
 
-    viewFriendProfile(userId) {
-        // TODO: Implementacja strony profilu znajomego
-        alert(`Profil użytkownika #${userId} będzie dostępny wkrótce!`);
+    async viewFriendProfile(userId) {
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się pobrać profilu użytkownika');
+            }
+
+            const profile = await response.json();
+            this.showFriendProfileModal(profile);
+        } catch (error) {
+            console.error('Error loading friend profile:', error);
+            this.showNotification('Błąd podczas ładowania profilu', 'error');
+        }
+    }
+
+    showFriendProfileModal(profile) {
+        const avatar = profile.avatar_url || '/images/default-avatar.png';
+        const memberSince = new Date(profile.created_at).toLocaleDateString('pl-PL', { 
+            year: 'numeric', 
+            month: 'long' 
+        });
+
+        const badgesHtml = profile.badges.length > 0
+            ? profile.badges.map(badge => `
+                <div class="badge-item" title="${badge.description}">
+                    <i class="fas ${badge.image_url || 'fa-award'}"></i>
+                    <span>${badge.name}</span>
+                    ${badge.level && badge.level !== 'none' ? `<span class="badge-level">${badge.level}</span>` : ''}
+                </div>
+            `).join('')
+            : '<p class="no-badges">Brak odznak</p>';
+
+        const recentActivityHtml = profile.recentActivity.length > 0
+            ? profile.recentActivity.map(item => {
+                const poster = this.getPosterUrl(item);
+                const stars = item.rating ? '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating) : 'Brak oceny';
+                return `
+                    <div class="activity-item">
+                        <img src="${poster}" alt="${item.title}">
+                        <div class="activity-info">
+                            <h4>${item.title}</h4>
+                            <p>Obejrzano: ${this.formatDate(item.watched_date)}</p>
+                            ${item.rating ? `<p>Ocena: ${stars}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')
+            : '<p class="no-activity">Brak ostatniej aktywności</p>';
+
+        const modalHtml = `
+            <div class="modal active" id="friend-profile-modal">
+                <div class="modal-content profile-modal">
+                    <span class="close" onclick="app.closeFriendProfileModal()">&times;</span>
+                    <div class="profile-header">
+                        <img src="${avatar}" alt="${profile.nickname}" class="profile-avatar-large">
+                        <div class="profile-info">
+                            <h2>${profile.nickname}</h2>
+                            <p class="profile-description">${profile.description || 'Brak opisu'}</p>
+                            <p class="profile-member-since">Członek od ${memberSince}</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <i class="fas fa-film"></i>
+                            <div>
+                                <strong>${profile.stats.watchedMovies}</strong>
+                                <span>Filmy</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-tv"></i>
+                            <div>
+                                <strong>${profile.stats.watchedSeries}</strong>
+                                <span>Seriale</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-eye"></i>
+                            <div>
+                                <strong>${profile.stats.watching}</strong>
+                                <span>Oglądane</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-calendar"></i>
+                            <div>
+                                <strong>${profile.stats.planning}</strong>
+                                <span>Planowane</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-user-friends"></i>
+                            <div>
+                                <strong>${profile.stats.friends}</strong>
+                                <span>Znajomi</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <h3><i class="fas fa-award"></i> Odznaki</h3>
+                        <div class="badges-list">
+                            ${badgesHtml}
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <h3><i class="fas fa-clock"></i> Ostatnia aktywność</h3>
+                        <div class="recent-activity-list">
+                            ${recentActivityHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Usuń poprzedni modal jeśli istnieje
+        const existingModal = document.getElementById('friend-profile-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Dodaj nowy modal do body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Zamknij modal po kliknięciu poza nim
+        const modal = document.getElementById('friend-profile-modal');
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeFriendProfileModal();
+            }
+        });
+    }
+
+    closeFriendProfileModal() {
+        const modal = document.getElementById('friend-profile-modal');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => modal.remove(), 300);
+        }
     }
 
     formatDate(dateString) {

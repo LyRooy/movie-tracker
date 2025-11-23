@@ -247,10 +247,13 @@ async function handleUpdateMovie(db, request, corsHeaders) {
     updates.push('description = ?');
     params.push(data.description);
   }
+  // Store duration value before processing for later use with episodes
+  let episodeDuration = null;
   if (data.duration !== undefined) {
-    // For movies duration should be minutes; for series it should be null
+    episodeDuration = Number(data.duration) || null;
+    // For movies duration should be minutes; for series it should be null in movies table
     updates.push('duration = ?');
-    params.push(data.type === 'series' ? null : Number(data.duration));
+    params.push(data.type === 'series' ? null : episodeDuration);
   }
 
   if (updates.length === 0) {
@@ -269,19 +272,17 @@ async function handleUpdateMovie(db, request, corsHeaders) {
     UPDATE movies SET ${updates.join(', ')} WHERE id = ?
   `).bind(...params).run();
 
-  // If admin provided average duration for a series, propagate it to episodes
+  // If admin provided duration for a series, propagate it to all episodes
   try {
-    if (data.duration !== undefined && data.type === 'series') {
-      const avg = Number(data.duration);
-      if (!Number.isNaN(avg)) {
-        await db.prepare(`
-          UPDATE episodes SET duration = ?
-          WHERE season_id IN (SELECT id FROM seasons WHERE series_id = ?)
-        `).bind(avg, data.id).run();
-      }
+    if (episodeDuration !== null && data.type === 'series') {
+      await db.prepare(`
+        UPDATE episodes SET duration = ?
+        WHERE season_id IN (SELECT id FROM seasons WHERE series_id = ?)
+      `).bind(episodeDuration, data.id).run();
+      console.log(`Updated episodes duration to ${episodeDuration} for series ${data.id}`);
     }
   } catch (e) {
-    console.error('Error propagating avg duration to episodes:', e);
+    console.error('Error propagating duration to episodes:', e);
   }
 
   return new Response(JSON.stringify({ success: true }), {

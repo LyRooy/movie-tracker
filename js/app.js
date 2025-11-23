@@ -877,10 +877,14 @@ class MovieTracker {
             p = item.poster.trim();
         }
 
-        // Skip placeholder URLs and treat them as missing
+        // If we got a URL that's already a placeholder from backend with generic text, regenerate it
+        // But keep placeholders that have movie titles
         if (p && p.includes('placehold.co')) {
-            const title = item.title ? String(item.title) : 'No Image';
-            p = this._generatePlaceholderUrl(title);
+            const hasTitle = item.title && p.includes(encodeURIComponent(item.title));
+            if (!hasTitle) {
+                const title = item.title ? String(item.title) : 'No Image';
+                p = this._generatePlaceholderUrl(title);
+            }
         }
 
         if (!p) {
@@ -1104,7 +1108,7 @@ class MovieTracker {
                 }
             }
 
-            this.displaySearchResults(users || []);
+            this.displayFriendSearchResults(users || []);
         } catch (error) {
             console.error('Error searching users:', error);
             const resultsContainer = document.getElementById('friend-search-results');
@@ -1112,7 +1116,7 @@ class MovieTracker {
         }
     }
 
-    displaySearchResults(users) {
+    displayFriendSearchResults(users) {
         const container = document.getElementById('friend-search-results');
         if (!container) return;
         // Upewnij się, że mamy tablicę
@@ -1519,6 +1523,8 @@ class MovieTracker {
                         ...item,
                         year: normalized || null,
                         poster,
+                        description: item.description || '',
+                        release_date: item.release_date || null,
                         avgEpisodeLength: avgEp ? Number(avgEp) : null,
                         totalEpisodes: totalEpisodes ? Number(totalEpisodes) : (item.totalEpisodes ? Number(item.totalEpisodes) : null),
                         totalSeasons: totalSeasons ? Number(totalSeasons) : (item.totalSeasons ? Number(item.totalSeasons) : null),
@@ -3116,7 +3122,14 @@ class MovieTracker {
             document.getElementById('admin-movie-id').value = movie.id;
             document.getElementById('admin-movie-title').value = movie.title;
             document.getElementById('admin-movie-type').value = movie.media_type;
-            document.getElementById('admin-movie-year').value = this.normalizeYear(movie.year || movie.release_date || movie.releaseDate) || '';
+            
+            // Extract year from release_date field
+            let yearValue = '';
+            if (movie.release_date) {
+                const yearMatch = String(movie.release_date).match(/^(\d{4})/);
+                yearValue = yearMatch ? yearMatch[1] : '';
+            }
+            document.getElementById('admin-movie-year').value = yearValue;
             document.getElementById('admin-movie-genre').value = movie.genre || '';
             document.getElementById('admin-movie-duration').value = movie.duration || '';
             document.getElementById('admin-movie-description').value = movie.description || '';

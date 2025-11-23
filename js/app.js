@@ -2587,12 +2587,26 @@ class MovieTracker {
             });
             if (response.ok) {
                 const movies = await response.json();
+                this.updateAdminCounts(movies);
                 this.displayAdminMovies(movies);
             }
         } catch (error) {
             console.error('Error loading admin movies:', error);
             this.showNotification('Błąd podczas ładowania filmów', 'error');
         }
+    }
+
+    // Aktualizuje liczniki filmów i seriali w panelu admina
+    updateAdminCounts(movies) {
+        if (!Array.isArray(movies)) return;
+        const moviesCount = movies.filter(m => ((m.media_type || m.type) === 'movie')).length;
+        const seriesCount = movies.filter(m => ((m.media_type || m.type) === 'series')).length;
+
+        const moviesEl = document.getElementById('admin-total-movies-count');
+        const seriesEl = document.getElementById('admin-total-series-count');
+
+        if (moviesEl) moviesEl.textContent = String(moviesCount);
+        if (seriesEl) seriesEl.textContent = String(seriesCount);
     }
 
     displayAdminMovies(movies) {

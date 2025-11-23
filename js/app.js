@@ -3071,8 +3071,36 @@ class MovieTracker {
             badge_id: (rawBadge && rawBadge.trim() !== '') ? (parseInt(rawBadge) || null) : null
         };
 
-        // Debug log danych wyzwania
-        console.log('Saving challenge payload:', data);
+        // Przygotuj payload z dodatkowymi wariantami kluczy, które backend może wymagać
+        const payload = {
+            // oryginalne pola (snake_case)
+            ...data,
+            // warianty w camelCase / PascalCase / alternatywne nazwy
+            Title: data.name,           // niektóre backendy mogą oczekiwać 'Title'
+            title: data.name,
+            Name: data.name,
+            name: data.name,
+
+            type: data.type,
+            Type: data.type,
+
+            targetCount: data.target_count,
+            target_count: data.target_count,
+
+            startDate: data.start_date,
+            start_date: data.start_date,
+            endDate: data.end_date,
+            end_date: data.end_date,
+
+            criteriaValue: data.criteria_value,
+            criteria_value: data.criteria_value,
+
+            badgeId: data.badge_id,
+            badge_id: data.badge_id
+        };
+
+        // Debug log danych wyzwania (wysyłany payload)
+        console.log('Saving challenge payload (sent):', payload);
 
         try {
             const url = id ? `/api/admin/challenges/${id}` : '/api/admin/challenges';
@@ -3172,13 +3200,15 @@ class MovieTracker {
             hint.textContent = 'Plik zostanie przesłany do R2 (binding: BADGES) i użyty jako URL odznaki.';
             uploadGroup.appendChild(hint);
 
-            // Wstaw przed przyciskami formularza
-            const submitBtn = form.querySelector('[type="submit"]');
-            if (submitBtn) {
-                form.insertBefore(uploadGroup, submitBtn);
-            } else {
-                form.appendChild(uploadGroup);
-            }
+            // Wstaw przed przyciskami formularza — bezpiecznie nawet gdy przycisk nie jest bezpośrednim dzieckiem formy
+                const submitBtn = form.querySelector('[type="submit"]');
+                if (submitBtn && submitBtn.parentNode) {
+                    // Wstaw przed przyciskiem używając jego rodzica (działa, gdy przycisk jest zagnieżdżony)
+                    submitBtn.parentNode.insertBefore(uploadGroup, submitBtn);
+                } else {
+                    // Fallback: dołącz na końcu formularza
+                    form.appendChild(uploadGroup);
+                }
         }
 
         modal.style.display = 'block';

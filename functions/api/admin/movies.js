@@ -161,6 +161,8 @@ async function handleCreateMovie(db, request, corsHeaders) {
     if (data.type === 'series') {
       // Use provided duration for episodes, or default to 45
       const episodeDuration = data.duration !== undefined ? Number(data.duration) : 45;
+      // Ensure `display_number` column exists on episodes
+      await ensureEpisodesHasDisplayNumber(db);
       
       for (let seasonNum = 1; seasonNum <= totalSeasons; seasonNum++) {
         // Utwórz sezon
@@ -178,14 +180,16 @@ async function handleCreateMovie(db, request, corsHeaders) {
 
         // Utwórz odcinki dla tego sezonu
         for (let episodeNum = 1; episodeNum <= episodesPerSeason; episodeNum++) {
+          const displayNumber = `S${String(seasonNum).padStart(2, '0')} - E${String(episodeNum).padStart(3, '0')}`;
           await db.prepare(`
-            INSERT INTO episodes (season_id, episode_number, title, duration)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO episodes (season_id, episode_number, title, duration, display_number)
+            VALUES (?, ?, ?, ?, ?)
           `).bind(
             seasonId,
             episodeNum,
             `Odcinek ${episodeNum}`,
-            episodeDuration
+            episodeDuration,
+            displayNumber
           ).run();
         }
       }

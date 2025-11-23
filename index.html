@@ -715,6 +715,27 @@
         </div>
     </div>
 
+    <!-- Admin Episodes Modal -->
+    <div id="admin-episodes-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <h3 id="admin-episodes-modal-title">Edytuj odcinki</h3>
+                <p class="modal-subtitle" id="admin-episodes-modal-subtitle">Wybierz odcinek aby go edytować lub użyj "Zapisz wszystkie"</p>
+                <form id="admin-episodes-form">
+                    <input type="hidden" id="admin-episodes-series-id">
+                    <div id="admin-episodes-list">
+                        <!-- Episodes will be loaded here -->
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary close">Anuluj</button>
+                        <button type="button" id="admin-episodes-save-all" class="btn btn-primary">Zapisz wszystkie</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Admin Challenge Modal -->
     <div id="admin-challenge-modal" class="modal">
         <div class="modal-content">

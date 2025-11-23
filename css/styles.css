@@ -1774,6 +1774,17 @@ h3 {
     color: var(--accent-color);
 }
 
+/* Admin Episodes Modal */
+#admin-episodes-modal .modal-content { max-width: 900px; }
+#admin-episodes-modal .modal-body { max-height: 70vh; overflow-y: auto; }
+.admin-season-group { margin-bottom: 1rem; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: 6px; }
+.admin-episode-list { display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
+.admin-episode-row { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 6px; background: var(--surface-color); }
+.admin-episode-meta { min-width: 160px; }
+.admin-episode-fields { flex: 1; display: grid; grid-template-columns: 1fr 120px; gap: 8px; }
+.admin-episode-fields label { font-size: 0.8rem; color: var(--text-secondary); }
+.admin-episode-actions { display: flex; align-items: center; gap: 8px; }
+
 /* Responsive design */
 @media (max-width: 768px) {
     .hamburger {

@@ -3378,6 +3378,11 @@ class MovieTracker {
         };
     }
 
+    escapeHtml(str) {
+        if (str === undefined || str === null) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     logout() {
         // Clear token check interval
         if (this.tokenCheckInterval) {
@@ -3433,6 +3438,14 @@ class MovieTracker {
         });
         document.querySelectorAll('#admin-seasons-modal .close').forEach(btn => {
             btn.addEventListener('click', () => this.closeAdminModal('admin-seasons-modal'));
+        });
+        document.querySelectorAll('#admin-episodes-modal .close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAdminModal('admin-episodes-modal'));
+        });
+        const adminEpisodesSaveAllBtn = document.getElementById('admin-episodes-save-all');
+        if (adminEpisodesSaveAllBtn) adminEpisodesSaveAllBtn.addEventListener('click', () => {
+            const sid = document.getElementById('admin-episodes-series-id').value;
+            if (sid) this.saveAllAdminEpisodes(Number(sid));
         });
 
         // Obsługa formularzy
@@ -3549,6 +3562,10 @@ class MovieTracker {
                     <button class="action-btn btn-edit" onclick="app.editSeriesSeasons(${movie.id}, '${movie.title.replace(/'/g, "\\'")}')"
                             style="background: #2196F3;" title="Edytuj sezony">
                         <i class="fas fa-list-ol"></i> Sezony
+                    </button>
+                    <button class="action-btn btn-edit" onclick="app.editAdminEpisodes(${movie.id}, '${movie.title.replace(/'/g, "\\'")}')"
+                            style="background: #4CAF50; margin-left: 6px;" title="Edytuj odcinki">
+                        <i class="fas fa-tv"></i> Odcinki
                     </button>
                     ` : ''}
                     <button class="action-btn btn-delete" onclick="app.deleteAdminMovie(${movie.id})">
@@ -3813,6 +3830,169 @@ class MovieTracker {
         } catch (error) {
             console.error('Error loading series seasons:', error);
             this.showNotification('Błąd podczas ładowania danych serialu', 'error');
+        }
+    }
+
+    async editAdminEpisodes(seriesId, seriesTitle) {
+        try {
+            document.getElementById('admin-episodes-series-id').value = seriesId;
+            document.getElementById('admin-episodes-modal-title').textContent = `Edytuj odcinki: ${seriesTitle}`;
+            document.getElementById('admin-episodes-modal-subtitle').textContent = 'Edytuj tytuł, opis i czas trwania odcinka (minuty)';
+            document.getElementById('admin-episodes-modal').style.display = 'block';
+            await this.loadAdminEpisodes(seriesId);
+        } catch (error) {
+            console.error('Error opening admin episodes modal:', error);
+            this.showNotification('Błąd podczas otwierania odcinków', 'error');
+        }
+    }
+
+    async loadAdminEpisodes(seriesId) {
+        try {
+            const res = await fetch(`/api/admin/movies/${seriesId}/episodes`, { headers: this.getAuthHeaders() });
+            if (!res.ok) {
+                throw new Error('Failed to load episodes');
+            }
+            const data = await res.json();
+            this.populateAdminEpisodesModal(data);
+        } catch (error) {
+            console.error('Error loading admin episodes:', error);
+            this.showNotification('Błąd podczas ładowania odcinków', 'error');
+        }
+    }
+
+    populateAdminEpisodesModal(data) {
+        const container = document.getElementById('admin-episodes-list');
+        container.innerHTML = '';
+        if (!data || !Array.isArray(data.episodes) || data.episodes.length === 0) {
+            container.innerHTML = '<p>Brak odcinków do edycji.</p>';
+            return;
+        }
+        // Group by season
+        const seasons = {};
+        data.episodes.forEach(ep => {
+            if (!seasons[ep.seasonNumber]) seasons[ep.seasonNumber] = [];
+            seasons[ep.seasonNumber].push(ep);
+        });
+
+        Object.keys(seasons).sort((a,b)=> Number(a)-Number(b)).forEach(seasonNumber => {
+            const eps = seasons[seasonNumber];
+            const seasonDiv = document.createElement('div');
+            seasonDiv.className = 'admin-season-group';
+            seasonDiv.innerHTML = `<h4>Sezon ${seasonNumber}</h4>`;
+            const list = document.createElement('div');
+            list.className = 'admin-episode-list';
+            eps.forEach(ep => {
+                const row = document.createElement('div');
+                row.className = 'admin-episode-row';
+                row.setAttribute('data-episode-id', ep.id);
+                row.innerHTML = `
+                    <div class="admin-episode-meta">
+                        <strong>${ep.displayNumber}</strong>
+                    </div>
+                    <div class="admin-episode-fields">
+                        <label>Tytuł</label>
+                        <input type="text" class="admin-episode-title" value="${this.escapeHtml(ep.title || '')}" />
+                        <label>Czas (min)</label>
+                        <input type="number" class="admin-episode-duration" min="0" value="${this.escapeHtml(ep.duration || '')}" />
+                        <label>Data emisji</label>
+                        <input type="date" class="admin-episode-airdate" value="${this.escapeHtml(ep.airDate || '')}" />
+                        <label>Opis</label>
+                        <textarea class="admin-episode-description">${this.escapeHtml(ep.description || '')}</textarea>
+                    </div>
+                    <div class="admin-episode-actions">
+                        <button class="btn btn-primary admin-episode-save-btn" data-episode-id="${ep.id}">Zapisz</button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+            seasonDiv.appendChild(list);
+            container.appendChild(seasonDiv);
+        });
+
+        // Attach event handlers for save buttons and bulk save
+        const saveBtns = container.querySelectorAll('.admin-episode-save-btn');
+        saveBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = btn.dataset.episodeId;
+                await this.saveAdminEpisode(document.getElementById('admin-episodes-series-id').value, id);
+            });
+        });
+
+        const saveAllBtn = document.getElementById('admin-episodes-save-all');
+        saveAllBtn.onclick = async () => {
+            await this.saveAllAdminEpisodes(document.getElementById('admin-episodes-series-id').value);
+        };
+    }
+
+    async saveAdminEpisode(seriesId, episodeId) {
+        try {
+            const row = document.querySelector(`.admin-episode-row[data-episode-id='${episodeId}']`);
+            if (!row) return;
+            const title = row.querySelector('.admin-episode-title').value.trim();
+            const durationVal = row.querySelector('.admin-episode-duration').value;
+            const duration = durationVal === '' ? undefined : Number(durationVal);
+            const description = row.querySelector('.admin-episode-description').value.trim();
+            const airDateVal = row.querySelector('.admin-episode-airdate') ? row.querySelector('.admin-episode-airdate').value.trim() : undefined;
+            const airDate = airDateVal === '' ? undefined : airDateVal;
+
+            const body = { id: Number(episodeId) };
+            if (title !== undefined) body.title = title;
+            if (description !== undefined) body.description = description;
+            if (airDate !== undefined) body.airDate = airDate;
+            if (duration !== undefined) body.duration = Number(duration);
+
+            const res = await fetch(`/api/admin/movies/${seriesId}/episodes`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Błąd' }));
+                this.showNotification(err.error || 'Błąd podczas zapisywania odcinka', 'error');
+                return;
+            }
+            this.showNotification('Odcinek zapisany', 'success');
+            await this.loadAdminEpisodes(seriesId);
+        } catch (error) {
+            console.error('Error saving admin episode:', error);
+            this.showNotification('Błąd podczas zapisu odcinka', 'error');
+        }
+    }
+
+    async saveAllAdminEpisodes(seriesId) {
+        try {
+            const rows = document.querySelectorAll('#admin-episodes-list .admin-episode-row');
+            const episodes = Array.from(rows).map(row => {
+                const id = Number(row.getAttribute('data-episode-id'));
+                const title = row.querySelector('.admin-episode-title').value.trim();
+                const durationVal = row.querySelector('.admin-episode-duration').value;
+                const airDateVal = row.querySelector('.admin-episode-airdate') ? row.querySelector('.admin-episode-airdate').value.trim() : undefined;
+                const airDate = airDateVal === '' ? undefined : airDateVal;
+                const duration = durationVal === '' ? undefined : Number(durationVal);
+                const description = row.querySelector('.admin-episode-description').value.trim();
+                const ep = { id };
+                if (title !== undefined) ep.title = title;
+                if (description !== undefined) ep.description = description;
+                if (airDate !== undefined) ep.airDate = airDate;
+                if (duration !== undefined) ep.duration = duration;
+                return ep;
+            });
+
+            const res = await fetch(`/api/admin/movies/${seriesId}/episodes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+                body: JSON.stringify({ episodes })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Błąd' }));
+                this.showNotification(err.error || 'Błąd podczas zapisywania odcinków', 'error');
+                return;
+            }
+            this.showNotification('Zapisano wszystkie odcinki', 'success');
+            await this.loadAdminEpisodes(seriesId);
+        } catch (error) {
+            console.error('Error saving all admin episodes:', error);
+            this.showNotification('Błąd podczas zapisywania odcinków', 'error');
         }
     }
 

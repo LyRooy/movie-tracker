@@ -1063,6 +1063,9 @@ h3 {
 
 .friend-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .friend-name {
@@ -1076,6 +1079,8 @@ h3 {
     font-size: 0.9rem;
 }
 
+.friend-info p { margin: 0; font-size: 0.95rem; }
+
 .friend-actions {
     display: flex;
     gap: 0.5rem;
@@ -1088,6 +1093,39 @@ h3 {
     cursor: pointer;
     transition: var(--transition);
     font-size: 0.9rem;
+}
+
+.btn-icon {
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.btn-icon i {
+    color: var(--primary-color);
+}
+
+.friend-info p { 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+}
+
+.user-search-stats { 
+    color: var(--text-secondary); 
+    font-size: 0.85rem; 
+    white-space: nowrap; 
+}
+
+@media (max-width: 520px) {
+    .friend-info p, .user-search-stats { white-space: normal; }
 }
 
 .btn-accept {

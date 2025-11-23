@@ -952,7 +952,7 @@ class MovieTracker {
                     <p>${friend.total_movies || 0} filmów • ${friend.total_series || 0} seriali</p>
                 </div>
                 <div class="friend-actions">
-                    <button class="btn-icon" onclick="app.viewFriendProfile(${friend.user_id})" title="Zobacz profil">
+                    <button type="button" class="btn-icon" onclick="app.viewFriendProfile(${friend.user_id})" title="Zobacz profil">
                         <i class="fas fa-eye"></i>
                     </button>
                     <button class="btn-icon btn-danger" onclick="app.removeFriend(${friend.friendship_id}, 'friend')" title="Usuń znajomego">
@@ -1375,6 +1375,12 @@ class MovieTracker {
     }
 
     async viewFriendProfile(userId) {
+        console.log('[viewFriendProfile] called for userId:', userId);
+        if (!userId) {
+            this.showNotification('Nieprawidłowe ID użytkownika', 'error');
+            return;
+        }
+
         try {
             const response = await fetch(`/api/users/${userId}`, {
                 headers: this.getAuthHeaders()
@@ -1391,10 +1397,11 @@ class MovieTracker {
             }
 
             const profile = await response.json();
+            console.log('[viewFriendProfile] profile loaded', profile);
             this.showFriendProfileModal(profile);
         } catch (error) {
             console.error('Error loading friend profile:', error);
-            this.showNotification('Błąd podczas ładowania profilu', 'error');
+            this.showNotification('Błąd podczas ładowania profilu: ' + (error.message || ''), 'error');
         }
     }
 
@@ -4206,5 +4213,6 @@ class MovieTracker {
     
 }
 
-// Inicjalizacja aplikacji
-const app = new MovieTracker();
+// Inicjalizacja aplikacji — ustaw na `window.app` aby inline onclick mogły go znaleźć
+const _app = new MovieTracker();
+window.app = _app;

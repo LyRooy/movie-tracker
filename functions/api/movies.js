@@ -109,7 +109,7 @@ async function handleGet(db, request, url, corsHeaders) {
     console.log('Query returned', result.results.length, 'rows');
     
     // Dla każdego serialu pobierz liczbę obejrzanych odcinków
-    const transformedResults = await Promise.all(result.results.map(async row => {
+        const transformedResults = await Promise.all(result.results.map(async row => {
       try {
         let watchedEpisodes = 0;
         
@@ -129,7 +129,24 @@ async function handleGet(db, request, url, corsHeaders) {
             console.warn('Could not fetch watched episodes:', e);
           }
         }
-        
+            // Compute average episode duration for series (from episodes.duration) if available
+            let avgEpisodeLength = null;
+            if (row.type === 'series') {
+              try {
+                const avgRes = await db.prepare(`
+                  SELECT AVG(e.duration) as avg_duration
+                  FROM episodes e
+                  JOIN seasons s ON e.season_id = s.id
+                  WHERE s.series_id = ?
+                `).bind(row.id).first();
+                if (avgRes && avgRes.avg_duration !== null) {
+                  avgEpisodeLength = Math.round(avgRes.avg_duration);
+                }
+              } catch (e) {
+                console.warn('Could not compute avg episode duration:', e);
+              }
+            }
+
         return {
           id: row.id,
           title: row.title,
@@ -139,13 +156,17 @@ async function handleGet(db, request, url, corsHeaders) {
           rating: row.rating || 0,
           status: row.status || 'watched',
           watchedDate: row.watchedDate || null,
-          poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
-          duration: row.duration || 120,
+              // Expose canonical `poster_url` (if available) and keep `poster` for backwards compatibility
+              poster_url: normalizePosterUrl(row.poster) || null,
+              poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
+              // For movies keep duration; for series expose avgEpisodeLength
+              duration: row.type === 'movie' ? (row.duration || 120) : (avgEpisodeLength || (row.duration || 120)),
           review: row.review || '',
           // Pola specyficzne dla seriali
           totalSeasons: row.total_seasons || null,
           totalEpisodes: row.total_episodes || null,
-          watchedEpisodes: watchedEpisodes,
+              watchedEpisodes: watchedEpisodes,
+              avgEpisodeLength: avgEpisodeLength,
           // Oblicz postęp dla serialu
           progress: row.type === 'series' && row.total_episodes > 0 
             ? Math.round((watchedEpisodes / row.total_episodes) * 100) 
@@ -163,6 +184,7 @@ async function handleGet(db, request, url, corsHeaders) {
           rating: row.rating || 0,
           status: row.status || 'watched',
           watchedDate: row.watchedDate || null,
+          poster_url: null,
           poster: `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title || 'Movie')}`,
           duration: 120,
           review: ''

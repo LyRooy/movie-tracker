@@ -845,6 +845,21 @@ class MovieTracker {
         return m ? m[0] : v;
     }
 
+    // Bezpieczne sprawdzenie roku: odrzucaj oczywiste błędy (np. -4707)
+    safeYear(value) {
+        const currentYear = new Date().getFullYear();
+        let y = null;
+        if (typeof value === 'number') y = value;
+        else if (typeof value === 'string') {
+            const parsed = parseInt(value, 10);
+            if (!Number.isNaN(parsed)) y = parsed;
+        }
+
+        if (!y) return null;
+        if (y < 1800 || y > currentYear + 5) return null;
+        return String(y);
+    }
+
     // Zwraca poprawny URL plakatu z obiektu (PRIORYTET: `poster_url` z bazy).
     // Jeśli brak, generuje placeholder używając placehold.co (z tytułem filmu).
     // Zapisuje znormalizowany URL do `item.poster` dla wygody frontendu.
@@ -1450,14 +1465,33 @@ class MovieTracker {
                     const poster = this.getPosterUrl(item);
 
                     // Normalizuj pola seriali: liczba sezonów/odcinków, średnia długość odcinka
-                    const avgEp = item.avg_episode_length || item.avgEpisodeLength || item.average_episode_length || item.episode_length || item.episodeLength || item.avgEpisodeMinutes || item.duration || null;
+                    let avgEp = item.avg_episode_length || item.avgEpisodeLength || item.average_episode_length || item.episode_length || item.episodeLength || item.avgEpisodeMinutes || item.duration || null;
                     let totalEpisodes = item.totalEpisodes || item.total_episodes || item.episodesCount || item.episodes_total || null;
                     let totalSeasons = item.totalSeasons || item.total_seasons || null;
 
                     // Jeśli API zwraca strukturę seasons, policz odcinki
-                    if ((!totalEpisodes || !totalSeasons) && Array.isArray(item.seasons)) {
+                    if (Array.isArray(item.seasons)) {
                         totalSeasons = totalSeasons || item.seasons.length;
                         totalEpisodes = totalEpisodes || item.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0);
+
+                        // Jeśli nie mamy średniej długości odcinka, spróbuj policzyć ją z pól episodes[].duration
+                        if (!avgEp) {
+                            let sumDur = 0;
+                            let cnt = 0;
+                            item.seasons.forEach(s => {
+                                if (Array.isArray(s.episodes)) {
+                                    s.episodes.forEach(ep => {
+                                        if (ep && (ep.duration || ep.duration === 0)) {
+                                            sumDur += Number(ep.duration) || 0;
+                                            cnt++;
+                                        }
+                                    });
+                                }
+                            });
+                            if (cnt > 0) {
+                                avgEp = Math.round(sumDur / cnt);
+                            }
+                        }
                     }
 
                     const watchedEpisodes = item.watchedEpisodes || item.watched_episodes || item.watched_count || item.watched || 0;
@@ -1733,16 +1767,62 @@ class MovieTracker {
         document.getElementById('modal-poster').src = poster;
         document.getElementById('modal-title').textContent = movie.title;
         document.getElementById('modal-description').textContent = movie.description || '';
-        document.getElementById('modal-year').textContent = this.normalizeYear(movie.year || movie.release_date || movie.releaseDate) || (movie.year || '');
+        // Użyj bezpiecznego roku (najpierw safeYear, potem normalizeYear)
+        const rawYear = movie.year || movie.release_date || movie.releaseDate || null;
+        const safe = this.safeYear(rawYear) || this.normalizeYear(rawYear) || (movie.year ? String(movie.year) : '');
+        document.getElementById('modal-year').textContent = safe;
         document.getElementById('modal-genre').textContent = movie.genre;
-        // Dla seriali pokaż sezony/odcinki i średnią długość odcinka zamiast pojedynczych minut
         const modalDurationEl = document.getElementById('modal-duration');
         if (movie.type === 'series') {
+            // Jeśli backend nie dostarczył totalEpisodes/totalSeasons lub avg, pobierz szczegóły odcinków
             const seasons = movie.totalSeasons || (Array.isArray(movie.seasons) ? movie.seasons.length : null);
             const episodes = movie.totalEpisodes || (Array.isArray(movie.seasons) ? movie.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0) : null);
-            const avg = movie.avgEpisodeLength || movie.avg_episode_length || movie.duration || null;
-            const avgText = avg ? ` • śr. odcinek: ${avg} min` : '';
-            modalDurationEl.textContent = `${seasons ? seasons + ' sezon(y)' : 'Serial'} • ${episodes ? episodes + ' odc.' : ''}${avgText}`;
+            let avg = movie.avgEpisodeLength || movie.avg_episode_length || movie.duration || null;
+
+            const setModalSeriesInfo = (sCount, eCount, avgMins) => {
+                const avgText = avgMins ? ` • śr. odcinek: ${avgMins} min` : '';
+                modalDurationEl.textContent = `${sCount ? sCount + ' sezon(y)' : 'Serial'} • ${eCount ? eCount + ' odc.' : ''}${avgText}`;
+            };
+
+            if ((episodes && seasons) || avg) {
+                setModalSeriesInfo(seasons, episodes, avg);
+            } else {
+                // Pobierz szczegóły sezonów/odcinków z API i zaktualizuj modal
+                (async () => {
+                    try {
+                        const res = await fetch(`/api/series/${movie.id}/episodes`, { headers: this.getAuthHeaders() });
+                        if (res.ok) {
+                            const data = await res.json();
+                            const sCount = data.series?.totalSeasons || data.series?.totalSeasons || (Array.isArray(data.seasons) ? data.seasons.length : null);
+                            const eCount = data.series?.totalEpisodes || data.series?.totalEpisodes || (Array.isArray(data.seasons) ? data.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0) : null);
+                            // Compute avg from episodes durations
+                            let sum = 0, cnt = 0;
+                            if (Array.isArray(data.seasons)) {
+                                data.seasons.forEach(s => {
+                                    if (Array.isArray(s.episodes)) {
+                                        s.episodes.forEach(ep => { if (ep.duration || ep.duration === 0) { sum += Number(ep.duration) || 0; cnt++; } });
+                                    }
+                                });
+                            }
+                            const computedAvg = cnt > 0 ? Math.round(sum / cnt) : null;
+                            avg = avg || computedAvg;
+
+                            // update modal and currentMovie
+                            setModalSeriesInfo(sCount, eCount, avg);
+                            // attach seasons to movie for later use
+                            try { movie.seasons = data.seasons || movie.seasons; } catch {}
+                            movie.totalSeasons = sCount || movie.totalSeasons;
+                            movie.totalEpisodes = eCount || movie.totalEpisodes;
+                            movie.avgEpisodeLength = avg || movie.avgEpisodeLength;
+                        } else {
+                            setModalSeriesInfo(seasons, episodes, avg);
+                        }
+                    } catch (e) {
+                        console.warn('Could not fetch series episodes for modal:', e);
+                        setModalSeriesInfo(seasons, episodes, avg);
+                    }
+                })();
+            }
         } else {
             modalDurationEl.textContent = movie.duration ? `${movie.duration} min` : '';
         }

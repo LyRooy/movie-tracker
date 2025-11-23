@@ -77,6 +77,8 @@ export async function onRequest(context) {
       type: row.type,
       year: parseInt(row.year) || new Date().getFullYear(),
       genre: row.genre || 'Unknown',
+      // expose canonical poster_url and keep poster fallback
+      poster_url: normalizePosterUrl(row.poster) || null,
       poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
       description: row.description || '',
       rating: 0,

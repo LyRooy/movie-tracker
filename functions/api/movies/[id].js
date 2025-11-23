@@ -102,10 +102,34 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
     rating: movie.rating || 0,
     status: movie.status,
     watchedDate: movie.watchedDate || null,
+    // Provide canonical poster_url for frontend to prefer, keep poster fallback for legacy clients
+    poster_url: normalizePosterUrl(movie.poster) || null,
     poster: normalizePosterUrl(movie.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(movie.title)}`,
     duration: movie.duration || 120,
     review: movie.review || ''
   };
+
+  // Jeśli to serial, oblicz średnią długość odcinka
+  if (transformedMovie.type === 'series') {
+    try {
+      const avgRes = await env.db.prepare(`
+        SELECT AVG(e.duration) as avg_duration
+        FROM episodes e
+        JOIN seasons s ON e.season_id = s.id
+        WHERE s.series_id = ?
+      `).bind(movieId).first();
+      if (avgRes && avgRes.avg_duration !== null) {
+        transformedMovie.avgEpisodeLength = Math.round(avgRes.avg_duration);
+        // set duration to avgEpisodeLength for frontend convenience
+        transformedMovie.duration = transformedMovie.avgEpisodeLength;
+      } else {
+        transformedMovie.avgEpisodeLength = null;
+      }
+    } catch (e) {
+      console.warn('[movies/[id].js] Could not compute avg episode duration:', e);
+      transformedMovie.avgEpisodeLength = null;
+    }
+  }
 
   return new Response(JSON.stringify(transformedMovie), {
     status: 200,

@@ -287,15 +287,19 @@ class MovieTracker {
             section.classList.remove('active');
         });
 
-        // Pokaż wybraną sekcję
-        document.getElementById(sectionName).classList.add('active');
-        this.currentSection = sectionName;
+        // Pokaż wybraną sekcję (bezpiecznie — sprawdź istnienie)
+        const targetSection = document.getElementById(sectionName);
+        if (targetSection) {
+            targetSection.classList.add('active');
+            this.currentSection = sectionName;
+        } else {
+            console.warn('showSection: section not found:', sectionName);
+        }
 
-        // Zaktualizuj nawigację
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        document.querySelector(`[href="#${sectionName}"]`).classList.add('active');
+        // Zaktualizuj nawigację (bezpiecznie)
+        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+        const navLink = document.querySelector(`[href="#${sectionName}"]`);
+        if (navLink) navLink.classList.add('active');
 
         // Ładuj dane specyficzne dla sekcji
         if (sectionName === 'statistics') {
@@ -962,7 +966,9 @@ class MovieTracker {
                 throw new Error('Nie udało się wyszukać użytkowników');
             }
 
-            const users = await response.json();
+            const data = await response.json();
+            // API może zwracać tablicę lub obiekt z results
+            const users = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
             this.displaySearchResults(users);
         } catch (error) {
             console.error('Error searching users:', error);
@@ -974,6 +980,12 @@ class MovieTracker {
     displaySearchResults(users) {
         const container = document.getElementById('friend-search-results');
         if (!container) return;
+        // Upewnij się, że mamy tablicę
+        if (!Array.isArray(users)) {
+            console.warn('displaySearchResults expected array, got:', users);
+            container.innerHTML = '<p class="no-results">Nie znaleziono użytkowników</p>';
+            return;
+        }
 
         if (users.length === 0) {
             container.innerHTML = '<p class="no-results">Nie znaleziono użytkowników</p>';

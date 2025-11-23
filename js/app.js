@@ -3678,7 +3678,8 @@ class MovieTracker {
             document.getElementById('admin-movie-year').value = yearValue;
             document.getElementById('admin-movie-genre').value = movie.genre || '';
             // If editing a series, pre-fill duration with average episode length when available
-            const durationPrefill = movie.type === 'series' ? (movie.avgEpisodeLength || movie.duration || '') : (movie.duration || '');
+            const normalizedType = movie.media_type || movie.type;
+            const durationPrefill = normalizedType === 'series' ? (movie.avgEpisodeLength || movie.duration || '') : (movie.duration || '');
             console.debug('Prefilling admin movie duration:', durationPrefill);
             document.getElementById('admin-movie-duration').value = durationPrefill;
             document.getElementById('admin-movie-description').value = movie.description || '';
@@ -3887,7 +3888,8 @@ class MovieTracker {
                 row.setAttribute('data-episode-id', ep.id);
                 row.innerHTML = `
                     <div class="admin-episode-meta">
-                        <strong>${ep.displayNumber}</strong>
+                        <label>Numer: </label>
+                        <input type="text" class="admin-episode-displayNumber" value="${this.escapeHtml(ep.displayNumber || '')}" />
                     </div>
                     <div class="admin-episode-fields">
                         <label>Tytuł</label>
@@ -3932,12 +3934,15 @@ class MovieTracker {
             const durationVal = row.querySelector('.admin-episode-duration').value;
             const duration = durationVal === '' ? undefined : Number(durationVal);
             const description = row.querySelector('.admin-episode-description').value.trim();
+            const displayNumberVal = row.querySelector('.admin-episode-displayNumber') ? row.querySelector('.admin-episode-displayNumber').value.trim() : undefined;
+            const displayNumber = displayNumberVal === '' ? undefined : displayNumberVal;
             const airDateVal = row.querySelector('.admin-episode-airdate') ? row.querySelector('.admin-episode-airdate').value.trim() : undefined;
             const airDate = airDateVal === '' ? undefined : airDateVal;
 
             const body = { id: Number(episodeId) };
             if (title !== undefined) body.title = title;
             if (description !== undefined) body.description = description;
+            if (displayNumber !== undefined) body.displayNumber = displayNumber;
             if (airDate !== undefined) body.airDate = airDate;
             if (duration !== undefined) body.duration = Number(duration);
 
@@ -3970,9 +3975,12 @@ class MovieTracker {
                 const airDate = airDateVal === '' ? undefined : airDateVal;
                 const duration = durationVal === '' ? undefined : Number(durationVal);
                 const description = row.querySelector('.admin-episode-description').value.trim();
+                const displayNumberVal = row.querySelector('.admin-episode-displayNumber') ? row.querySelector('.admin-episode-displayNumber').value.trim() : undefined;
+                const displayNumber = displayNumberVal === '' ? undefined : displayNumberVal;
                 const ep = { id };
                 if (title !== undefined) ep.title = title;
                 if (description !== undefined) ep.description = description;
+                if (displayNumber !== undefined) ep.displayNumber = displayNumber;
                 if (airDate !== undefined) ep.airDate = airDate;
                 if (duration !== undefined) ep.duration = duration;
                 return ep;

@@ -17,16 +17,15 @@ async function checkAdminRole(db, userId) {
   return user && user.role === 'admin';
 }
 
-async function ensureEpisodesHasDisplayNumber(db) {
+// Determine if episodes table has display_number column — do NOT alter DB here
+async function hasEpisodesDisplayColumn(db) {
   try {
     const info = await db.prepare("PRAGMA table_info(episodes)").all();
     const cols = (info && info.results) ? info.results : (info || []);
-    const hasDisplay = cols.some && cols.some(c => c.name === 'display_number');
-    if (!hasDisplay) {
-      await db.prepare('ALTER TABLE episodes ADD COLUMN display_number TEXT').run();
-    }
+    return Array.isArray(cols) && cols.some(c => c.name === 'display_number');
   } catch (e) {
-    console.error('ensureEpisodesHasDisplayNumber error:', e);
+    console.error('hasEpisodesDisplayColumn error:', e);
+    return false;
   }
 }
 
@@ -70,8 +69,11 @@ async function handleGetAdminEpisodes(db, seriesId, corsHeaders) {
     const series = await db.prepare('SELECT id, title FROM movies WHERE id = ? AND media_type = ?').bind(seriesId, 'series').first();
     if (!series) return new Response(JSON.stringify({ error: 'Series not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
+    // Conditionally query display_number only when the DB contains the column
+    const hasDisplay = await hasEpisodesDisplayColumn(db);
+    const selectCols = hasDisplay ? 'e.id as episode_id, e.season_id, s.season_number, e.episode_number, e.title as episode_title, e.description, e.air_date, e.duration, e.display_number' : 'e.id as episode_id, e.season_id, s.season_number, e.episode_number, e.title as episode_title, e.description, e.air_date, e.duration';
     const rows = await db.prepare(`
-      SELECT e.id as episode_id, e.season_id, s.season_number, e.episode_number, e.title as episode_title, e.description, e.air_date, e.duration, e.display_number
+      SELECT ${selectCols}
       FROM episodes e
       JOIN seasons s ON e.season_id = s.id
       WHERE s.series_id = ?
@@ -101,8 +103,8 @@ async function handleUpdateEpisode(db, request, corsHeaders) {
   try {
     const data = await request.json();
     if (!data || !data.id) return new Response(JSON.stringify({ error: 'Episode id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    // Ensure display_number column exists
-    await ensureEpisodesHasDisplayNumber(db);
+    // Check if display_number column exists — do NOT alter DB here
+    const hasDisplay = await hasEpisodesDisplayColumn(db);
 
     const updates = [];
     const params = [];
@@ -110,7 +112,7 @@ async function handleUpdateEpisode(db, request, corsHeaders) {
     if (data.description !== undefined) { updates.push('description = ?'); params.push(data.description); }
     if (data.airDate !== undefined) { updates.push('air_date = ?'); params.push(data.airDate || null); }
     if (data.duration !== undefined) { updates.push('duration = ?'); params.push(Number(data.duration) || null); }
-    if (data.displayNumber !== undefined) { updates.push('display_number = ?'); params.push(data.displayNumber); }
+    if (data.displayNumber !== undefined && hasDisplay) { updates.push('display_number = ?'); params.push(data.displayNumber); }
 
     if (updates.length === 0) return new Response(JSON.stringify({ error: 'No fields to update' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
@@ -129,7 +131,7 @@ async function handleBulkUpdate(db, request, corsHeaders) {
     const data = await request.json();
     const { episodes } = data;
     if (!Array.isArray(episodes)) return new Response(JSON.stringify({ error: 'episodes array required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    await ensureEpisodesHasDisplayNumber(db);
+    const hasDisplay = await hasEpisodesDisplayColumn(db);
     for (const ep of episodes) {
       const updates = [];
       const params = [];
@@ -137,7 +139,7 @@ async function handleBulkUpdate(db, request, corsHeaders) {
       if (ep.description !== undefined) { updates.push('description = ?'); params.push(ep.description); }
       if (ep.airDate !== undefined) { updates.push('air_date = ?'); params.push(ep.airDate || null); }
       if (ep.duration !== undefined) { updates.push('duration = ?'); params.push(Number(ep.duration) || null); }
-      if (ep.displayNumber !== undefined) { updates.push('display_number = ?'); params.push(ep.displayNumber); }
+      if (ep.displayNumber !== undefined && hasDisplay) { updates.push('display_number = ?'); params.push(ep.displayNumber); }
       if (updates.length > 0) {
         params.push(ep.id);
         await db.prepare(`UPDATE episodes SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();

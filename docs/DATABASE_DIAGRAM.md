@@ -58,6 +58,7 @@ Table episodes {
   title text [not null]
   description text
   air_date text
+  display_number text [note: 'Sxx - Eyyy formatted display number, optional; use triggers or backfill to populate']
   duration integer [default: 45]
   created_at text
   
@@ -268,6 +269,7 @@ entity episodes {
   * title : text
   description : text
   air_date : text
+  display_number : text
   duration : integer
   created_at : text
 }
@@ -398,6 +400,83 @@ plantuml schema.puml
 ---
 
 ## Metoda 5: Mermaid (Dla GitHub)
+
+---
+
+## 📝 Aktualizacje schematu i praktyczne informacje
+
+Ostatnie zmiany w schemacie i API:
+
+- Nowa kolumna `display_number` w tabeli `episodes` — `TEXT`, format sugerowany: `S{seazon padded 2} - E{episode padded 3}` (np. `S01 - E001`).
+- Pole `air_date` już istniało (data emisji odcinka) i jest dostępne do edycji w panelu admina.
+- API admina: dodano nowe endpointy do zarządzania odcinkami:
+  - `GET /api/admin/movies/:id/episodes` — pobiera listę odcinków serii (z `displayNumber`, `airDate`, `duration`, `title`, `description`).
+  - `PUT /api/admin/movies/:id/episodes` — aktualizacja pojedyńczego odcinka (body zawiera `id` i pola do aktualizacji np. `title`, `description`, `airDate`, `duration`, `displayNumber`).
+  - `POST /api/admin/movies/:id/episodes` — bulk update (body: `{ episodes: [ { id, title?, description?, airDate?, duration?, displayNumber? } ] }`).
+
+### 🔁 Kaskadowe usuwanie
+
+Zgodnie z `schema.sql` tabele mają zadeklarowane klucze obce z `ON DELETE CASCADE`:
+- `seasons.series_id` → `movies.id` ON DELETE CASCADE
+- `episodes.season_id` → `seasons.id` ON DELETE CASCADE
+
+Jeżeli `PRAGMA foreign_keys = ON` (SQLite), to usunięcie rekordu `movies` (serialu) spowoduje automatyczne usunięcie sezonów i odcinków.
+Jeśli środowisko ma wyłączone enforcement FK, rozważ jawne usuwanie w kodzie backendu (tak jak robimy to dla powiązanych tabel typu `watched` czy `reviews`).
+
+### SQL (dodanie kolumny i backfill)
+
+Przykładowe zapytania do dodania `display_number` i wypełnienia istniejących rekordów (wykonaj je z backupem):
+
+```sql
+BEGIN;
+ALTER TABLE episodes ADD COLUMN display_number TEXT;
+UPDATE episodes
+SET display_number =
+  'S' || printf('%02d', (SELECT s.season_number FROM seasons s WHERE s.id = episodes.season_id))
+  || ' - E' || printf('%03d', episodes.episode_number)
+WHERE display_number IS NULL;
+COMMIT;
+```
+
+Dodanie indeksu (opcjonalnie):
+```sql
+CREATE INDEX IF NOT EXISTS idx_episodes_display_number ON episodes(display_number);
+```
+
+### Triggery (opcjonalne) — automatyczne ustawianie `display_number` podczas INSERT / UPDATE
+
+```sql
+CREATE TRIGGER IF NOT EXISTS trg_episodes_display_insert
+AFTER INSERT ON episodes
+BEGIN
+  UPDATE episodes
+  SET display_number = 'S' || printf('%02d', (SELECT season_number FROM seasons WHERE id = NEW.season_id))
+                      || ' - E' || printf('%03d', NEW.episode_number)
+  WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_episodes_display_update
+AFTER UPDATE OF season_id, episode_number ON episodes
+BEGIN
+  UPDATE episodes
+  SET display_number = 'S' || printf('%02d', (SELECT season_number FROM seasons WHERE id = NEW.season_id))
+                      || ' - E' || printf('%03d', NEW.episode_number)
+  WHERE id = NEW.id;
+END;
+```
+
+### Uwaga przy migracji
+
+- W SQLite `ALTER TABLE ADD COLUMN` nie wspiera `IF NOT EXISTS` (w starszych wersjach), dlatego przed uruchomieniem warto sprawdzić, czy kolumna już istnieje:
+```sql
+SELECT COUNT(*) FROM pragma_table_info('episodes') WHERE name='display_number';
+```
+- Jeśli chcesz usunąć seriale i odtworzyć je na nowo, pamiętaj o powiązanych danych użytkownika (`watched`, `user_episodes_watched`), które możesz chcieć zachować — usunięcie rekordu serialu spowoduje usunięcie również sezonów i odcinków (kaskada), ale nieco inaczej obsługuje powiązane tabele użytkownik/ocena/zadania.
+
+---
+
+Jeśli chcesz, mogę też dodać krótką sekcję w README z przykładową migracją i test scriptem `pwsh` do automatycznego wykonania migracji na lokalnym pliku `dev.db`.
+
 
 Dodaj do README.md:
 

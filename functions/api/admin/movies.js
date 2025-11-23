@@ -93,18 +93,15 @@ async function handleGetMovies(db, request, corsHeaders) {
   }
 }
 
-// Ensure the movies table has a duration column (safe migration at runtime)
-async function ensureMoviesHasDuration(db) {
+// Check whether a column exists in a table (without altering the DB)
+async function hasColumn(db, tableName, columnName) {
   try {
-    const info = await db.prepare("PRAGMA table_info(movies)").all();
+    const info = await db.prepare(`PRAGMA table_info(${tableName})`).all();
     const cols = (info && info.results) ? info.results : (info || []);
-    const hasDuration = cols.some && cols.some(c => c.name === 'duration');
-    if (!hasDuration) {
-      await db.prepare('ALTER TABLE movies ADD COLUMN duration INTEGER').run();
-    }
+    return Array.isArray(cols) && cols.some(c => c.name === columnName);
   } catch (e) {
-    // If for some reason PRAGMA or ALTER fails, log and continue — endpoint will still try to use duration
-    console.error('ensureMoviesHasDuration error:', e);
+    console.error('hasColumn error:', e);
+    return false;
   }
 }
 
@@ -112,8 +109,8 @@ async function ensureMoviesHasDuration(db) {
 async function handleCreateMovie(db, request, corsHeaders) {
   try {
     const data = await request.json();
-    // Ensure DB has duration column so we can persist minutes
-    await ensureMoviesHasDuration(db);
+    // Check if DB has duration column so we can persist minutes (don't alter DB automatically)
+    const hasMoviesDuration = await hasColumn(db, 'movies', 'duration');
     
     console.log('[admin/movies] Creating movie with data:', JSON.stringify(data).slice(0, 1000));
     
@@ -140,20 +137,29 @@ async function handleCreateMovie(db, request, corsHeaders) {
     const episodesPerSeason = data.episodesPerSeason || (data.type === 'series' ? 10 : 1);
     const totalEpisodes = data.type === 'series' ? totalSeasons * episodesPerSeason : 1;
 
-    const result = await db.prepare(`
-      INSERT INTO movies (title, media_type, release_date, genre, poster_url, description, duration, total_seasons, total_episodes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
+    // Build INSERT dynamically to avoid including columns that might not exist (e.g., duration) — don't modify schema here
+    const insertCols = ['title','media_type','release_date','genre','poster_url','description','total_seasons','total_episodes'];
+    const insertPlaceholders = ['?','?','?','?','?','?','?','?'];
+    const insertValues = [
       data.title,
       data.type,
       data.year || new Date().getFullYear().toString(),
       data.genre || 'Unknown',
       normalizePosterUrl(data.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
       data.description || '',
-      (data.type === 'movie' && data.duration !== undefined) ? Number(data.duration) : null,
       totalSeasons,
       totalEpisodes
-    ).run();
+    ];
+    if (hasMoviesDuration && data.type === 'movie' && data.duration !== undefined) {
+      insertCols.splice(6,0,'duration'); // insert before total_seasons
+      insertPlaceholders.splice(6,0,'?');
+      insertValues.splice(6,0,Number(data.duration));
+    }
+
+    const result = await db.prepare(`
+      INSERT INTO movies (${insertCols.join(',')})
+      VALUES (${insertPlaceholders.join(',')})
+    `).bind(...insertValues).run();
 
     const movieId = result.meta.last_row_id;
 
@@ -161,8 +167,9 @@ async function handleCreateMovie(db, request, corsHeaders) {
     if (data.type === 'series') {
       // Use provided duration for episodes, or default to 45
       const episodeDuration = data.duration !== undefined ? Number(data.duration) : 45;
-      // Ensure `display_number` column exists on episodes
-      await ensureEpisodesHasDisplayNumber(db);
+      if (Number.isNaN(episodeDuration)) episodeDuration = 45;
+      console.log(`[admin/movies] Creating series: episodeDuration=${episodeDuration}`);
+      const hasEpisodeDisplay = await hasColumn(db, 'episodes', 'display_number');
       
       for (let seasonNum = 1; seasonNum <= totalSeasons; seasonNum++) {
         // Utwórz sezon
@@ -179,18 +186,30 @@ async function handleCreateMovie(db, request, corsHeaders) {
         const seasonId = seasonResult.meta.last_row_id;
 
         // Utwórz odcinki dla tego sezonu
-        for (let episodeNum = 1; episodeNum <= episodesPerSeason; episodeNum++) {
+          for (let episodeNum = 1; episodeNum <= episodesPerSeason; episodeNum++) {
           const displayNumber = `S${String(seasonNum).padStart(2, '0')} - E${String(episodeNum).padStart(3, '0')}`;
-          await db.prepare(`
-            INSERT INTO episodes (season_id, episode_number, title, duration, display_number)
-            VALUES (?, ?, ?, ?, ?)
-          `).bind(
-            seasonId,
-            episodeNum,
-            `Odcinek ${episodeNum}`,
-            episodeDuration,
-            displayNumber
-          ).run();
+            if (hasEpisodeDisplay) {
+              await db.prepare(`
+                INSERT INTO episodes (season_id, episode_number, title, duration, display_number)
+                VALUES (?, ?, ?, ?, ?)
+              `).bind(
+                seasonId,
+                episodeNum,
+                `Odcinek ${episodeNum}`,
+                episodeDuration,
+                displayNumber
+              ).run();
+            } else {
+              await db.prepare(`
+                INSERT INTO episodes (season_id, episode_number, title, duration)
+                VALUES (?, ?, ?, ?)
+              `).bind(
+                seasonId,
+                episodeNum,
+                `Odcinek ${episodeNum}`,
+                episodeDuration
+              ).run();
+            }
         }
       }
     }
@@ -263,15 +282,25 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   // Store duration value before processing for later use with episodes
   let episodeDuration = null;
   if (data.duration !== undefined) {
-    episodeDuration = Number(data.duration) || null;
+    episodeDuration = Number(data.duration);
+    if (Number.isNaN(episodeDuration)) episodeDuration = null;
+    // Only store duration on movies if the movies table supports duration column
+    const hasMoviesDuration = await hasColumn(db, 'movies', 'duration');
     // For movies duration should be minutes; for series it should be null in movies table
     // Determine whether this film is treated as series or movie; prefer provided data.type then the existing movie type
     const isSeries = (data.type !== undefined) ? (data.type === 'series') : (existingType === 'series');
-    updates.push('duration = ?');
-    params.push(isSeries ? null : episodeDuration);
+    if (hasMoviesDuration) {
+      updates.push('duration = ?');
+      params.push(isSeries ? null : episodeDuration);
+    } else {
+      console.warn('[admin/movies] duration column missing, skipping update of movies.duration');
+    }
   }
 
-  if (updates.length === 0) {
+  // If there are no direct movie fields being updated but a new duration was provided
+  // and the intent is to propagate it to episodes for a series, we should still proceed.
+  const isSeriesForPropagate = (data.type !== undefined) ? (data.type === 'series') : (existingType === 'series');
+  if (updates.length === 0 && !(episodeDuration !== null && isSeriesForPropagate)) {
     return new Response(JSON.stringify({ error: 'No fields to update' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -280,8 +309,8 @@ async function handleUpdateMovie(db, request, corsHeaders) {
 
   params.push(data.id);
   
-  // Ensure duration column exists before updating
-  await ensureMoviesHasDuration(db);
+  // Check presence of movies.duration column (don't alter schema here)
+  const hasMoviesDuration = await hasColumn(db, 'movies', 'duration');
   console.log('[admin/movies] Updates:', updates, 'Params:', params);
   await db.prepare(`
     UPDATE movies SET ${updates.join(', ')} WHERE id = ?
@@ -291,6 +320,7 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   try {
     // Decide if we should propagate episode duration: if the target is series and an episodeDuration was provided
     const isSeriesForPropagate = (data.type !== undefined) ? (data.type === 'series') : (existingType === 'series');
+    console.log(`[admin/movies] Propagate duration? episodeDuration=${episodeDuration}, isSeriesForPropagate=${isSeriesForPropagate}`);
     if (episodeDuration !== null && isSeriesForPropagate) {
       await db.prepare(`
         UPDATE episodes SET duration = ?

@@ -445,6 +445,16 @@ h3 {
     color: var(--text-secondary);
 }
 
+/* Center empty content inside lists */
+.friends-list.empty-center,
+.badges-grid.empty-center,
+.challenges-list.empty-center {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* keep it near top but centered horizontally */
+    padding: 1.25rem 0;
+}
+
 .movie-rating {
     display: flex;
     align-items: center;

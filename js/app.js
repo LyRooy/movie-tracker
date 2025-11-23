@@ -492,8 +492,8 @@ class MovieTracker {
             });
         }
 
-        // Zamknięcie modalu
-        const closeModalBtn = document.querySelector('#add-friend-modal .close-modal');
+        // Zamknięcie modalu (przycisk X) - dopasuj do rzeczywistej klasy w HTML
+        const closeModalBtn = document.querySelector('#add-friend-modal .close');
         if (closeModalBtn) {
             closeModalBtn.addEventListener('click', () => {
                 this.closeAddFriendModal();
@@ -826,7 +826,7 @@ class MovieTracker {
         const headerAddBtn = document.getElementById('add-friend-btn');
 
         if (friends.length === 0) {
-            // Hide the header add button to avoid duplication with the empty-state action
+            // Ukryj przycisk dodawania w nagłówku, aby uniknąć duplikacji z akcją w stanie pustym
             if (headerAddBtn) headerAddBtn.style.display = 'none';
 
             container.innerHTML = `
@@ -838,11 +838,14 @@ class MovieTracker {
                     </button>
                 </div>
             `;
+            // wyśrodkuj zawartość kontenera
+            container.classList.add('empty-center');
             return;
         }
 
-        // Ensure header button is visible when there are friends
+        // W trakcie normalnego wyświetlania znajomych, pokaż przycisk dodawania w nagłówku
         if (headerAddBtn) headerAddBtn.style.display = '';
+        container.classList.remove('empty-center');
 
         container.innerHTML = friends.map(friend => `
             <div class="friend-card">
@@ -932,7 +935,8 @@ class MovieTracker {
     openAddFriendModal() {
         const modal = document.getElementById('add-friend-modal');
         if (modal) {
-            modal.classList.add('active');
+            // Użyj display block zamiast klasy, aby uniknąć konfliktów z animacjami
+            modal.style.display = 'block';
             const searchInput = document.getElementById('friend-search-input');
             if (searchInput) searchInput.focus();
         }
@@ -941,7 +945,7 @@ class MovieTracker {
     closeAddFriendModal() {
         const modal = document.getElementById('add-friend-modal');
         if (modal) {
-            modal.classList.remove('active');
+            modal.style.display = 'none';
             const searchInput = document.getElementById('friend-search-input');
             if (searchInput) searchInput.value = '';
             document.getElementById('friend-search-results').innerHTML = '';

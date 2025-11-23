@@ -12,6 +12,50 @@
     align-items: center;
 }
 
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: relative; /* to position actions inside header */
+    flex-wrap: wrap; /* allow elements to wrap to next row on small widths */
+}
+
+.profile-actions-top {
+    position: absolute;
+    right: 72px; /* move left from close 'x' (20px) to avoid overlap */
+    top: 18px;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+@media (max-width: 720px) {
+    .profile-actions-top { position: static; margin-top: 1rem; }
+}
+
+/* If profile actions are inside a modal, keep them in the header to the right so they don't affect flow */
+.modal-content .profile-actions-top {
+    position: absolute;
+    right: 72px;
+    top: 20px;
+    z-index: 2002;
+}
+@media (max-width: 720px) {
+    .modal-content .profile-actions-top { position: static; width: 100%; justify-content: flex-end; margin-top: 0.5rem; }
+}
+
+/* Stack profile header content vertically on mobile screens */
+@media (max-width: 720px) {
+    .profile-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    .profile-info-top { display: flex; flex-direction: row; gap: 0.75rem; align-items: center; }
+    .avatar { width: 80px; height: 80px; }
+    .user-details h1 { font-size: 1.25rem; }
+}
+
 /* Footer */
 .site-footer {
     background-color: var(--surface-color);
@@ -186,6 +230,11 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 2rem;
+}
+
+@media (max-width: 520px) {
+    /* Reduce horizontal padding for very small screens to avoid content overflow */
+    .container { padding: 0 1rem; }
 }
 
 h1 {
@@ -696,7 +745,7 @@ h3 {
 /* Profile Tabs */
 .profile-tabs {
     display: flex;
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     border-bottom: 2px solid var(--border-color);
 }
 
@@ -770,6 +819,18 @@ h3 {
     box-shadow: var(--shadow);
     transition: var(--transition);
     position: relative;
+}
+
+/* Safe defaults to avoid overflowing the layout */
+.profile-header, .profile-info-top, .profile-info, .profile-avatar-large, .profile-stats, .badges-list, .badge-item {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Allow long text to wrap in the profile modal to prevent horizontal overflow */
+.profile-modal .profile-info p, .profile-modal .profile-info h2, .profile-description {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .badge-item:hover {
@@ -1031,6 +1092,10 @@ h3 {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.5rem;
+}
+
+@media (max-width: 520px) {
+    .friends-list { grid-template-columns: 1fr; }
 }
 
 .friend-card {
@@ -1394,6 +1459,13 @@ h3 {
     flex-direction: column;
 }
 
+/* When using mobile class, make modal use the available viewport more effectively */
+.modal.mobile .modal-content {
+    max-height: 90vh;
+    margin: 0.5rem auto;
+    width: 98%;
+}
+
 .close {
     position: absolute;
     right: 20px;
@@ -1475,6 +1547,10 @@ h3 {
     object-fit: cover;
     border-radius: 8px;
     box-shadow: var(--shadow);
+}
+
+@media (max-width: 720px) {
+    .movie-poster img { width: 120px; height: auto; }
 }
 
 .movie-details {
@@ -2603,6 +2679,26 @@ body.transitions-enabled * {
     border-radius: 50%;
     object-fit: cover;
     box-shadow: var(--shadow);
+}
+
+/* Modal-specific responsive adjustments to prevent overflow and keep content readable */
+@media (max-width: 720px) {
+    .modal-content.profile-modal { width: 96%; max-width: 640px; margin: 1rem auto; }
+    .modal-content.profile-modal .profile-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1rem; }
+    .modal-content.profile-modal .profile-avatar-large { width: 84px; height: 84px; }
+    .modal-content.profile-modal .profile-info { width: 100%; }
+    .modal-content.profile-modal .profile-actions-top { width: 100%; display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.25rem; }
+    .modal-content.profile-modal .profile-stats { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .modal-content.profile-modal .profile-section .badges-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; }
+    .modal-content.profile-modal .activity-item img { width: 48px; height: 72px; }
+}
+
+@media (max-width: 420px) {
+    .modal-content.profile-modal { width: 98%; max-width: 420px; margin: 0.8rem auto; }
+    .modal-content.profile-modal .profile-stats { grid-template-columns: 1fr; }
+    .modal-content.profile-modal .profile-section .badges-list { grid-template-columns: 1fr; }
+    .modal-content.profile-modal .profile-actions-top { justify-content: flex-end; }
+    .modal-content.profile-modal .profile-info h2 { font-size: 1.1rem; }
 }
 
 .profile-info h2 {

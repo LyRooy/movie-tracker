@@ -903,6 +903,41 @@ class MovieTracker {
         return poster;
     }
 
+    shorten(text, max = 150) {
+        if (!text) return '';
+        if (text.length <= max) return text;
+        return text.substr(0, max - 1).trim() + '…';
+    }
+
+    // Helper: split and normalize comma/pipe/separator genres stored in DB
+    parseGenres(genreField) {
+        if (!genreField || typeof genreField !== 'string') return [];
+        // Split on common separators: comma, semicolon, pipe
+        const parts = genreField.split(/[,;|]+/).map(s => s.trim()).filter(Boolean);
+        // Normalize common values (e.g., Science_fiction -> Sci-Fi) and drop underscores
+        const map = {
+            'science_fiction': 'Sci-Fi',
+            'science fiction': 'Sci-Fi',
+            'sci-fi': 'Sci-Fi',
+            'dramat': 'Dramat',
+            'komedia': 'Komedia',
+            'horror': 'Horror',
+            'akcja': 'Akcja'
+        };
+        return parts.map(p => {
+            const key = p.toLowerCase().replace(/_/g, ' ').trim();
+            return map[key] || p.replace(/_/g, ' ');
+        });
+    }
+
+    // Case-insensitive genre compare: returns true when 'filter' is in item.genre string
+    genreMatches(itemGenre, filterGenre) {
+        if (!filterGenre) return true;
+        if (!itemGenre) return false;
+        const tokens = this.parseGenres(itemGenre).map(t => t.toLowerCase());
+        return tokens.includes(filterGenre.toLowerCase());
+    }
+
     async loadFriends() {
         try {
             const response = await fetch('/api/friends?status=accepted', {
@@ -1452,16 +1487,19 @@ class MovieTracker {
             : '<p class="no-activity">Brak ostatniej aktywności</p>';
 
         const modalHtml = `
-            <div class="modal active" id="friend-profile-modal">
+            <div class="modal active" id="friend-profile-modal" role="dialog" aria-modal="true" aria-labelledby="friend-profile-title">
                 <div class="modal-content profile-modal">
                     <span class="close" onclick="app.closeFriendProfileModal()">&times;</span>
                     <div class="profile-header">
                         <img src="${avatar}" alt="${profile.nickname}" class="profile-avatar-large">
                         <div class="profile-info">
-                            <h2>${profile.nickname}</h2>
+                            <h2 id="friend-profile-title">${profile.nickname}</h2>
                             ${profile.friendship ? `<span class="friendship-status ${profile.friendship.status}">${profile.friendship.status === 'pending' ? 'Oczekujące' : profile.friendship.status === 'accepted' ? 'Znajomi' : profile.friendship.status === 'rejected' ? 'Odrzucone' : profile.friendship.status}</span>` : ''}
                             <p class="profile-description">${profile.description || 'Brak opisu'}</p>
                             <p class="profile-member-since">Członek od ${memberSince}</p>
+                        </div>
+                        <div class="profile-actions-top">
+                            ${this.getProfileFriendshipControls(profile)}
                         </div>
                     </div>
 
@@ -1510,9 +1548,7 @@ class MovieTracker {
                         </div>
                     </div>
 
-                    <div class="profile-actions">
-                        ${this.getProfileFriendshipControls(profile)}
-                    </div>
+                    <!-- Actions moved to header: profile-actions-top -->
 
                     <div class="profile-section">
                         <h3><i class="fas fa-clock"></i> Ostatnia aktywność</h3>
@@ -1537,6 +1573,15 @@ class MovieTracker {
         const modal = document.getElementById('friend-profile-modal');
         // Ensure it's visible including for cases where .active class may not be applied by CSS
         try { modal.style.display = 'block'; } catch (e) {}
+        // Prevent background scrolling and focus the modal content for accessibility
+        try { document.body.style.overflow = 'hidden'; } catch (e) {}
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.setAttribute('tabindex', '-1');
+            modalContent.focus();
+        }
+        // Add a mobile marker class so CSS can further adapt if needed
+        if (window.innerWidth <= 520) modal.classList.add('mobile');
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeFriendProfileModal();
@@ -1577,6 +1622,7 @@ class MovieTracker {
         const modal = document.getElementById('friend-profile-modal');
         if (modal) {
             modal.classList.remove('active');
+            try { document.body.style.overflow = ''; } catch (e) {}
             setTimeout(() => modal.remove(), 300);
         }
     }
@@ -1850,6 +1896,32 @@ class MovieTracker {
         this.updateStats();
         this.displayRecentActivity();
         this.displayMyList();
+        // Populate the genre filter on the search page based on the user's movies (helpful for filtering by genres you already have)
+        try { this.populateGenreFilterFromList(this.watchedMovies); } catch (e) { /* ignore */ }
+    }
+
+    // Populate `#genre-filter` with unique genres found in the provided list (adds to existing options, ensures proper labels)
+    populateGenreFilterFromList(list) {
+        const genreSelect = document.getElementById('genre-filter');
+        if (!genreSelect || !Array.isArray(list)) return;
+
+        const existing = new Set(Array.from(genreSelect.options).map(o => o.value.toLowerCase()));
+        const found = new Set();
+        list.forEach(item => {
+            const genres = this.parseGenres(item.genre || '');
+            genres.forEach(g => found.add(g));
+        });
+
+        // Insert new options (keep order: 'All' stays on top)
+        const values = Array.from(found).sort((a,b) => a.localeCompare(b, 'pl'));
+        values.forEach(g => {
+            if (!existing.has(g.toLowerCase())) {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                genreSelect.appendChild(opt);
+            }
+        });
     }
 
     displayMyList(filterStatus = 'all') {
@@ -1930,6 +2002,7 @@ class MovieTracker {
                 : '';
 
             const viewClass = this.currentView === 'list' ? 'list-item-list' : 'list-item-grid';
+            const cardGenres = this.parseGenres(item.genre).join(', ');
             const listItemHtml = `
                 <div class="list-item ${viewClass}" data-status="${item.status || 'watched'}" data-id="${item.id}" data-type="${item.type}">
                     ${statusBadge}
@@ -1937,7 +2010,8 @@ class MovieTracker {
                     ${this.currentView === 'list' ? `
                     <div class="list-item-info">
                         <h3>${item.title}</h3>
-                        <p>${displayYear}${displayYear && (item.genre || typeInfo) ? ' • ' : ''}${item.genre || ''}${item.genre && typeInfo ? ' • ' : ''}${typeInfo}</p>
+                        <p>${displayYear}${displayYear && (cardGenres || typeInfo) ? ' • ' : ''}${cardGenres || ''}${cardGenres && typeInfo ? ' • ' : ''}${typeInfo}</p>
+                        ${item.description ? `<p class="list-item-desc">${this.shorten(item.description, 160)}</p>` : ''}
                         ${progressInfo}
                         <div class="list-item-rating">
                             <span class="stars">${stars}</span>
@@ -2064,9 +2138,9 @@ class MovieTracker {
             }
 
             if (genreFilter) {
-                filteredResults = filteredResults.filter(item => 
-                    item.genre.toLowerCase() === genreFilter.toLowerCase()
-                );
+                filteredResults = filteredResults.filter(item => {
+                    try { return this.genreMatches(item.genre, genreFilter); } catch (e) { return false; }
+                });
             }
 
             if (yearFilter) {
@@ -2088,6 +2162,8 @@ class MovieTracker {
 
         if (results.length === 0) {
             resultsContainer.innerHTML = '<p>Nie znaleziono wyników.</p>';
+            // Update genre filter available options from empty search (no-op)
+            this.populateGenreFilterFromList(results);
             return;
         }
 
@@ -2095,11 +2171,13 @@ class MovieTracker {
             const movieCard = document.createElement('div');
             movieCard.className = 'movie-card';
             const poster = this.getPosterUrl(item);
-            movieCard.innerHTML = `
+                const cardGenre = this.parseGenres(item.genre).join(', ');
+                movieCard.innerHTML = `
                 <img src="${poster}" alt="${item.title}">
                 <div class="movie-card-content">
                     <h3>${item.title}</h3>
                     <p>${item.description || ''}</p>
+                    <p class="movie-card-genre">${cardGenre}</p>
                     <div class="movie-rating">
                         <span class="stars">${'★'.repeat(Math.floor(item.rating || 0))}${'☆'.repeat(5-Math.floor(item.rating || 0))}</span>
                         <span>${item.rating || 0}</span>
@@ -2115,6 +2193,9 @@ class MovieTracker {
 
             resultsContainer.appendChild(movieCard);
         });
+
+        // Add any missing genre options to the search filters so users can refine
+        try { this.populateGenreFilterFromList(results); } catch (e) { /* ignore */ }
     }
 
     openMovieModal(movie, isEdit = false) {
@@ -2123,7 +2204,7 @@ class MovieTracker {
         const poster = this.getPosterUrl(movie);
         document.getElementById('modal-poster').src = poster;
         document.getElementById('modal-title').textContent = movie.title;
-        document.getElementById('modal-description').textContent = movie.description || '';
+        document.getElementById('modal-description').textContent = movie.description && movie.description.trim() !== '' ? movie.description : 'Brak opisu';
         
         // Extract year from release_date or use year field directly
         let displayYear = '';
@@ -2149,8 +2230,10 @@ class MovieTracker {
             }
         }
         
-        document.getElementById('modal-year').textContent = displayYear;
-        document.getElementById('modal-genre').textContent = movie.genre;
+        document.getElementById('modal-year').textContent = displayYear || '—';
+        // Normalize multi-genre field for display
+        const genreDisplay = Array.isArray(movie.genre) ? movie.genre.join(', ') : (movie.genre || '');
+        document.getElementById('modal-genre').textContent = this.parseGenres(genreDisplay).join(', ');
         const modalDurationEl = document.getElementById('modal-duration');
         if (movie.type === 'series') {
             // Jeśli backend nie dostarczył totalEpisodes/totalSeasons lub avg, pobierz szczegóły odcinków
@@ -2206,7 +2289,7 @@ class MovieTracker {
                 })();
             }
         } else {
-            modalDurationEl.textContent = movie.duration ? `${movie.duration} min` : '';
+            modalDurationEl.textContent = movie.duration ? `${movie.duration} min` : 'Brak danych';
         }
 
         // Ustaw status jeśli dostępny

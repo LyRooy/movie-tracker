@@ -99,6 +99,19 @@ async function handleGet(db, request, url, corsHeaders) {
   query += ' ORDER BY COALESCE(w.watched_date, m.created_at) DESC';
 
   try {
+    function normalizeGenre(genre) {
+      if (!genre || typeof genre !== 'string') return '';
+      return genre.split(/[,;|]+/)
+        .map(s => s.trim())
+        .map(s => s.replace(/_/g, ' '))
+        .map(s => {
+          const key = s.toLowerCase();
+          if (key === 'science fiction' || key === 'science_fiction' || key === 'science-fiction') return 'Sci-Fi';
+          return s;
+        })
+        .filter(Boolean)
+        .join(', ');
+    }
     const result = await db.prepare(query).bind(...params).all();
     
     if (!result || !result.results) {
@@ -164,7 +177,7 @@ async function handleGet(db, request, url, corsHeaders) {
             type: row.type,
             year: year,
             release_date: row.release_date || null,
-            genre: row.genre || 'Unknown',
+            genre: normalizeGenre(row.genre) || 'Unknown',
             rating: row.rating || 0,
             status: row.status || 'watched',
             watchedDate: row.watchedDate || null,
@@ -195,7 +208,7 @@ async function handleGet(db, request, url, corsHeaders) {
           title: row.title,
           type: row.type || 'movie',
           year: parseInt(row.year) || new Date().getFullYear(),
-          genre: row.genre || 'Unknown',
+          genre: normalizeGenre(row.genre) || 'Unknown',
           rating: row.rating || 0,
           status: row.status || 'watched',
           watchedDate: row.watchedDate || null,

@@ -81,6 +81,7 @@ export async function onRequest(context) {
         m.id,
         m.title,
         m.poster_url,
+        m.genre,
         m.media_type,
         w.watched_date,
         r.rating
@@ -123,7 +124,12 @@ export async function onRequest(context) {
         friends: friendsCount?.count || 0
       },
       badges: badges.results || [],
-      recentActivity: recentActivity.results || [],
+      recentActivity: (recentActivity.results || []).map(a => ({
+        ...a,
+        poster_url: (a.poster_url && a.poster_url.startsWith('http://')) ? a.poster_url.replace('http://', 'https://') : a.poster_url,
+        poster: (a.poster_url && a.poster_url.startsWith('http://')) ? a.poster_url.replace('http://', 'https://') : a.poster_url || `https://placehold.co/60x90/cccccc/666666/png?text=${encodeURIComponent(a.title)}`,
+        genre: (a.genre || '').replace(/_/g, ' ')
+      })),
       friendship: friendship ? {
         id: friendship.friendship_id,
         status: friendship.status,

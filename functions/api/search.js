@@ -9,6 +9,19 @@ function normalizePosterUrl(url) {
   return url;
 }
 
+  function normalizeGenre(genre) {
+    if (!genre || typeof genre !== 'string') return '';
+    return genre.split(/[,;|]+/)
+      .map(s => s.trim())
+      .map(s => {
+        const key = s.toLowerCase().replace(/_/g, ' ');
+        if (key === 'science fiction' || key === 'science_fiction' || key === 'science-fiction') return 'Sci-Fi';
+        return s.replace(/_/g, ' ');
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -105,7 +118,7 @@ export async function onRequest(context) {
         type: row.type,
         year: year,
         release_date: row.release_date || null,
-        genre: row.genre || 'Unknown',
+        genre: normalizeGenre(row.genre) || 'Unknown',
         // expose canonical poster_url and keep poster fallback
         poster_url: normalizePosterUrl(row.poster) || null,
         poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,

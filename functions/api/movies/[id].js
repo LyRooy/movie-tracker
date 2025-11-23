@@ -9,6 +9,20 @@ function normalizePosterUrl(url) {
   return url;
 }
 
+function normalizeGenre(genre) {
+  if (!genre || typeof genre !== 'string') return '';
+  return genre.split(/[,;|]+/)
+    .map(s => s.trim())
+    .map(s => s.replace(/_/g, ' '))
+    .map(s => {
+      const key = s.toLowerCase();
+      if (key === 'science fiction' || key === 'science_fiction' || key === 'science-fiction') return 'Sci-Fi';
+      return s;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
 export async function onRequest(context) {
   const { request, env, params } = context;
   const method = request.method;
@@ -107,7 +121,7 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
     type: movie.type,
     year: year,
     release_date: movie.release_date || null,
-    genre: movie.genre || 'Unknown',
+    genre: normalizeGenre(movie.genre) || 'Unknown',
     description: movie.description || '',
     rating: movie.rating || 0,
     status: movie.status,

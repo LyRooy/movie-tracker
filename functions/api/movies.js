@@ -147,35 +147,46 @@ async function handleGet(db, request, url, corsHeaders) {
               }
             }
 
-        return {
-          id: row.id,
-          title: row.title,
-          type: row.type,
-          year: parseInt(row.year) || new Date().getFullYear(),
-          genre: row.genre || 'Unknown',
-          rating: row.rating || 0,
-          status: row.status || 'watched',
-          watchedDate: row.watchedDate || null,
-              // Expose canonical `poster_url` (if available) and keep `poster` for backwards compatibility
-              poster_url: normalizePosterUrl(row.poster) || null,
-              poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
-              // For movies keep duration; for series expose avgEpisodeLength
-              duration: row.type === 'movie' ? (row.duration || 120) : (avgEpisodeLength || (row.duration || 120)),
-          review: row.review || '',
-          // Pola specyficzne dla seriali
-          totalSeasons: row.total_seasons || null,
-          totalEpisodes: row.total_episodes || null,
-              watchedEpisodes: watchedEpisodes,
-              avgEpisodeLength: avgEpisodeLength,
-          // Oblicz postęp dla serialu
-          progress: row.type === 'series' && row.total_episodes > 0 
-            ? Math.round((watchedEpisodes / row.total_episodes) * 100) 
-            : null
-        };
+        {
+          // sanitize year: ensure reasonable value or null
+          const rawYear = parseInt(row.year);
+          const currentYear = new Date().getFullYear();
+          const year = (Number.isFinite(rawYear) && rawYear >= 1800 && rawYear <= currentYear + 5) ? rawYear : null;
+
+          // movie duration: prefer DB column if present, otherwise null (do not default to 120)
+          const movieDuration = (row.duration !== undefined && row.duration !== null) ? Number(row.duration) : null;
+
+          return {
+            id: row.id,
+            title: row.title,
+            type: row.type,
+            year: year,
+            genre: row.genre || 'Unknown',
+            rating: row.rating || 0,
+            status: row.status || 'watched',
+            watchedDate: row.watchedDate || null,
+            // Expose canonical `poster_url` (if available) and keep `poster` for backwards compatibility
+            poster_url: normalizePosterUrl(row.poster) || null,
+            poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
+            // For movies prefer explicit movieDuration; for series expose avgEpisodeLength if available
+            duration: row.type === 'movie' ? movieDuration : (avgEpisodeLength || null),
+            // no trailer_url — duration is used for movies, series durations come from episodes
+            review: row.review || '',
+            // Pola specyficzne dla seriali
+            totalSeasons: row.total_seasons || null,
+            totalEpisodes: row.total_episodes || null,
+            watchedEpisodes: watchedEpisodes,
+            avgEpisodeLength: avgEpisodeLength,
+            // Oblicz postęp dla serialu
+            progress: row.type === 'series' && row.total_episodes > 0 
+              ? Math.round((watchedEpisodes / row.total_episodes) * 100) 
+              : null
+          };
+        }
       } catch (rowError) {
         console.error('Error processing row:', row.id, rowError);
         // Zwróć podstawowy obiekt w przypadku błędu
-        return {
+          return {
           id: row.id,
           title: row.title,
           type: row.type || 'movie',
@@ -186,7 +197,7 @@ async function handleGet(db, request, url, corsHeaders) {
           watchedDate: row.watchedDate || null,
           poster_url: null,
           poster: `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title || 'Movie')}`,
-          duration: 120,
+          duration: null,
           review: ''
         };
       }

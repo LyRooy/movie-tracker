@@ -93,10 +93,27 @@ async function handleGetMovies(db, request, corsHeaders) {
   }
 }
 
+// Ensure the movies table has a duration column (safe migration at runtime)
+async function ensureMoviesHasDuration(db) {
+  try {
+    const info = await db.prepare("PRAGMA table_info(movies)").all();
+    const cols = (info && info.results) ? info.results : (info || []);
+    const hasDuration = cols.some && cols.some(c => c.name === 'duration');
+    if (!hasDuration) {
+      await db.prepare('ALTER TABLE movies ADD COLUMN duration INTEGER').run();
+    }
+  } catch (e) {
+    // If for some reason PRAGMA or ALTER fails, log and continue — endpoint will still try to use duration
+    console.error('ensureMoviesHasDuration error:', e);
+  }
+}
+
 // Utwórz nowy film
 async function handleCreateMovie(db, request, corsHeaders) {
   try {
     const data = await request.json();
+    // Ensure DB has duration column so we can persist minutes
+    await ensureMoviesHasDuration(db);
     
     console.log('Creating movie with data:', data);
     
@@ -124,7 +141,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     const totalEpisodes = data.type === 'series' ? totalSeasons * episodesPerSeason : 1;
 
     const result = await db.prepare(`
-      INSERT INTO movies (title, media_type, release_date, genre, poster_url, description, trailer_url, total_seasons, total_episodes)
+      INSERT INTO movies (title, media_type, release_date, genre, poster_url, description, duration, total_seasons, total_episodes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       data.title,
@@ -133,7 +150,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
       data.genre || 'Unknown',
       normalizePosterUrl(data.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(data.title)}`,
       data.description || '',
-      data.trailerUrl || null,
+      (data.type === 'movie' && data.duration !== undefined) ? Number(data.duration) : null,
       totalSeasons,
       totalEpisodes
     ).run();
@@ -227,9 +244,10 @@ async function handleUpdateMovie(db, request, corsHeaders) {
     updates.push('description = ?');
     params.push(data.description);
   }
-  if (data.trailerUrl !== undefined) {
-    updates.push('trailer_url = ?');
-    params.push(data.trailerUrl);
+  if (data.duration !== undefined) {
+    // For movies duration should be minutes; for series it should be null
+    updates.push('duration = ?');
+    params.push(data.type === 'series' ? null : Number(data.duration));
   }
 
   if (updates.length === 0) {
@@ -241,9 +259,27 @@ async function handleUpdateMovie(db, request, corsHeaders) {
 
   params.push(data.id);
   
+  // Ensure duration column exists before updating
+  await ensureMoviesHasDuration(db);
+
   await db.prepare(`
     UPDATE movies SET ${updates.join(', ')} WHERE id = ?
   `).bind(...params).run();
+
+  // If admin provided average duration for a series, propagate it to episodes
+  try {
+    if (data.duration !== undefined && data.type === 'series') {
+      const avg = Number(data.duration);
+      if (!Number.isNaN(avg)) {
+        await db.prepare(`
+          UPDATE episodes SET duration = ?
+          WHERE season_id IN (SELECT id FROM seasons WHERE series_id = ?)
+        `).bind(avg, data.id).run();
+      }
+    }
+  } catch (e) {
+    console.error('Error propagating avg duration to episodes:', e);
+  }
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }

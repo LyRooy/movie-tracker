@@ -1459,8 +1459,18 @@ class MovieTracker {
                 this.watchedMovies = await response.json();
                 // Znormalizuj pole `year` dla wygodnego wyświetlania w UI.
                 this.watchedMovies = this.watchedMovies.map(item => {
-                    const raw = item.year || item.release_date || item.releaseDate || null;
-                    const normalized = this.normalizeYear(raw);
+                    const raw = item.release_date || item.releaseDate || null;
+                    // Prefer numeric `item.year` provided by the API when it's valid
+                    let normalized = null;
+                    if (typeof item.year === 'number' && this.safeYear(item.year)) {
+                        normalized = String(item.year);
+                    } else if (typeof item.year === 'string' && /^\d{4}$/.test(item.year)) {
+                        normalized = item.year;
+                    } else if (raw) {
+                        normalized = this.normalizeYear(raw);
+                    } else {
+                        normalized = null;
+                    }
                     // Normalizuj też pole plakatu — użyj helpera, który obsługuje różne pola
                     const poster = this.getPosterUrl(item);
 
@@ -1499,7 +1509,7 @@ class MovieTracker {
                     // Ustal ujednolicone pola na obiekcie
                     return {
                         ...item,
-                        year: normalized || (item.year || raw),
+                        year: normalized || null,
                         poster,
                         avgEpisodeLength: avgEp ? Number(avgEp) : null,
                         totalEpisodes: totalEpisodes ? Number(totalEpisodes) : (item.totalEpisodes ? Number(item.totalEpisodes) : null),
@@ -1768,9 +1778,17 @@ class MovieTracker {
         document.getElementById('modal-title').textContent = movie.title;
         document.getElementById('modal-description').textContent = movie.description || '';
         // Użyj bezpiecznego roku (najpierw safeYear, potem normalizeYear)
-        const rawYear = movie.year || movie.release_date || movie.releaseDate || null;
-        const safe = this.safeYear(rawYear) || this.normalizeYear(rawYear) || (movie.year ? String(movie.year) : '');
-        document.getElementById('modal-year').textContent = safe;
+        // Determine display year: prefer numeric `movie.year` from API when valid
+        let displayYear = '';
+        if (typeof movie.year === 'number' && this.safeYear(movie.year)) {
+            displayYear = String(movie.year);
+        } else if (typeof movie.year === 'string' && /^\d{4}$/.test(movie.year)) {
+            displayYear = movie.year;
+        } else {
+            const rawYear = movie.release_date || movie.releaseDate || null;
+            displayYear = this.safeYear(rawYear) || this.normalizeYear(rawYear) || '';
+        }
+        document.getElementById('modal-year').textContent = displayYear;
         document.getElementById('modal-genre').textContent = movie.genre;
         const modalDurationEl = document.getElementById('modal-duration');
         if (movie.type === 'series') {

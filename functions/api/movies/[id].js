@@ -93,11 +93,17 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
   }
 
   // Przekształć do formatu zgodnego z frontendem
+  // sanitize year and duration
+  const rawYear = parseInt(movie.year);
+  const currentYear = new Date().getFullYear();
+  const year = (Number.isFinite(rawYear) && rawYear >= 1800 && rawYear <= currentYear + 5) ? rawYear : null;
+  const movieDuration = (movie.duration !== undefined && movie.duration !== null) ? Number(movie.duration) : null;
+
   const transformedMovie = {
     id: movie.id,
     title: movie.title,
     type: movie.type,
-    year: parseInt(movie.year) || new Date().getFullYear(),
+    year: year,
     genre: movie.genre || 'Unknown',
     rating: movie.rating || 0,
     status: movie.status,
@@ -105,7 +111,8 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
     // Provide canonical poster_url for frontend to prefer, keep poster fallback for legacy clients
     poster_url: normalizePosterUrl(movie.poster) || null,
     poster: normalizePosterUrl(movie.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(movie.title)}`,
-    duration: movie.duration || 120,
+    // do not default to 120 minutes for movies; keep null if unknown
+    duration: movie.type === 'movie' ? movieDuration : null,
     review: movie.review || ''
   };
 

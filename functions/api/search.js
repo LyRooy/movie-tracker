@@ -71,20 +71,25 @@ export async function onRequest(context) {
     `).bind(searchQuery, searchQuery, searchQuery).all();
 
     // Przekształć do formatu zgodnego z frontendem
-    const transformedResults = result.results.map(row => ({
-      id: `db_${row.id}`,
-      title: row.title,
-      type: row.type,
-      year: parseInt(row.year) || new Date().getFullYear(),
-      genre: row.genre || 'Unknown',
-      // expose canonical poster_url and keep poster fallback
-      poster_url: normalizePosterUrl(row.poster) || null,
-      poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
-      description: row.description || '',
-      rating: 0,
-      status: 'planning',
-      watchedDate: new Date().toISOString().split('T')[0]
-    }));
+    const transformedResults = result.results.map(row => {
+      const rawYear = parseInt(row.year);
+      const currentYear = new Date().getFullYear();
+      const year = (Number.isFinite(rawYear) && rawYear >= 1800 && rawYear <= currentYear + 5) ? rawYear : null;
+      return {
+        id: `db_${row.id}`,
+        title: row.title,
+        type: row.type,
+        year: year,
+        genre: row.genre || 'Unknown',
+        // expose canonical poster_url and keep poster fallback
+        poster_url: normalizePosterUrl(row.poster) || null,
+        poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
+        description: row.description || '',
+        rating: 0,
+        status: 'planning',
+        watchedDate: new Date().toISOString().split('T')[0]
+      };
+    });
 
     return new Response(JSON.stringify(transformedResults), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

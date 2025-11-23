@@ -9,9 +9,9 @@ class MovieTracker {
         this.adminVerified = false;
         this.currentView = 'grid'; // Śledź aktualny tryb widoku
         this.tokenCheckInterval = null; // Sprawdzacz wygaśnięcia tokenu
-        
-        this.init();
+        this.init(); 
     }
+    // ============= KONIEC KONSTRUKTORA I INIT =============
 
     async init() {
         // Sprawdź czy użytkownik jest zalogowany
@@ -39,7 +39,7 @@ class MovieTracker {
             document.body.classList.add('transitions-enabled');
         }, 100);
     }
-
+    // ============= BIND EVENTS =============
     bindEvents() {
         // Nawigacja
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -292,6 +292,7 @@ class MovieTracker {
             this.bindAdminEvents();
         }
     }
+    // ============= KONIEC BIND EVENTS =============
 
     showSection(sectionName) {
         // Panel admina wymaga weryfikacji hasła
@@ -828,6 +829,38 @@ class MovieTracker {
         return m ? m[0] : v;
     }
 
+    // Zwraca poprawny URL plakatu z obiektu (PRIORYTET: `poster_url` z bazy).
+    // Jeśli brak, generuje placeholder używając placehold.co (z tytułem filmu).
+    // Zapisuje znormalizowany URL do `item.poster` dla wygody frontendu.
+    getPosterUrl(item) {
+        const origin = window.location ? window.location.origin : '';
+        if (!item) return this._generatePlaceholderUrl('Brak');
+
+        let p = null;
+        // Preferuj `poster_url` (pochodzące z bazy). Jeśli API zwraca `poster`, zaakceptuj je jako fallback.
+        if (typeof item.poster_url === 'string' && item.poster_url.trim() !== '') {
+            p = item.poster_url.trim();
+        } else if (typeof item.poster === 'string' && item.poster.trim() !== '') {
+            p = item.poster.trim();
+        }
+
+        if (!p) {
+            // Użyj tytułu, jeśli dostępny, aby stworzyć czytelny placeholder
+            const title = item.title ? String(item.title) : 'No Image';
+            p = this._generatePlaceholderUrl(title);
+        }
+
+        if (p.startsWith('/')) p = origin + p;
+        item.poster = p;
+        return p;
+    }
+
+    _generatePlaceholderUrl(title) {
+        const text = encodeURIComponent(title || 'No Image');
+        // Rozmiar 300x450 — używany jako uniwersalny placeholder
+        return `https://placehold.co/300x450/cccccc/000000/png?text=${text}`;
+    }
+
     async loadFriends() {
         try {
             const response = await fetch('/api/friends?status=accepted', {
@@ -1355,10 +1388,8 @@ class MovieTracker {
                 this.watchedMovies = this.watchedMovies.map(item => {
                     const raw = item.year || item.release_date || item.releaseDate || null;
                     const normalized = this.normalizeYear(raw);
-                    // Normalizuj też pole plakatu — używamy nazw zgodnych ze schematem DB
-                    // Priorytet: `poster_url`, potem `image_url`, a następnie placeholder
-                    let poster = item.poster_url || item.image_url || '/images/placeholder.png';
-                    if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
+                    // Normalizuj też pole plakatu — użyj helpera, który obsługuje różne pola
+                    const poster = this.getPosterUrl(item);
                     return { ...item, year: normalized || (item.year || raw), poster };
                 });
             } else {
@@ -1408,9 +1439,8 @@ class MovieTracker {
         filteredItems.forEach(item => {
             const statusBadge = this.getStatusBadge(item.status || 'watched');
             const stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
-            // Upewnij się, że mamy poprawny URL plakatu — użyj schematu DB: `poster_url` > `image_url`
-            let poster = item.poster_url || item.image_url || '/images/placeholder.png';
-            if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
+            // Upewnij się, że mamy poprawny URL plakatu — użyj helpera, który obsługuje różne pola
+            const poster = this.getPosterUrl(item);
             
             // Informacje o postępie dla seriali
             const progressInfo = item.type === 'series' && item.totalEpisodes 
@@ -1476,9 +1506,7 @@ class MovieTracker {
         recentItems.forEach(item => {
             const activityItem = document.createElement('div');
             activityItem.className = 'activity-item';
-            // Używamy nazw zgodnych ze schematem DB: `poster_url` priorytetowo
-            let poster = item.poster_url || item.image_url || '/images/placeholder.png';
-            if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
+            const poster = this.getPosterUrl(item);
             activityItem.innerHTML = `
                 <img src="${poster}" alt="${item.title}">
                 <div class="activity-info">
@@ -1568,7 +1596,7 @@ class MovieTracker {
         results.forEach(item => {
             const movieCard = document.createElement('div');
             movieCard.className = 'movie-card';
-            const poster = item.poster_url || item.image_url || '/images/placeholder.png';
+            const poster = this.getPosterUrl(item);
             movieCard.innerHTML = `
                 <img src="${poster}" alt="${item.title}">
                 <div class="movie-card-content">
@@ -1583,7 +1611,7 @@ class MovieTracker {
 
             movieCard.addEventListener('click', () => {
                 // Upewnij się, że obiekt ma pole poster ustawione (modal używa movie.poster)
-                item.poster = item.poster_url || item.image_url || poster;
+                item.poster = this.getPosterUrl(item);
                 this.openMovieModal(item);
             });
 
@@ -1594,8 +1622,7 @@ class MovieTracker {
     openMovieModal(movie, isEdit = false) {
         const modal = document.getElementById('movie-modal');
         // Upewnij się, że modal dostaje prawidłowy URL plakatu (schemat DB)
-        let poster = movie.poster_url || movie.image_url || '/images/placeholder.png';
-        if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
+        const poster = this.getPosterUrl(movie);
         document.getElementById('modal-poster').src = poster;
         document.getElementById('modal-title').textContent = movie.title;
         document.getElementById('modal-description').textContent = movie.description || '';
@@ -1648,6 +1675,7 @@ class MovieTracker {
         modal.style.display = 'block';
         modal.currentMovie = movie;
         modal.isEditMode = isEdit;
+        // ============= MODALE I OCENY =============
     }
     
     switchModalTab(tabName) {
@@ -1712,6 +1740,7 @@ class MovieTracker {
     closeModal() {
         document.getElementById('movie-modal').style.display = 'none';
     }
+    // ============= KONIEC MODALI I OCENY =============
 
     setRating(rating) {
         this.currentRating = rating;

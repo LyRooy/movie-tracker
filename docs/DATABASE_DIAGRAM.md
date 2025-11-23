@@ -427,6 +427,10 @@ Jeśli środowisko ma wyłączone enforcement FK, rozważ jawne usuwanie w kodzi
 
 Przykładowe zapytania do dodania `display_number` i wypełnienia istniejących rekordów (wykonaj je z backupem):
 
+> Uwaga: W najnowszym schemacie (`wrangler/schema.sql`) kolumna `display_number` jest utworzona jako część definicji tabeli `episodes`. Jeśli używasz świeżej bazy danych stworzonej z `schema.sql`, nie jest konieczne uruchamianie `ALTER TABLE`.
+
+Jeśli Twoja baza danych została utworzona według starszego schematu i nie posiada kolumny `display_number`, możesz uruchomić poniższe zapytania migracyjne (wykonaj kopię zapasową przed migracją):
+
 ```sql
 BEGIN;
 ALTER TABLE episodes ADD COLUMN display_number TEXT;
@@ -443,10 +447,19 @@ Dodanie indeksu (opcjonalnie):
 CREATE INDEX IF NOT EXISTS idx_episodes_display_number ON episodes(display_number);
 ```
 
+Jeśli chcesz również dodać kolumnę `movies.duration` (używaną do przechowywania czasu trwania dla filmów, oraz opcjonalnie jako wartość per-movie), uruchom:
+
+```sql
+ALTER TABLE movies ADD COLUMN duration INTEGER;
+``` 
+You can then update existing movies with appropriate duration values.
+
 ### Triggery (opcjonalne) — automatyczne ustawianie `display_number` podczas INSERT / UPDATE
 
 ```sql
-CREATE TRIGGER IF NOT EXISTS trg_episodes_display_insert
+-- Uwaga: trigger do automatycznego utrzymywania `display_number` jest teraz częścią domyślnego schematu w `wrangler/schema.sql`.
+-- Jeśli zdarzy Ci się migrować starszą bazę, możesz dodać trigger ręcznie lub użyć dedykowanego skryptu migracji.
+CREATE TRIGGER trg_episodes_display_insert
 AFTER INSERT ON episodes
 BEGIN
   UPDATE episodes
@@ -455,7 +468,7 @@ BEGIN
   WHERE id = NEW.id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS trg_episodes_display_update
+CREATE TRIGGER trg_episodes_display_update
 AFTER UPDATE OF season_id, episode_number ON episodes
 BEGIN
   UPDATE episodes
@@ -467,6 +480,7 @@ END;
 
 ### Uwaga przy migracji
 
+- The `display_number` column is included in the current repository schema (`wrangler/schema.sql`) so **fresh DBs created from the schema already have it**. If you're migrating from an older DB you may add the column manually as shown above.
 - W SQLite `ALTER TABLE ADD COLUMN` nie wspiera `IF NOT EXISTS` (w starszych wersjach), dlatego przed uruchomieniem warto sprawdzić, czy kolumna już istnieje:
 ```sql
 SELECT COUNT(*) FROM pragma_table_info('episodes') WHERE name='display_number';

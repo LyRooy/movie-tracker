@@ -3862,6 +3862,9 @@ class MovieTracker {
     }
 
     populateAdminEpisodesModal(data) {
+        const hasDisplay = data && data.hasDisplay;
+        const warnEl = document.getElementById('admin-episodes-warning');
+        if (warnEl) { warnEl.style.display = hasDisplay ? 'none' : 'block'; }
         const container = document.getElementById('admin-episodes-list');
         container.innerHTML = '';
         if (!data || !Array.isArray(data.episodes) || data.episodes.length === 0) {
@@ -3889,7 +3892,7 @@ class MovieTracker {
                 row.innerHTML = `
                     <div class="admin-episode-meta">
                         <label>Numer: </label>
-                        <input type="text" class="admin-episode-displayNumber" value="${this.escapeHtml(ep.displayNumber || '')}" />
+                        <input type="text" class="admin-episode-displayNumber" value="${this.escapeHtml(ep.displayNumber || '')}" ${hasDisplay ? '' : 'disabled'} />
                     </div>
                     <div class="admin-episode-fields">
                         <label>Tytuł</label>
@@ -3933,7 +3936,8 @@ class MovieTracker {
             const title = row.querySelector('.admin-episode-title').value.trim();
             const durationVal = row.querySelector('.admin-episode-duration').value;
             const duration = durationVal === '' ? undefined : Number(durationVal);
-            const description = row.querySelector('.admin-episode-description').value.trim();
+            const descriptionRaw = row.querySelector('.admin-episode-description').value;
+            const description = descriptionRaw === undefined ? undefined : descriptionRaw.trim();
             const displayNumberVal = row.querySelector('.admin-episode-displayNumber') ? row.querySelector('.admin-episode-displayNumber').value.trim() : undefined;
             const displayNumber = displayNumberVal === '' ? undefined : displayNumberVal;
             const airDateVal = row.querySelector('.admin-episode-airdate') ? row.querySelector('.admin-episode-airdate').value.trim() : undefined;
@@ -3941,7 +3945,7 @@ class MovieTracker {
 
             const body = { id: Number(episodeId) };
             if (title !== undefined) body.title = title;
-            if (description !== undefined) body.description = description;
+            if (description !== undefined) body.description = (description === '' ? null : description);
             if (displayNumber !== undefined) body.displayNumber = displayNumber;
             if (airDate !== undefined) body.airDate = airDate;
             if (duration !== undefined) body.duration = Number(duration);
@@ -3974,12 +3978,13 @@ class MovieTracker {
                 const airDateVal = row.querySelector('.admin-episode-airdate') ? row.querySelector('.admin-episode-airdate').value.trim() : undefined;
                 const airDate = airDateVal === '' ? undefined : airDateVal;
                 const duration = durationVal === '' ? undefined : Number(durationVal);
-                const description = row.querySelector('.admin-episode-description').value.trim();
+                const descriptionRaw = row.querySelector('.admin-episode-description').value;
+                const description = descriptionRaw === undefined ? undefined : descriptionRaw.trim();
                 const displayNumberVal = row.querySelector('.admin-episode-displayNumber') ? row.querySelector('.admin-episode-displayNumber').value.trim() : undefined;
                 const displayNumber = displayNumberVal === '' ? undefined : displayNumberVal;
                 const ep = { id };
                 if (title !== undefined) ep.title = title;
-                if (description !== undefined) ep.description = description;
+                if (description !== undefined) ep.description = (description === '' ? null : description);
                 if (displayNumber !== undefined) ep.displayNumber = displayNumber;
                 if (airDate !== undefined) ep.airDate = airDate;
                 if (duration !== undefined) ep.duration = duration;

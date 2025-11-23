@@ -293,7 +293,14 @@ async function handleUpdateMovie(db, request, corsHeaders) {
       updates.push('duration = ?');
       params.push(isSeries ? null : episodeDuration);
     } else {
-      console.warn('[admin/movies] duration column missing, skipping update of movies.duration');
+      // If the target is a movie and the DB schema doesn't support duration, return an informative error
+      if (!isSeries) {
+        return new Response(JSON.stringify({ error: 'Movies table missing duration column; please apply DB migration to support updating movie duration.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      console.warn('[admin/movies] duration column missing, skipping update of movies.duration (series propagation may still occur)');
     }
   }
 
@@ -312,9 +319,13 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   // Check presence of movies.duration column (don't alter schema here)
   const hasMoviesDuration = await hasColumn(db, 'movies', 'duration');
   console.log('[admin/movies] Updates:', updates, 'Params:', params);
-  await db.prepare(`
-    UPDATE movies SET ${updates.join(', ')} WHERE id = ?
-  `).bind(...params).run();
+  if (updates.length > 0) {
+    await db.prepare(`
+      UPDATE movies SET ${updates.join(', ')} WHERE id = ?
+    `).bind(...params).run();
+  } else {
+    console.log('[admin/movies] No direct movie updates to run, skipping UPDATE movies query');
+  }
 
   // If admin provided duration for a series, propagate it to all episodes
   try {

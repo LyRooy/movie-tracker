@@ -141,11 +141,26 @@ export async function onRequestPost(context) {
       const seasonId = seasonResult.meta.last_row_id;
       
       // Wstaw odcinki dla tego sezonu
-      for (let epNum = 1; epNum <= episodeCount; epNum++) {
-        await env.db.prepare(`
-          INSERT INTO episodes (season_id, episode_number, title, duration)
-          VALUES (?, ?, ?, ?)
-        `).bind(seasonId, epNum, `Odcinek ${epNum}`, 45).run();
+      const hasEpisodeDisplay = await env.db.prepare("PRAGMA table_info(episodes)").all().then(info => {
+        const cols = (info && info.results) ? info.results : (info || []);
+        return Array.isArray(cols) && cols.some(c => c.name === 'display_number');
+      }).catch(e => { console.warn('[admin/seasons] hasEpisodeDisplay error:', e); return false; });
+      // Determine default episodeDuration: prefer the movie's duration (if exists), otherwise fallback to 45
+      const movieInfo = await env.db.prepare('SELECT id, duration FROM movies WHERE id = ?').bind(seriesId).first();
+      const defaultEpisodeDuration = (movieInfo && movieInfo.duration !== null && movieInfo.duration !== undefined) ? Number(movieInfo.duration) : 45;
+        for (let epNum = 1; epNum <= episodeCount; epNum++) {
+        const displayNumber = `S${String(seasonNumber).padStart(2, '0')} - E${String(epNum).padStart(3, '0')}`;
+        if (hasEpisodeDisplay) {
+          await env.db.prepare(`
+            INSERT INTO episodes (season_id, episode_number, title, duration, display_number)
+            VALUES (?, ?, ?, ?, ?)
+          `).bind(seasonId, epNum, `Odcinek ${epNum}`, defaultEpisodeDuration, displayNumber).run();
+        } else {
+          await env.db.prepare(`
+            INSERT INTO episodes (season_id, episode_number, title, duration)
+            VALUES (?, ?, ?, ?)
+          `).bind(seasonId, epNum, `Odcinek ${epNum}`, defaultEpisodeDuration).run();
+        }
       }
       
       totalEpisodes += episodeCount;

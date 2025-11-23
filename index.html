@@ -722,6 +722,9 @@
             <div class="modal-body">
                 <h3 id="admin-episodes-modal-title">Edytuj odcinki</h3>
                 <p class="modal-subtitle" id="admin-episodes-modal-subtitle">Wybierz odcinek aby go edytować lub użyj "Zapisz wszystkie"</p>
+                <div id="admin-episodes-warning" class="admin-warning" style="display:none; margin-bottom: 8px;">
+                    Kolumna <code>display_number</code> nie istnieje w bazie danych. Numeracja wyświetlana poniżej jest obliczana i nie zostanie zapisana - wykonaj migrację aby zapisywać wartości.
+                </div>
                 <form id="admin-episodes-form">
                     <input type="hidden" id="admin-episodes-series-id">
                     <div id="admin-episodes-list">

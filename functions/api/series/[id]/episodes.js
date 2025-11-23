@@ -96,12 +96,12 @@ async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
       });
     }
 
-    if (row.episode_id) {
+        if (row.episode_id) {
       seasonsMap.get(row.season_id).episodes.push({
         id: row.episode_id,
         episodeNumber: row.episode_number,
         title: row.episode_title,
-          displayNumber: row.display_number || null,
+          displayNumber: row.display_number || `S${String(row.season_number).padStart(2,'0')} - E${String(row.episode_number).padStart(3,'0')}`,
         description: row.description,
         airDate: row.air_date,
         duration: row.duration,

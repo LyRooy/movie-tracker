@@ -453,11 +453,17 @@ h3 {
 }
 
 /* Slightly more padding for add-friend modal contents */
+/* Slightly more padding for add-friend modal contents and center header */
 #add-friend-modal .modal-content {
-    padding: 0; /* keep existing layout */
+    padding: 0.5rem 0.75rem;
 }
-#add-friend-modal .modal-body {
-    padding: 1.25rem 1.5rem;
+#add-friend-modal .modal-content > h2 {
+    text-align: center;
+    margin: 0.5rem 0 0.5rem 0;
+    font-size: 1.5rem;
+}
+#add-friend-modal .search-friend-container {
+    padding: 1rem;
 }
 
 /* Center empty content inside lists */

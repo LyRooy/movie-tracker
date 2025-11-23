@@ -539,12 +539,18 @@ class MovieTracker {
             userSearchInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
                 const query = e.target.value.trim();
-                
+                const resultsContainer = document.getElementById('friend-search-results');
+
+                // Wyczyść wyniki jeśli zapytanie jest puste
                 if (query.length < 2) {
-                    document.getElementById('friend-search-results').innerHTML = '';
+                    if (resultsContainer) {
+                        resultsContainer.innerHTML = '<p class="help-text">Wpisz co najmniej 2 znaki, aby wyszukać użytkowników.</p>';
+                    }
                     return;
                 }
-                
+
+                // Pokaż komunikat szukania
+                if (resultsContainer) resultsContainer.innerHTML = '<p class="searching">Szukam...</p>';
                 searchTimeout = setTimeout(() => {
                     this.searchUsers(query);
                 }, 300);
@@ -703,8 +709,8 @@ class MovieTracker {
         container.innerHTML = badges.map(badge => `
             <div class="badge-item-full">
                 <div class="badge-icon">
-                    ${badge.imageUrl 
-                        ? `<img src="${badge.imageUrl}" alt="${badge.name}">` 
+                    ${badge.image_url || badge.imageUrl 
+                        ? `<img src="${badge.image_url || badge.imageUrl}" alt="${badge.name}">` 
                         : '<i class="fas fa-award"></i>'
                     }
                 </div>
@@ -763,8 +769,8 @@ class MovieTracker {
 
         container.innerHTML = badges.map(badge => `
             <div class="badge-item">
-                ${badge.imageUrl 
-                    ? `<img src="${badge.imageUrl}" alt="${badge.name}">` 
+                ${badge.image_url || badge.imageUrl 
+                    ? `<img src="${badge.image_url || badge.imageUrl}" alt="${badge.name}">` 
                     : '<i class="fas fa-award"></i>'
                 }
                 <h4>${badge.name}</h4>
@@ -1349,8 +1355,10 @@ class MovieTracker {
                 this.watchedMovies = this.watchedMovies.map(item => {
                     const raw = item.year || item.release_date || item.releaseDate || null;
                     const normalized = this.normalizeYear(raw);
-                    // Normalizuj też pole plakatu z różnych możliwych nazw
-                    const poster = item.poster || item.poster_url || item.posterUrl || item.image || item.image_url || '/images/placeholder.png';
+                    // Normalizuj też pole plakatu — używamy nazw zgodnych ze schematem DB
+                    // Priorytet: `poster_url`, potem `image_url`, a następnie placeholder
+                    let poster = item.poster_url || item.image_url || '/images/placeholder.png';
+                    if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
                     return { ...item, year: normalized || (item.year || raw), poster };
                 });
             } else {
@@ -1400,6 +1408,9 @@ class MovieTracker {
         filteredItems.forEach(item => {
             const statusBadge = this.getStatusBadge(item.status || 'watched');
             const stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
+            // Upewnij się, że mamy poprawny URL plakatu — użyj schematu DB: `poster_url` > `image_url`
+            let poster = item.poster_url || item.image_url || '/images/placeholder.png';
+            if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
             
             // Informacje o postępie dla seriali
             const progressInfo = item.type === 'series' && item.totalEpisodes 
@@ -1416,7 +1427,7 @@ class MovieTracker {
             const listItemHtml = `
                 <div class="list-item ${viewClass}" data-status="${item.status || 'watched'}" data-id="${item.id}" data-type="${item.type}">
                     ${statusBadge}
-                    <img src="${item.poster}" alt="${item.title}" class="list-item-poster">
+                    <img src="${poster}" alt="${item.title}" class="list-item-poster">
                     ${this.currentView === 'list' ? `
                     <div class="list-item-info">
                         <h3>${item.title}</h3>
@@ -1465,8 +1476,11 @@ class MovieTracker {
         recentItems.forEach(item => {
             const activityItem = document.createElement('div');
             activityItem.className = 'activity-item';
+            // Używamy nazw zgodnych ze schematem DB: `poster_url` priorytetowo
+            let poster = item.poster_url || item.image_url || '/images/placeholder.png';
+            if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
             activityItem.innerHTML = `
-                <img src="${item.poster}" alt="${item.title}">
+                <img src="${poster}" alt="${item.title}">
                 <div class="activity-info">
                     <h4>${item.title}</h4>
                     <p>Obejrzano: ${this.formatDate(item.watchedDate)}</p>
@@ -1554,7 +1568,7 @@ class MovieTracker {
         results.forEach(item => {
             const movieCard = document.createElement('div');
             movieCard.className = 'movie-card';
-            const poster = item.poster || item.poster_url || item.posterUrl || item.image || item.image_url || '/images/placeholder.png';
+            const poster = item.poster_url || item.image_url || '/images/placeholder.png';
             movieCard.innerHTML = `
                 <img src="${poster}" alt="${item.title}">
                 <div class="movie-card-content">
@@ -1568,6 +1582,8 @@ class MovieTracker {
             `;
 
             movieCard.addEventListener('click', () => {
+                // Upewnij się, że obiekt ma pole poster ustawione (modal używa movie.poster)
+                item.poster = item.poster_url || item.image_url || poster;
                 this.openMovieModal(item);
             });
 
@@ -1577,8 +1593,10 @@ class MovieTracker {
 
     openMovieModal(movie, isEdit = false) {
         const modal = document.getElementById('movie-modal');
-        
-        document.getElementById('modal-poster').src = movie.poster;
+        // Upewnij się, że modal dostaje prawidłowy URL plakatu (schemat DB)
+        let poster = movie.poster_url || movie.image_url || '/images/placeholder.png';
+        if (poster && poster.startsWith('/')) poster = window.location.origin + poster;
+        document.getElementById('modal-poster').src = poster;
         document.getElementById('modal-title').textContent = movie.title;
         document.getElementById('modal-description').textContent = movie.description || '';
         document.getElementById('modal-year').textContent = this.normalizeYear(movie.year || movie.release_date || movie.releaseDate) || (movie.year || '');
@@ -3061,7 +3079,7 @@ class MovieTracker {
         }
 
         const data = {
-            name: rawName.trim(),
+            title: rawName.trim(),
             description: document.getElementById('admin-challenge-description').value || null,
             type: rawType.trim(),
             criteria_value: document.getElementById('admin-challenge-criteria').value || null,
@@ -3071,36 +3089,14 @@ class MovieTracker {
             badge_id: (rawBadge && rawBadge.trim() !== '') ? (parseInt(rawBadge) || null) : null
         };
 
-        // Przygotuj payload z dodatkowymi wariantami kluczy, które backend może wymagać
-        const payload = {
-            // oryginalne pola (snake_case)
-            ...data,
-            // warianty w camelCase / PascalCase / alternatywne nazwy
-            Title: data.name,           // niektóre backendy mogą oczekiwać 'Title'
-            title: data.name,
-            Name: data.name,
-            name: data.name,
-
-            type: data.type,
-            Type: data.type,
-
-            targetCount: data.target_count,
-            target_count: data.target_count,
-
-            startDate: data.start_date,
-            start_date: data.start_date,
-            endDate: data.end_date,
-            end_date: data.end_date,
-
-            criteriaValue: data.criteria_value,
-            criteria_value: data.criteria_value,
-
-            badgeId: data.badge_id,
-            badge_id: data.badge_id
-        };
+        // Walidacja wymagalnych pól zgodnie ze schematem DB
+        if (!data.start_date) {
+            this.showNotification('Data rozpoczęcia jest wymagana (wprowadź w formacie DD.MM.RRRR lub RRRR-MM-DD)', 'error');
+            return;
+        }
 
         // Debug log danych wyzwania (wysyłany payload)
-        console.log('Saving challenge payload (sent):', payload);
+        console.log('Saving challenge payload (sent):', data);
 
         try {
             const url = id ? `/api/admin/challenges/${id}` : '/api/admin/challenges';

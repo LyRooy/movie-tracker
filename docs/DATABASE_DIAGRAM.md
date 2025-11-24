@@ -58,7 +58,7 @@ Table episodes {
   title text [not null]
   description text
   air_date text
-  display_number text [note: 'Sxx - Eyyy formatted display number, optional; use triggers or backfill to populate']
+  display_number text
   duration integer [default: 45]
   created_at text
   

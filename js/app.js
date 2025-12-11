@@ -2801,6 +2801,7 @@ class MovieTracker {
                 <h3>${this.getMonthName(this.calendarMonth)} ${this.calendarYear}</h3>
                 <div class="calendar-nav">
                     <button onclick="app.changeMonth(-1)">‹</button>
+                    <button onclick="app.goToToday()" class="today-btn">Dzisiaj</button>
                     <button onclick="app.changeMonth(1)">›</button>
                 </div>
             </div>
@@ -2985,6 +2986,14 @@ class MovieTracker {
         }
         
         // Przerysuj kalendarz
+        this.generateCalendar();
+    }
+
+    goToToday() {
+        // Powrót do aktualnego miesiąca
+        const now = new Date();
+        this.calendarMonth = now.getMonth();
+        this.calendarYear = now.getFullYear();
         this.generateCalendar();
     }
 

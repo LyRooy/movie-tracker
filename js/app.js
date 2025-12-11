@@ -3244,7 +3244,9 @@ class MovieTracker {
             // Sprawdź czy token wygasł przed wykonaniem wywołania API
             if (this.isTokenExpired(this.authToken)) {
                 console.log('Token expired, logging out...');
-                this.logout();
+                localStorage.setItem('sessionExpired', 'true');
+                localStorage.removeItem('movieTrackerToken');
+                this.authToken = null;
                 return;
             }
             
@@ -3313,10 +3315,16 @@ class MovieTracker {
     }
 
     showAuthScreen() {
+        // Sprawdź czy sesja wygasła
+        const sessionExpired = localStorage.getItem('sessionExpired');
+        const expiredMessage = sessionExpired ? '<div class="auth-info" style="display: block; background-color: #ff9800; color: white; padding: 0.75rem; border-radius: 5px; margin-bottom: 1rem; text-align: center;"><i class="fas fa-clock"></i> Twoja sesja wygasła. Zaloguj się ponownie.</div>' : '';
+        localStorage.removeItem('sessionExpired');
+        
         document.body.innerHTML = `
             <div class="auth-container">
                 <div class="auth-card">
                     <h2 id="auth-title">Zaloguj się do MovieTracker</h2>
+                    ${expiredMessage}
                     <div id="auth-error" class="auth-error" style="display: none;"></div>
                     <form class="auth-form" id="auth-form">
                         <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">

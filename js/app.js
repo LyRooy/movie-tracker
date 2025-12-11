@@ -1668,8 +1668,8 @@ class MovieTracker {
                 // allow removing the 'rejected' entry so it can be resent later
                 return `<span class="friendship-status rejected">Odrzucone</span> <button class="btn btn-secondary" onclick="app.dismissRejected(${f.id}, ${profile.id})">Potwierdź odrzucenie</button> <button class="btn btn-primary" onclick="app.sendFriendRequest(${profile.id})">Wyślij ponownie</button>`;
             case 'accepted':
-                // Nie pokazujemy przycisku "Usuń znajomego" w modalu - jest już w sekcji profilu
-                return `<span class="friendship-status accepted">Znajomy</span>`;
+                // Nie pokazujemy nic dla znajomych - przycisk jest w sekcji profilu
+                return '';
             case 'blocked':
                 return `<span class="friendship-status blocked">Zablokowany</span>`;
             default:

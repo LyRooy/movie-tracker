@@ -51,20 +51,45 @@
         align-items: flex-start;
         gap: 0.75rem;
         padding: 1rem;
+        width: 100%;
+        overflow-x: hidden;
     }
     .profile-info-top { 
         display: flex; 
         flex-direction: column;
         width: 100%;
         gap: 0.75rem; 
-        align-items: center; 
+        align-items: center;
+        overflow-x: hidden;
     }
     .avatar { width: 80px; height: 80px; }
     .user-details { 
         width: 100%;
         text-align: center;
+        max-width: 100%;
+        overflow-wrap: break-word;
     }
-    .user-details h1 { font-size: 1.25rem; }
+    .user-details h1 { 
+        font-size: 1.25rem;
+        word-wrap: break-word;
+    }
+    .profile-tabs {
+        flex-wrap: wrap;
+        width: 100%;
+        overflow-x: hidden;
+    }
+    .profile-tab-btn {
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+        flex: 1;
+        min-width: 100px;
+    }
+    .badges-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 1rem;
+        width: 100%;
+        overflow-x: hidden;
+    }
 }
 
 /* Footer */
@@ -704,6 +729,9 @@ h3 {
     border-radius: 10px;
     box-shadow: var(--shadow);
     margin-bottom: 1.25rem;
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .profile-info-top {
@@ -840,6 +868,8 @@ h3 {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 1.5rem;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .badge-item {
@@ -2732,14 +2762,17 @@ body.transitions-enabled * {
 
 /* Modal-specific responsive adjustments to prevent overflow and keep content readable */
 @media (max-width: 720px) {
-    .modal-content.profile-modal { width: 96%; max-width: 640px; margin: 1rem auto; }
-    .modal-content.profile-modal .profile-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1rem; }
+    .modal-content.profile-modal { width: 96%; max-width: 640px; margin: 1rem auto; overflow-x: hidden; }
+    .modal-content.profile-modal .profile-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1rem; width: 100%; }
     .modal-content.profile-modal .profile-avatar-large { width: 84px; height: 84px; }
-    .modal-content.profile-modal .profile-info { width: 100%; }
+    .modal-content.profile-modal .profile-info { width: 100%; max-width: 100%; overflow-wrap: break-word; }
     .modal-content.profile-modal .profile-actions-top { width: 100%; display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.25rem; }
-    .modal-content.profile-modal .profile-stats { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-    .modal-content.profile-modal .profile-section .badges-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; }
-    .modal-content.profile-modal .activity-item img { width: 48px; height: 72px; }
+    .modal-content.profile-modal .profile-stats { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; padding: 1rem; }
+    .modal-content.profile-modal .profile-section { padding: 1rem; width: 100%; overflow-x: hidden; box-sizing: border-box; }
+    .modal-content.profile-modal .profile-section .badges-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; width: 100%; }
+    .modal-content.profile-modal .activity-item { width: 100%; box-sizing: border-box; }
+    .modal-content.profile-modal .activity-item img { width: 48px; height: 72px; flex-shrink: 0; }
+    .modal-content.profile-modal .recent-activity-list { width: 100%; overflow-x: hidden; }
 }
 
 @media (max-width: 420px) {
@@ -2804,6 +2837,9 @@ body.transitions-enabled * {
 .profile-section {
     padding: 2rem;
     border-top: 1px solid var(--border-color);
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .profile-section h3 {
@@ -2872,6 +2908,8 @@ body.transitions-enabled * {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .recent-activity-list .activity-item {
@@ -2881,6 +2919,9 @@ body.transitions-enabled * {
     background-color: var(--background-color);
     border-radius: 8px;
     box-shadow: var(--shadow);
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .recent-activity-list .activity-item img {
@@ -2888,6 +2929,7 @@ body.transitions-enabled * {
     height: 90px;
     object-fit: cover;
     border-radius: 4px;
+    flex-shrink: 0;
 }
 
 .recent-activity-list .activity-info {

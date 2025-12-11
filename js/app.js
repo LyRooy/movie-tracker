@@ -9,6 +9,12 @@ class MovieTracker {
         this.adminVerified = false;
         this.currentView = 'grid'; // Śledź aktualny tryb widoku
         this.tokenCheckInterval = null; // Sprawdzacz wygaśnięcia tokenu
+        
+        // Właściwości kalendarza
+        const now = new Date();
+        this.calendarMonth = now.getMonth();
+        this.calendarYear = now.getFullYear();
+        
         this.init(); 
     }
     // ============= KONIEC KONSTRUKTORA I INIT =============
@@ -2135,11 +2141,19 @@ class MovieTracker {
             if (!poster) {
                 poster = `https://placehold.co/60x90/cccccc/666666/png?text=${encodeURIComponent(item.title || 'Movie')}`;
             }
+            
+            // Określ etykietę statusu
+            let statusText = 'Obejrzano';
+            if (item.status === 'watching') statusText = 'Oglądane';
+            else if (item.status === 'planning') statusText = 'Planowane';
+            else if (item.status === 'dropped') statusText = 'Porzucone';
+            
             activityItem.innerHTML = `
                 <img src="${poster}" alt="${item.title}">
                 <div class="activity-info">
                     <h4>${item.title}</h4>
-                    <p>Obejrzano: ${this.formatDate(item.watchedDate)}</p>
+                    ${this.getStatusBadge(item.status)}
+                    <p>${statusText}: ${this.formatDate(item.watchedDate)}</p>
                     <p>Ocena: ${'★'.repeat(item.rating)}${'☆'.repeat(5-item.rating)}</p>
                 </div>
             `;
@@ -2774,9 +2788,6 @@ class MovieTracker {
 
     generateCalendar() {
         const calendar = document.getElementById('calendar-container');
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
 
         // Mockowe nadchodzące premiery
         const premieres = [
@@ -2787,14 +2798,14 @@ class MovieTracker {
 
         const calendarHTML = `
             <div class="calendar-header">
-                <h3>${this.getMonthName(currentMonth)} ${currentYear}</h3>
+                <h3>${this.getMonthName(this.calendarMonth)} ${this.calendarYear}</h3>
                 <div class="calendar-nav">
                     <button onclick="app.changeMonth(-1)">‹</button>
                     <button onclick="app.changeMonth(1)">›</button>
                 </div>
             </div>
             <div class="calendar-grid">
-                ${this.generateCalendarDays(currentYear, currentMonth, premieres)}
+                ${this.generateCalendarDays(this.calendarYear, this.calendarMonth, premieres)}
             </div>
         `;
 
@@ -2961,8 +2972,20 @@ class MovieTracker {
     }
 
     changeMonth(direction) {
-        // Implementacja nawigacji po miesiącach
-        console.log('Change month:', direction);
+        // Nawigacja po miesiącach
+        this.calendarMonth += direction;
+        
+        // Obsługa przekroczenia zakresu miesięcy
+        if (this.calendarMonth > 11) {
+            this.calendarMonth = 0;
+            this.calendarYear++;
+        } else if (this.calendarMonth < 0) {
+            this.calendarMonth = 11;
+            this.calendarYear--;
+        }
+        
+        // Przerysuj kalendarz
+        this.generateCalendar();
     }
 
     filterMyList(status) {

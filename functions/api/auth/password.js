@@ -58,8 +58,8 @@ export async function onRequest(context) {
     }
 
     // Zweryfikuj obecne hasło
-    const currentPasswordHash = await hashPassword(currentPassword);
-    if (currentPasswordHash !== user.password_hash) {
+    const isValid = await verifyPassword(currentPassword, user.password_hash);
+    if (!isValid) {
       return new Response(JSON.stringify({ error: 'Current password is incorrect' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -111,11 +111,68 @@ async function getUserIdFromRequest(request) {
   }
 }
 
+// Zahaszuj hasło używając PBKDF2 z solą
 async function hashPassword(password) {
   const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const passwordKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    passwordKey,
+    256
+  );
+  
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
+  const saltArray = Array.from(salt);
+  
+  // Połącz sól i hasz
+  return saltArray.concat(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Weryfikuj hasło względem hasza
+async function verifyPassword(password, storedHash) {
+  const encoder = new TextEncoder();
+  const hashBytes = storedHash.match(/.{2}/g).map(byte => parseInt(byte, 16));
+  const salt = new Uint8Array(hashBytes.slice(0, 16));
+  const hash = new Uint8Array(hashBytes.slice(16));
+  
+  const passwordKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    passwordKey,
+    256
+  );
+  
+  const newHash = new Uint8Array(hashBuffer);
+  
+  // Porównaj hasze
+  if (hash.length !== newHash.length) return false;
+  for (let i = 0; i < hash.length; i++) {
+    if (hash[i] !== newHash[i]) return false;
+  }
+  return true;
 }

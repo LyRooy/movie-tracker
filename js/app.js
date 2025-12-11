@@ -1714,6 +1714,9 @@ class MovieTracker {
                         <div class="form-group">
                             <label>Nowe hasło</label>
                             <input type="password" id="new-password" required minlength="6">
+                            <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">
+                                Hasło musi mieć minimum 6 znaków
+                            </small>
                         </div>
                         <div class="form-group">
                             <label>Potwierdź nowe hasło</label>
@@ -3318,7 +3321,12 @@ class MovieTracker {
                     <form class="auth-form" id="auth-form">
                         <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
                         <input type="text" id="emailOrUsername" placeholder="Email lub nazwa użytkownika" class="auth-input" required>
-                        <input type="password" id="password" placeholder="Hasło" class="auth-input" required>
+                        <div>
+                            <input type="password" id="password" placeholder="Hasło" class="auth-input" required minlength="6">
+                            <small id="password-hint" style="color: var(--text-secondary); display: none; margin-top: 0.25rem; font-size: 0.85rem;">
+                                Hasło musi mieć minimum 6 znaków
+                            </small>
+                        </div>
                         <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
                     </form>
                     <div class="auth-toggle">
@@ -3335,6 +3343,8 @@ class MovieTracker {
     bindAuthEvents() {
         const form = document.getElementById('auth-form');
         const toggleLink = document.getElementById('auth-toggle-link');
+        const passwordInput = document.getElementById('password');
+        const passwordHint = document.getElementById('password-hint');
         let isLogin = true;
 
         form.addEventListener('submit', async (e) => {
@@ -3342,6 +3352,12 @@ class MovieTracker {
             const emailOrUsername = document.getElementById('emailOrUsername').value;
             const password = document.getElementById('password').value;
             const nickname = document.getElementById('nickname').value;
+
+            // Walidacja hasła przy rejestracji
+            if (!isLogin && password.length < 6) {
+                this.showAuthError('Hasło musi mieć minimum 6 znaków');
+                return;
+            }
 
             try {
                 const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
@@ -3386,6 +3402,7 @@ class MovieTracker {
                 nicknameInput.style.display = 'none';
                 nicknameInput.required = false;
                 emailOrUsernameInput.placeholder = 'Email lub nazwa użytkownika';
+                passwordHint.style.display = 'none';
             } else {
                 title.textContent = 'Utwórz konto MovieTracker';
                 submitBtn.textContent = 'Zarejestruj się';
@@ -3394,6 +3411,7 @@ class MovieTracker {
                 nicknameInput.style.display = 'block';
                 nicknameInput.required = true;
                 emailOrUsernameInput.placeholder = 'Adres email';
+                passwordHint.style.display = 'block';
             }
         });
     }
@@ -3421,8 +3439,15 @@ class MovieTracker {
         if (this.tokenCheckInterval) {
             clearInterval(this.tokenCheckInterval);
         }
-        localStorage.removeItem('movieTrackerToken');
-        location.reload();
+        
+        // Pokaż powiadomienie o wylogowaniu
+        this.showNotification('Wylogowano pomyślnie. Do zobaczenia!', 'success');
+        
+        // Opóźnij reload, żeby użytkownik zobaczyl powiadomienie
+        setTimeout(() => {
+            localStorage.removeItem('movieTrackerToken');
+            location.reload();
+        }, 1000);
     }
 
     // Metody panelu admina

@@ -670,7 +670,7 @@ h3 {
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 1px;
+    gap: 2px;
     background-color: var(--border-color);
     border-radius: 8px;
     overflow: hidden;
@@ -1531,6 +1531,27 @@ h3 {
     flex-direction: column;
 }
 
+/* Padding dla prostych modali z formularzami */
+.modal-content > h2,
+.modal-content > p,
+.modal-content > form {
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+.modal-content > h2 {
+    padding-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.modal-content > p {
+    margin-bottom: 1rem;
+}
+
+.modal-content > form {
+    padding-bottom: 2rem;
+}
+
 /* When using mobile class, make modal use the available viewport more effectively */
 .modal.mobile .modal-content {
     max-height: 90vh;
@@ -1713,9 +1734,11 @@ h3 {
     margin-top: 1.5rem;
 }
 
-.btn {
-    padding: 1rem 2rem;
-    border: none;
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    padding: 0.75rem 1.5rem;
     border-radius: 8px;
     font-size: 1rem;
     font-weight: 500;
@@ -1726,6 +1749,7 @@ h3 {
 .btn-primary {
     background-color: var(--secondary-color);
     color: white;
+    border: none;
 }
 
 .btn-primary:hover {

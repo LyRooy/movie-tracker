@@ -681,6 +681,7 @@ h3 {
     padding: 1rem;
     min-height: 100px;
     position: relative;
+    border: none;
 }
 
 .calendar-day.other-month {
@@ -690,6 +691,7 @@ h3 {
 .calendar-day.today {
     background-color: var(--secondary-color);
     color: white;
+    border: none;
 }
 
 .premiere-item {

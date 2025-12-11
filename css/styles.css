@@ -676,6 +676,15 @@ h3 {
     overflow: hidden;
 }
 
+.calendar-day-header {
+    background-color: var(--surface-color);
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-color);
+    border: none;
+}
+
 .calendar-day {
     background-color: var(--background-color);
     padding: 1rem;

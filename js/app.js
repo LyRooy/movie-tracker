@@ -3321,12 +3321,10 @@ class MovieTracker {
                     <form class="auth-form" id="auth-form">
                         <input type="text" id="nickname" placeholder="Nazwa użytkownika" class="auth-input" style="display: none;">
                         <input type="text" id="emailOrUsername" placeholder="Email lub nazwa użytkownika" class="auth-input" required>
-                        <div>
-                            <input type="password" id="password" placeholder="Hasło" class="auth-input" required minlength="6">
-                            <small id="password-hint" style="color: var(--text-secondary); display: none; margin-top: 0.25rem; font-size: 0.85rem;">
-                                Hasło musi mieć minimum 6 znaków
-                            </small>
-                        </div>
+                        <input type="password" id="password" placeholder="Hasło" class="auth-input" required minlength="6">
+                        <small id="password-hint" style="color: var(--text-secondary); display: none; margin-top: 0.25rem; font-size: 0.85rem;">
+                            Hasło musi mieć minimum 6 znaków
+                        </small>
                         <button type="submit" class="auth-btn" id="auth-submit">Zaloguj się</button>
                     </form>
                     <div class="auth-toggle">

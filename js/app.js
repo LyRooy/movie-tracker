@@ -234,7 +234,7 @@ class MovieTracker {
             });
         }
 
-        // Przycisk dodawania do listy (zmienione z add-to-watched na add-to-list)
+        // Przycisk dodawania do listy
         const addToListBtn = document.getElementById('add-to-list');
         if (addToListBtn) {
             addToListBtn.addEventListener('click', () => {
@@ -2448,6 +2448,7 @@ class MovieTracker {
         // Blokuj opcję "obejrzane" jeśli premiera jest w przyszłości
         if (statusSelect) {
             const watchedOption = statusSelect.querySelector('option[value="watched"]');
+            const watchingOption = statusSelect.querySelector('option[value="watching"]');
             if (watchedOption) {
                 const releaseDate = movie.release_date || movie.releaseDate || movie.year;
                 if (releaseDate) {
@@ -2459,9 +2460,13 @@ class MovieTracker {
                         if (release > today) {
                             watchedOption.disabled = true;
                             watchedOption.textContent = 'Obejrzane (Dostępne po premierze)';
+                            watchingOption.disabled = true;
+                            watchingOption.textContent = 'Obecnie oglądane (Dostępne po premierze)';
                         } else {
                             watchedOption.disabled = false;
+                            watchingOption.disabled = false;
                             watchedOption.textContent = 'Obejrzane';
+                            watchingOption.textContent = 'Obecnie oglądane';
                         }
                     }
                 }
@@ -2865,7 +2870,8 @@ class MovieTracker {
                             premieres.push({
                                 date: dateMatch[1],
                                 title: movie.title,
-                                type: movie.media_type === 'series' ? 'series' : 'movie'
+                                type: movie.media_type === 'series' ? 'series' : 'movie',
+                                id: movie.id
                             });
                         }
                     }
@@ -2947,7 +2953,7 @@ class MovieTracker {
             html += `
                 <div class="calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}">
                     <div class="day-number">${currentDate.getDate()}</div>
-                    ${dayPremieres.map(p => `<div class="premiere-item">${p.title}</div>`).join('')}
+                    ${dayPremieres.map(p => `<div class="premiere-item premiere-${p.type}" onclick="app.openMovieFromCalendar(${p.id})" title="Kliknij aby otworzyć">${p.title}</div>`).join('')}
                 </div>
             `;
         }
@@ -3101,6 +3107,36 @@ class MovieTracker {
         this.calendarMonth = now.getMonth();
         this.calendarYear = now.getFullYear();
         await this.generateCalendar();
+    }
+
+    async openMovieFromCalendar(movieId) {
+        try {
+            // Pobierz szczegóły filmu
+            const response = await fetch(`/api/admin/movies/${movieId}`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            if (!response.ok) {
+                this.showNotification('Nie można załadować filmu', 'error');
+                return;
+            }
+            
+            const movie = await response.json();
+            
+            // Sprawdź czy film jest już na liście użytkownika
+            const watchedMovie = this.watchedMovies.find(m => m.id === movieId);
+            
+            if (watchedMovie) {
+                // Film jest już na liście - otwórz w trybie edycji
+                await this.openMovieModal(watchedMovie, true);
+            } else {
+                // Film nie jest na liście - otwórz w trybie dodawania
+                await this.openMovieModal(movie, false);
+            }
+        } catch (error) {
+            console.error('Error opening movie from calendar:', error);
+            this.showNotification('Błąd podczas otwierania filmu', 'error');
+        }
     }
 
     filterMyList(status) {

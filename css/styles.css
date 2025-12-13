@@ -656,7 +656,7 @@ h3 {
 }
 
 .calendar-nav button.today-btn {
-    background-color: var(--accent-color);
+    background-color: #27ae60; /* Zielony zamiast pomarańczowego */
 }
 
 .calendar-nav button:hover {
@@ -664,7 +664,7 @@ h3 {
 }
 
 .calendar-nav button.today-btn:hover {
-    background-color: #c0392b;
+    background-color: #229954; /* Ciemniejszy zielony */
 }
 
 .calendar-grid {
@@ -689,8 +689,28 @@ h3 {
     background-color: var(--surface-color);
     padding: 1rem;
     min-height: 100px;
+    max-height: 150px;
+    overflow-y: auto;
+    overflow-x: hidden;
     position: relative;
     border: none;
+}
+
+.calendar-day::-webkit-scrollbar {
+    width: 4px;
+}
+
+.calendar-day::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.calendar-day::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 2px;
+}
+
+.calendar-day::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
 }
 
 .calendar-day.other-month {
@@ -705,13 +725,29 @@ h3 {
 }
 
 .premiere-item {
-    background-color: var(--accent-color);
     color: white;
     padding: 2px 5px;
     border-radius: 3px;
     font-size: 0.8rem;
     margin-top: 5px;
     cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.premiere-item:hover {
+    opacity: 0.8;
+}
+
+.premiere-item.premiere-movie {
+    background-color: #e67e22; /* Pomarańczowy dla filmów */
+}
+
+.premiere-item.premiere-series {
+    background-color: #3498db; /* Niebieski dla seriali */
+}
+
+.premiere-item.premiere-episode {
+    background-color: #2ecc71; /* Zielony dla odcinków */
 }
 
 /* Statistics styles */

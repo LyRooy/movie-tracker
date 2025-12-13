@@ -3997,6 +3997,9 @@ class MovieTracker {
                     // Also refresh global movies list so UI reflects new durations/years
                     try { await this.loadMoviesData(); } catch (e) { /* ignore */ }
                 }
+                
+                // Odśwież kalendarz aby pokazać nowe premiery
+                try { await this.generateCalendar(); } catch (e) { console.debug('Calendar not available'); }
             } else {
                 const error = await response.json();
                 this.showNotification(error.error || 'Błąd podczas zapisywania', 'error');
@@ -4217,6 +4220,8 @@ class MovieTracker {
             if (response.ok) {
                 this.showNotification('Film usunięty', 'success');
                 this.loadAdminMovies();
+                // Odśwież kalendarz
+                try { await this.generateCalendar(); } catch (e) { console.debug('Calendar not available'); }
             } else {
                 const error = await response.json();
                 this.showNotification(error.error || 'Błąd podczas usuwania filmu', 'error');
@@ -4674,6 +4679,8 @@ class MovieTracker {
                 this.showNotification('Sezony skonfigurowane pomyślnie', 'success');
                 this.closeAdminModal('admin-seasons-modal');
                 this.loadAdminMovies();
+                // Odśwież kalendarz
+                try { await this.generateCalendar(); } catch (e) { console.debug('Calendar not available'); }
             } else {
                 const error = await response.json();
                 this.showNotification(error.error || 'Błąd podczas zapisywania sezonów', 'error');

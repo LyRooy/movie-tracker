@@ -2288,7 +2288,7 @@ body.transitions-enabled * {
     background: rgba(0, 0, 0, 0.8);
     padding: 0.5rem;
     font-size: 0.75rem;
-    color: var(--text-color);
+    color: #ffffff;
 }
 
 .grid-series-progress small {

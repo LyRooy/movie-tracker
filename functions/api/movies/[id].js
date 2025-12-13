@@ -353,6 +353,8 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
   const completedChallenges = [];
   
   try {
+    console.log(`Checking challenge progress for user ${userId}, movie ${movieId}`);
+    
     // Pobierz wszystkie aktywne wyzwania, w których użytkownik uczestniczy
     const participations = await db.prepare(`
       SELECT 
@@ -377,6 +379,8 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
         AND cp.completed_platinum_at IS NULL
         AND c.end_date >= date('now')
     `).bind(userId).all();
+    
+    console.log(`Found ${participations.results?.length || 0} active challenges`);
 
     if (!participations.results || participations.results.length === 0) {
       return completedChallenges;
@@ -454,12 +458,22 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
         progress = genreQuery?.count || 0;
       }
 
+      // Ogranicz progress do maksymalnego targetu (platinum)
+      const maxTarget = participation.target_platinum || participation.target_gold || participation.target_silver || 0;
+      if (progress > maxTarget) {
+        progress = maxTarget;
+      }
+
+      console.log(`Challenge ${participation.challenge_id}: progress=${progress}, maxTarget=${maxTarget}`);
+
       // Aktualizuj progress w bazie danych
-      await db.prepare(`
+      const updateResult = await db.prepare(`
         UPDATE challenge_participants
         SET progress = ?
         WHERE id = ?
       `).bind(progress, participation.participant_id).run();
+      
+      console.log(`Updated progress for participant ${participation.participant_id}:`, updateResult);
 
       // Sprawdź i przyznaj odznaki dla różnych tierów
       const tiersToCheck = [

@@ -456,12 +456,22 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
         progress = genreQuery?.count || 0;
       }
 
+      // Ogranicz progress do maksymalnego targetu (platinum)
+      const maxTarget = participation.target_platinum || participation.target_gold || participation.target_silver || 0;
+      if (progress > maxTarget) {
+        progress = maxTarget;
+      }
+
+      console.log(`Challenge ${participation.challenge_id}: progress=${progress}, maxTarget=${maxTarget}`);
+
       // Aktualizuj progress w bazie danych
-      await db.prepare(`
+      const updateResult = await db.prepare(`
         UPDATE challenge_participants
         SET progress = ?
         WHERE id = ?
       `).bind(progress, participation.participant_id).run();
+      
+      console.log(`Updated progress for participant ${participation.participant_id}:`, updateResult);
 
       // Sprawdź i przyznaj odznaki dla różnych tierów
       const tiersToCheck = [

@@ -126,14 +126,7 @@ class MovieTracker {
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
             themeSelect.addEventListener('change', (e) => {
-                let theme = e.target.value;
-                // Baza akceptuje tylko 'light' lub 'dark'
-                if (theme === 'auto') {
-                    // Wykryj preferencje systemowe
-                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    theme = prefersDark ? 'dark' : 'light';
-                }
-                this.changeTheme(theme);
+                this.changeTheme(e.target.value);
             });
         }
 
@@ -387,28 +380,11 @@ class MovieTracker {
         const savedTheme = localStorage.getItem('theme') || 'light';
         
         let actualTheme = savedTheme;
-        if (savedTheme === 'auto') {
-            actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
         
-        // Motyw powinien być już ustawiony przez skrypt inline, po prostu zaktualizuj ikonę i wybór
-        const themeIcon = document.querySelector('#theme-toggle i');
-        if (themeIcon) {
-            themeIcon.className = actualTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
-        }
-        
+        // Motyw powinien być już ustawiony przez skrypt inline, zaktualizuj wybór
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
-            themeSelect.value = savedTheme; // Ustaw zapisaną opcję, nie rzeczywisty motyw
-        }
-        
-        // Nasłuchuj zmian motywu systemowego gdy wybrano auto
-        if (savedTheme === 'auto') {
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-                if (localStorage.getItem('theme') === 'auto') {
-                    this.changeTheme('auto');
-                }
-            });
+            themeSelect.value = actualTheme;
         }
     }
 
@@ -419,25 +395,12 @@ class MovieTracker {
     }
 
     changeTheme(theme) {
-        let actualTheme = theme;
-        
-        // Obsłuż automatyczny motyw na podstawie preferencji systemowych
-        if (theme === 'auto') {
-            actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-        
         // Zaktualizuj zarówno klasę body jak i html dla spójności
-        document.body.className = `${actualTheme}-theme transitions-enabled`;
-        document.documentElement.className = `${actualTheme}-theme`;
+        document.body.className = `${theme}-theme transitions-enabled`;
+        document.documentElement.className = `${theme}-theme`;
         
-        // Zapisz w localStorage (zapisz wybraną opcję, nie rzeczywisty motyw)
+        // Zapisz w localStorage
         localStorage.setItem('theme', theme);
-        
-        // Zaktualizuj ikonę przycisku przełączania motywu
-        const themeIcon = document.querySelector('#theme-toggle i');
-        if (themeIcon) {
-            themeIcon.className = actualTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
-        }
         
         // Zaktualizuj wybór motywu w profilu
         const themeSelect = document.getElementById('theme-select');
@@ -445,7 +408,7 @@ class MovieTracker {
             themeSelect.value = theme;
         }
         
-        console.log('Theme changed to:', theme, '(actual:', actualTheme + ')');
+        console.log('Theme changed to:', theme);
 
         // Zachowaj preferencję dla zalogowanych użytkowników
         if (this.authToken) {
@@ -4430,36 +4393,6 @@ class MovieTracker {
             document.getElementById('admin-badge-id').value = '';
         }
         
-        // Dodaj pole uploadu obrazu
-        const form = document.getElementById('admin-badge-form');
-        if (form && !document.getElementById('admin-badge-file')) {
-            const uploadGroup = document.createElement('div');
-            uploadGroup.className = 'form-group';
-            uploadGroup.innerHTML = `
-                <label>Prześlij obraz odznaki (opcjonalnie)</label>
-            `;
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = 'image/*';
-            fileInput.id = 'admin-badge-file';
-            fileInput.className = 'form-control';
-            uploadGroup.appendChild(fileInput);
-            const hint = document.createElement('p');
-            hint.className = 'form-hint';
-            hint.textContent = 'Plik zostanie przesłany do R2 (binding: BADGES) i użyty jako URL odznaki.';
-            uploadGroup.appendChild(hint);
-
-            // Wstaw przed przyciskami formularza — bezpiecznie nawet gdy przycisk nie jest bezpośrednim dzieckiem formy
-                const submitBtn = form.querySelector('[type="submit"]');
-                if (submitBtn && submitBtn.parentNode) {
-                    // Wstaw przed przyciskiem używając jego rodzica (działa, gdy przycisk jest zagnieżdżony)
-                    submitBtn.parentNode.insertBefore(uploadGroup, submitBtn);
-                } else {
-                    // Fallback: dołącz na końcu formularza
-                    form.appendChild(uploadGroup);
-                }
-        }
-
         modal.style.display = 'block';
     }
 
@@ -4483,53 +4416,19 @@ class MovieTracker {
 
     async saveAdminBadge() {
         const id = document.getElementById('admin-badge-id').value;
-        // Pobierz podstawowe pola formularza
         const name = document.getElementById('admin-badge-name').value;
         const description = document.getElementById('admin-badge-description').value || null;
-        let imageUrl = document.getElementById('admin-badge-icon').value || null; // pole z URL
-
-        // Obsługa uploadu pliku (jeśli admin dostarczył plik)
-        const fileInput = document.getElementById('admin-badge-file');
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-            const file = fileInput.files[0];
-            try {
-                const fd = new FormData();
-                fd.append('badge', file);
-
-                // Nie ustawiaj Content-Type dla FormData
-                const headers = { ...this.getAuthHeaders() };
-                if (headers['Content-Type']) delete headers['Content-Type'];
-
-                // Wyślij plik do endpointu upload (backend musi to obsłużyć i zapisać do R2)
-                const uploadResp = await fetch('/api/admin/badges/upload', {
-                    method: 'POST',
-                    headers,
-                    body: fd
-                });
-
-                if (!uploadResp.ok) {
-                    // Spróbuj odczytać odpowiedź, aby pokazać pomocny komunikat
-                    let errText = 'Błąd podczas uploadu pliku';
-                    try { const jb = await uploadResp.json(); errText = jb.error || jb.message || JSON.stringify(jb); } catch (e) {
-                        try { errText = await uploadResp.text(); } catch (e2) {}
-                    }
-                    this.showNotification('Upload pliku nie powiódł się: ' + errText, 'error');
-                    return; // przerwij zapisywanie odznaki
-                }
-
-                const uploadJson = await uploadResp.json();
-                // Oczekujemy: { image_url: 'https://.../badge.png' }
-                imageUrl = uploadJson.image_url || uploadJson.url || imageUrl;
-                console.log('Upload badge response:', uploadJson);
-            } catch (err) {
-                console.error('Upload error:', err);
-                this.showNotification('Błąd podczas wysyłania pliku', 'error');
-                return;
-            }
-        }
-
+        const iconUrl = document.getElementById('admin-badge-icon').value || null;
+        
+        // Jeśli nie podano URL, użyj domyślnego obrazka
+        const imageUrl = iconUrl || '/images/default-badge.jpg';
+        
         // Przygotuj payload i wyślij dane odznaki
-        const data = { name: name, description: description, image_url: imageUrl };
+        const data = { 
+            name: name, 
+            description: description, 
+            image_url: imageUrl 
+        };
 
         try {
             const url = id ? `/api/admin/badges/${id}` : '/api/admin/badges';
@@ -4537,7 +4436,10 @@ class MovieTracker {
 
             const response = await fetch(url, {
                 method,
-                headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+                headers: { 
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(data)
             });
 
@@ -4547,14 +4449,18 @@ class MovieTracker {
                 this.loadAdminBadges();
             } else {
                 let errBody = null;
-                try { errBody = await response.json(); } catch (e) { errBody = { text: await response.text().catch(()=>'') }; }
+                try { 
+                    errBody = await response.json(); 
+                } catch (e) { 
+                    errBody = { text: await response.text().catch(()=>'') }; 
+                }
                 console.error('Error saving badge:', response.status, errBody);
                 const msg = (errBody && (errBody.error || errBody.message)) ? (errBody.error || errBody.message) : (errBody.text || 'Błąd podczas zapisywania odznaki');
                 this.showNotification(msg, 'error');
             }
         } catch (error) {
-            console.error('Error saving badge (network):', error);
-            this.showNotification('Błąd podczas zapisywania odznaki (połączenie)', 'error');
+            console.error('Error saving badge:', error);
+            this.showNotification('Błąd podczas zapisywania odznaki', 'error');
         }
     }
 

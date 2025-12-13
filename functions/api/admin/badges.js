@@ -96,10 +96,8 @@ async function handleGetBadges(env, request, corsHeaders) {
 // Utwórz nową odznakę
 async function handleCreateBadge(env, request, corsHeaders) {
   try {
-    const formData = await request.formData();
-    const name = formData.get('name');
-    const description = formData.get('description');
-    const imageFile = formData.get('image');
+    const data = await request.json();
+    const { name, description, image_url } = data;
     
     if (!name) {
       return new Response(JSON.stringify({ error: 'Badge name is required' }), {
@@ -108,41 +106,8 @@ async function handleCreateBadge(env, request, corsHeaders) {
       });
     }
 
-    let imageUrl = null;
-
-    // Jeśli przesłano plik obrazka
-    if (imageFile && imageFile.size > 0) {
-      // Sprawdź typ pliku
-      if (!imageFile.type.startsWith('image/')) {
-        return new Response(JSON.stringify({ error: 'File must be an image' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Sprawdź rozmiar pliku (max 1MB dla odznak)
-      if (imageFile.size > 1024 * 1024) {
-        return new Response(JSON.stringify({ error: 'File size must be less than 1MB' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Wygeneruj unikalną nazwę pliku
-      const extension = imageFile.name.split('.').pop() || 'png';
-      const filename = `badges/${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.${extension}`;
-
-      // Prześlij do R2
-      const arrayBuffer = await imageFile.arrayBuffer();
-      await env.BADGES.put(filename, arrayBuffer, {
-        httpMetadata: {
-          contentType: imageFile.type,
-        },
-      });
-
-      // Zapisz tylko nazwę pliku (bez pełnego URL)
-      imageUrl = filename;
-    }
+    // Użyj podanego URL lub domyślnego obrazka
+    const imageUrl = image_url || '/images/default-badge.jpg';
 
     const result = await env.db.prepare(`
       INSERT INTO badges (name, description, image_url)
@@ -173,11 +138,8 @@ async function handleCreateBadge(env, request, corsHeaders) {
 // Zaktualizuj istniejącą odznakę
 async function handleUpdateBadge(env, request, corsHeaders) {
   try {
-    const formData = await request.formData();
-    const id = formData.get('id');
-    const name = formData.get('name');
-    const description = formData.get('description');
-    const imageFile = formData.get('image');
+    const data = await request.json();
+    const { id, name, description, image_url } = data;
     
     if (!id) {
       return new Response(JSON.stringify({ error: 'Badge ID is required' }), {
@@ -197,51 +159,9 @@ async function handleUpdateBadge(env, request, corsHeaders) {
       updates.push('description = ?');
       params.push(description);
     }
-
-    // Jeśli przesłano nowy plik obrazka
-    if (imageFile && imageFile.size > 0) {
-      // Sprawdź typ pliku
-      if (!imageFile.type.startsWith('image/')) {
-        return new Response(JSON.stringify({ error: 'File must be an image' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Sprawdź rozmiar pliku (max 1MB)
-      if (imageFile.size > 1024 * 1024) {
-        return new Response(JSON.stringify({ error: 'File size must be less than 1MB' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Pobierz starą odznakę aby usunąć stary plik
-      const oldBadge = await env.db.prepare('SELECT image_url FROM badges WHERE id = ?').bind(id).first();
-      
-      // Usuń stary plik z R2 jeśli istnieje
-      if (oldBadge && oldBadge.image_url) {
-        try {
-          await env.BADGES.delete(oldBadge.image_url);
-        } catch (e) {
-          console.warn('Failed to delete old badge image:', e);
-        }
-      }
-
-      // Wygeneruj unikalną nazwę pliku
-      const extension = imageFile.name.split('.').pop() || 'png';
-      const filename = `badges/${(name || 'badge').toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.${extension}`;
-
-      // Prześlij do R2
-      const arrayBuffer = await imageFile.arrayBuffer();
-      await env.BADGES.put(filename, arrayBuffer, {
-        httpMetadata: {
-          contentType: imageFile.type,
-        },
-      });
-
+    if (image_url !== null && image_url !== undefined) {
       updates.push('image_url = ?');
-      params.push(filename);
+      params.push(image_url);
     }
 
     if (updates.length === 0) {

@@ -30,7 +30,7 @@ class MovieTracker {
         
         this.bindEvents();
         this.loadUserData();
-        this.generateCalendar();
+        await this.generateCalendar();
         await this.loadGenres();
         await this.loadMoviesData();
         this.setupTheme();
@@ -2100,7 +2100,16 @@ class MovieTracker {
                             <span>${item.rating}/5</span>
                         </div>
                     </div>
+                    ` : `
+                    ${item.type === 'series' ? `
+                    <div class="grid-series-progress">
+                        <small>${item.watchedEpisodes || 0}/${episodes || 0} odc. (${item.progress || 0}%)</small>
+                        <div class="progress-bar-small">
+                            <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
+                        </div>
+                    </div>
                     ` : ''}
+                    `}
                 </div>
             `;
             listContainer.innerHTML += listItemHtml;
@@ -2434,6 +2443,29 @@ class MovieTracker {
             statusSelect.value = movie.status;
         } else if (statusSelect) {
             statusSelect.value = '';
+        }
+        
+        // Blokuj opcję "obejrzane" jeśli premiera jest w przyszłości
+        if (statusSelect) {
+            const watchedOption = statusSelect.querySelector('option[value="watched"]');
+            if (watchedOption) {
+                const releaseDate = movie.release_date || movie.releaseDate || movie.year;
+                if (releaseDate) {
+                    const releaseDateStr = String(releaseDate).match(/(\d{4}-\d{2}-\d{2})/);
+                    if (releaseDateStr) {
+                        const release = new Date(releaseDateStr[1]);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (release > today) {
+                            watchedOption.disabled = true;
+                            watchedOption.textContent = 'Obejrzane (Dostępne po premierze)';
+                        } else {
+                            watchedOption.disabled = false;
+                            watchedOption.textContent = 'Obejrzane';
+                        }
+                    }
+                }
+            }
         }
 
         // Pokaż/ukryj zakładkę odcinków w zależności od typu
@@ -3035,7 +3067,7 @@ class MovieTracker {
         return date.toDateString() === today.toDateString();
     }
 
-    changeMonth(direction) {
+    async changeMonth(direction) {
         // Nawigacja po miesiącach
         this.calendarMonth += direction;
         
@@ -3049,15 +3081,15 @@ class MovieTracker {
         }
         
         // Przerysuj kalendarz
-        this.generateCalendar();
+        await this.generateCalendar();
     }
 
-    goToToday() {
+    async goToToday() {
         // Powrót do aktualnego miesiąca
         const now = new Date();
         this.calendarMonth = now.getMonth();
         this.calendarYear = now.getFullYear();
-        this.generateCalendar();
+        await this.generateCalendar();
     }
 
     filterMyList(status) {
@@ -3778,7 +3810,8 @@ class MovieTracker {
         const title = document.getElementById('admin-movie-modal-title');
         
         if (movie) {
-            title.textContent = 'Edytuj film';
+            // Ustaw tytuł na podstawie typu
+            title.textContent = movie.media_type === 'series' ? 'Edytuj serial' : 'Edytuj film';
             document.getElementById('admin-movie-id').value = movie.id;
             document.getElementById('admin-movie-title').value = movie.title;
             document.getElementById('admin-movie-type').value = movie.media_type;

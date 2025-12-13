@@ -2214,7 +2214,7 @@ body.transitions-enabled * {
 .list-item-info h3 {
     font-size: 1.2rem;
     margin-bottom: 0.5rem;
-    color: var(--primary-color);
+    color: var(--text-color);
 }
 
 .list-item-info p {
@@ -2227,7 +2227,7 @@ body.transitions-enabled * {
 .list-item h3 {
     font-size: 1.1rem;
     margin-bottom: 0.5rem;
-    color: var(--primary-color);
+    color: var(--text-color);
 }
 
 .list-item p {
@@ -2277,6 +2277,38 @@ body.transitions-enabled * {
 
 .list-item-rating .stars {
     color: #f39c12;
+}
+
+/* Grid series progress */
+.grid-series-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-color);
+}
+
+.grid-series-progress small {
+    display: block;
+    margin-bottom: 0.25rem;
+    text-align: center;
+}
+
+.progress-bar-small {
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-bar-small .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+    border-radius: 2px;
+    transition: width 0.3s ease;
 }
 
 .status-badge {

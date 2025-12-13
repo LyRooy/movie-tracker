@@ -2912,10 +2912,16 @@ class MovieTracker {
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
         const startDate = new Date(firstDay);
-        startDate.setDate(startDate.getDate() - firstDay.getDay());
+        
+        // Dostosuj do poniedziałku jako pierwszego dnia tygodnia
+        // getDay() zwraca 0-6 (Niedziela=0, Poniedziałek=1)
+        // Chcemy: Poniedziałek=0, więc: (getDay() + 6) % 7
+        let dayOfWeek = firstDay.getDay();
+        let daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Niedziela=6, Poniedziałek=0
+        startDate.setDate(startDate.getDate() - daysToSubtract);
 
         let html = '';
-        const dayNames = ['Nie', 'Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob'];
+        const dayNames = ['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'];
         
         // Dodaj nagłówki dni
         dayNames.forEach(day => {
@@ -2929,7 +2935,12 @@ class MovieTracker {
             
             const isCurrentMonth = currentDate.getMonth() === month;
             const isToday = this.isToday(currentDate);
-            const dateString = currentDate.toISOString().split('T')[0];
+            
+            // Użyj lokalnej daty zamiast UTC aby uniknąć przesunięcia czasowego
+            const year = currentDate.getFullYear();
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDate.getDate()).padStart(2, '0');
+            const dateString = `${year}-${month}-${day}`;
             
             const dayPremieres = premieres.filter(p => p.date === dateString);
             

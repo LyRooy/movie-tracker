@@ -505,8 +505,8 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
             
             // Wstaw odznakę
             await db.prepare(`
-              INSERT INTO user_badges (user_id, badge_id, level, challenge_participant_id)
-              VALUES (?, ?, ?, ?)
+              INSERT INTO user_badges (user_id, badge_id, level, challenge_participant_id, earned_at)
+              VALUES (?, ?, ?, ?, datetime('now'))
             `).bind(userId, tier.badgeId, badge?.level || tier.name, participation.participant_id).run();
             
             // Pobierz nazwę wyzwania

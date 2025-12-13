@@ -887,7 +887,7 @@ class MovieTracker {
                     <span class="badge-level ${badge.level}">${this.getBadgeLevelText(badge.level)}</span>
                     ${badge.description ? `<p class="badge-description">${badge.description}</p>` : ''}
                     <span class="badge-earned-date">
-                        <i class="fas fa-calendar"></i> Zdobyte: ${this.formatDate(badge.earned_at)}
+                        <i class="fas fa-calendar"></i> Zdobyte: ${this.formatDate(badge.earnedAt || badge.earned_at)}
                     </span>
                 </div>
             </div>
@@ -956,6 +956,7 @@ class MovieTracker {
     formatDate(dateString) {
         if (!dateString) return 'Nieznana data';
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Nieznana data';
         return date.toLocaleDateString('pl-PL', {
             year: 'numeric',
             month: 'long',

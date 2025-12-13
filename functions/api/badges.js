@@ -48,7 +48,7 @@ export async function onRequest(context) {
 
     const result = await env.db.prepare(query).bind(userId).all();
 
-    // Przekształć image_url na pełny URL R2
+    // Przekształć image_url na pełny URL R2 i earned_at do ISO formatu
     const badges = result.results.map(badge => ({
       id: badge.id,
       name: badge.name,
@@ -59,7 +59,7 @@ export async function onRequest(context) {
           ? `${env.R2_PUBLIC_URL_BADGES}/${badge.image_url}`
           : null,
       level: badge.level,
-      earnedAt: badge.earned_at,
+      earnedAt: badge.earned_at ? badge.earned_at.replace(' ', 'T') : null,
       challengeParticipantId: badge.challenge_participant_id
     }));
 

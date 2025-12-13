@@ -979,6 +979,7 @@ h3 {
     height: 80px;
     object-fit: contain;
     margin-bottom: 0.5rem;
+    border-radius: 50%;
 }
 
 .badge-item i {

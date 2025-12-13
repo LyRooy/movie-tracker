@@ -4627,7 +4627,7 @@ class MovieTracker {
                 }
                 
                 const uploadResult = await uploadResponse.json();
-                imageUrl = uploadResult.key; // Zapisz tylko klucz (nazwa pliku w R2)
+                imageUrl = uploadResult.url; // Zapisz pełny URL
             }
             
             // Przygotuj payload i wyślij dane odznaki

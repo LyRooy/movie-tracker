@@ -175,6 +175,10 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
     });
   }
   
+  console.log('handleUpdateMovie called:', { userId, movieId, data });
+  
+  let completedChallenges = [];
+  
   try {
     // Zweryfikuj, czy film istnieje
     const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieId).first();
@@ -187,6 +191,7 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
     
     // Zaktualizuj status obejrzenia na podstawie pola status
     if (data.status) {
+      console.log('Updating watched status:', data.status);
       const watchedDate = data.watchedDate || new Date().toISOString().split('T')[0];
       
       // Sprawdź, czy rekord watched istnieje
@@ -209,18 +214,13 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
         `).bind(userId, movieId, watchedDate, data.status).run();
       }
       
-      // Sprawdź postęp w wyzwaniach po dodaniu filmu
-      const completedChallenges = await checkChallengeProgress(db, userId, movieId, watchedDate);
+      console.log('About to call checkChallengeProgress');
       
-      // Dodaj informację o ukończonych wyzwaniach do odpowiedzi
-      if (completedChallenges && completedChallenges.length > 0) {
-        return new Response(JSON.stringify({ 
-          success: true,
-          completedChallenges: completedChallenges
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      // Sprawdź postęp w wyzwaniach po dodaniu filmu (dla statusu 'watched')
+      if (data.status === 'watched') {
+        console.log('Status is watched, calling checkChallengeProgress');
+        completedChallenges = await checkChallengeProgress(db, userId, movieId, watchedDate);
+        console.log('checkChallengeProgress returned:', completedChallenges);
       }
     }
     
@@ -254,7 +254,10 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
       }
     }
     
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      success: true,
+      completedChallenges: completedChallenges 
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

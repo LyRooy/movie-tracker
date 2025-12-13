@@ -2790,15 +2790,11 @@ class MovieTracker {
         return notification; // Zwróć element, aby móc go usunąć ręcznie
     }
 
-    generateCalendar() {
+    async generateCalendar() {
         const calendar = document.getElementById('calendar-container');
 
-        // Mockowe nadchodzące premiery
-        const premieres = [
-            { date: '2024-02-15', title: 'Nowy film Marvel' },
-            { date: '2024-02-20', title: 'Sezon 2 popularnego serialu' },
-            { date: '2024-02-28', title: 'Długo oczekiwany sequel' }
-        ];
+        // Ładuj rzeczywiste premiery z bazy danych
+        const premieres = await this.loadPremieres();
 
         const calendarHTML = `
             <div class="calendar-header">
@@ -2815,6 +2811,69 @@ class MovieTracker {
         `;
 
         calendar.innerHTML = calendarHTML;
+    }
+
+    async loadPremieres() {
+        try {
+            const premieres = [];
+            
+            // Pobierz filmy z release_date
+            const moviesRes = await fetch('/api/movies', { headers: this.getAuthHeaders() });
+            if (moviesRes.ok) {
+                const movies = await moviesRes.json();
+                movies.forEach(movie => {
+                    if (movie.release_date) {
+                        // Wyciągnij datę - jeśli format YYYY-MM-DD lub pojedynczo YYYY
+                        const dateMatch = String(movie.release_date).match(/^(\d{4}-\d{2}-\d{2})/);
+                        if (dateMatch) {
+                            premieres.push({
+                                date: dateMatch[1],
+                                title: movie.title,
+                                type: 'movie'
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // Pobierz odcinki z air_date
+            // Najpierw pobierz wszystkie seriale
+            if (moviesRes.ok) {
+                const movies = await moviesRes.json();
+                const series = movies.filter(m => m.media_type === 'series');
+                
+                for (const s of series) {
+                    try {
+                        const episodesRes = await fetch(`/api/series/${s.id}/episodes`, { headers: this.getAuthHeaders() });
+                        if (episodesRes.ok) {
+                            const data = await episodesRes.json();
+                            if (data.episodes && Array.isArray(data.episodes)) {
+                                data.episodes.forEach(ep => {
+                                    if (ep.airDate || ep.air_date) {
+                                        const airDate = ep.airDate || ep.air_date;
+                                        const dateMatch = String(airDate).match(/^(\d{4}-\d{2}-\d{2})/);
+                                        if (dateMatch) {
+                                            premieres.push({
+                                                date: dateMatch[1],
+                                                title: `${s.title} - ${ep.displayNumber || ep.display_number || 'Odcinek'}`,
+                                                type: 'episode'
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.debug(`Could not load episodes for series ${s.id}`);
+                    }
+                }
+            }
+            
+            return premieres;
+        } catch (error) {
+            console.error('Error loading premieres:', error);
+            return [];
+        }
     }
 
     generateCalendarDays(year, month, premieres) {
@@ -4064,6 +4123,7 @@ class MovieTracker {
             }
             this.showNotification('Zapisano wszystkie odcinki', 'success');
             await this.loadAdminEpisodes(seriesId);
+            this.closeAdminModal('admin-episodes-modal');
         } catch (error) {
             console.error('Error saving all admin episodes:', error);
             this.showNotification('Błąd podczas zapisywania odcinków', 'error');

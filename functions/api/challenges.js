@@ -106,6 +106,11 @@ export async function onRequest(context) {
       let currentTier = 'none';
       let targetForDisplay = row.target_platinum || row.target_gold || row.target_silver || 0;
       
+      // Ogranicz progress do maksymalnego targetu
+      if (progress > targetForDisplay && targetForDisplay > 0) {
+        progress = targetForDisplay;
+      }
+      
       if (row.completed_platinum_at) {
         currentTier = 'platinum';
       } else if (row.completed_gold_at) {

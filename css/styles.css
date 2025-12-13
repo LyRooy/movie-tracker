@@ -562,6 +562,33 @@ h3 {
     color: var(--text-secondary);
 }
 
+.challenge-tiers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background-color: var(--background-color);
+    border-radius: 8px;
+}
+
+.tier-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text-color);
+}
+
+.tier-item.completed {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.tier-item i {
+    font-size: 1.2rem;
+}
+
 /* Empty state common styles */
 .empty-state {
     display: flex;

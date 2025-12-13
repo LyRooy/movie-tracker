@@ -707,18 +707,49 @@ class MovieTracker {
                 }
             }
             
-            const badgeInfo = ch.badge ? `
-                <div class="challenge-reward">
-                    <i class="fas fa-trophy"></i> Nagroda: ${ch.badge.name}
+            // Wyświetl tiery z odznakaniami
+            const tiersHtml = [];
+            if (ch.target_silver) {
+                const silverCompleted = ch.completed_silver_at ? '✓' : '';
+                tiersHtml.push(`
+                    <div class="tier-item ${ch.completed_silver_at ? 'completed' : ''}">
+                        <i class="fas fa-medal" style="color: #C0C0C0"></i>
+                        <span>Srebrna: ${ch.target_silver} ${silverCompleted}</span>
+                    </div>
+                `);
+            }
+            if (ch.target_gold) {
+                const goldCompleted = ch.completed_gold_at ? '✓' : '';
+                tiersHtml.push(`
+                    <div class="tier-item ${ch.completed_gold_at ? 'completed' : ''}">
+                        <i class="fas fa-medal" style="color: #FFD700"></i>
+                        <span>Złota: ${ch.target_gold} ${goldCompleted}</span>
+                    </div>
+                `);
+            }
+            if (ch.target_platinum) {
+                const platinumCompleted = ch.completed_platinum_at ? '✓' : '';
+                tiersHtml.push(`
+                    <div class="tier-item ${ch.completed_platinum_at ? 'completed' : ''}">
+                        <i class="fas fa-medal" style="color: #E5E4E2"></i>
+                        <span>Platynowa: ${ch.target_platinum} ${platinumCompleted}</span>
+                    </div>
+                `);
+            }
+            
+            const tiersSection = tiersHtml.length > 0 ? `
+                <div class="challenge-tiers">
+                    ${tiersHtml.join('')}
                 </div>
             ` : '';
             
-            const progressBar = ch.is_participant ? `
+            const maxTarget = ch.target_platinum || ch.target_gold || ch.target_silver || 0;
+            const progressBar = ch.is_participant && maxTarget > 0 ? `
                 <div class="challenge-progress">
                     <div class="challenge-progress-bar">
                         <div class="challenge-progress-fill" style="width: ${ch.percentage}%"></div>
                     </div>
-                    <span class="challenge-progress-text">${ch.progress} / ${ch.target_count}</span>
+                    <span class="challenge-progress-text">${ch.progress} / ${maxTarget}</span>
                 </div>
             ` : '';
             
@@ -731,15 +762,15 @@ class MovieTracker {
                     <p class="challenge-desc">${this.escapeHtml(ch.description || '')}</p>
                     <div class="challenge-meta">
                         <div class="challenge-meta-item">
-                            <i class="fas fa-bullseye"></i>
-                            <span>Cel: ${ch.target_count} ${typeText}</span>
+                            <i class="fas fa-film"></i>
+                            <span>Typ: ${typeText}</span>
                         </div>
                         <div class="challenge-meta-item">
                             <i class="fas fa-calendar"></i>
                             <span>${this.formatDate(ch.start_date)} - ${this.formatDate(ch.end_date)}</span>
                         </div>
                     </div>
-                    ${badgeInfo}
+                    ${tiersSection}
                     ${progressBar}
                     <div class="challenge-actions">
                         ${actionButton}
@@ -3893,7 +3924,9 @@ class MovieTracker {
                 <td>${challenge.title}</td>
                 <td>${challenge.type}</td>
                 <td>${challenge.criteria_value || '-'}</td>
-                <td>${challenge.target_count}</td>
+                <td>${challenge.target_silver || '-'}</td>
+                <td>${challenge.target_gold || '-'}</td>
+                <td>${challenge.target_platinum || '-'}</td>
                 <td>
                     <button class="action-btn btn-edit" onclick="app.editAdminChallenge(${challenge.id})">
                         <i class="fas fa-edit"></i> Edytuj
@@ -4319,6 +4352,18 @@ class MovieTracker {
     showAdminChallengeModal(challenge = null) {
         const modal = document.getElementById('admin-challenge-modal');
         const title = document.getElementById('admin-challenge-modal-title');
+        const typeSelect = document.getElementById('admin-challenge-type');
+        const criteriaGroup = document.getElementById('criteria-group');
+        
+        // Nasłuchuj zmiany typu wyzwania
+        typeSelect.onchange = () => {
+            if (typeSelect.value === 'genre') {
+                criteriaGroup.style.display = 'block';
+            } else {
+                criteriaGroup.style.display = 'none';
+                document.getElementById('admin-challenge-criteria').value = '';
+            }
+        };
         
         if (challenge) {
             title.textContent = 'Edytuj wyzwanie';
@@ -4335,10 +4380,14 @@ class MovieTracker {
             document.getElementById('admin-challenge-badge-silver').value = challenge.badge_silver_id || '';
             document.getElementById('admin-challenge-badge-gold').value = challenge.badge_gold_id || '';
             document.getElementById('admin-challenge-badge-platinum').value = challenge.badge_platinum_id || '';
+            
+            // Pokaż pole kryterium jeśli typ to genre
+            criteriaGroup.style.display = challenge.type === 'genre' ? 'block' : 'none';
         } else {
             title.textContent = 'Dodaj wyzwanie';
             document.getElementById('admin-challenge-form').reset();
             document.getElementById('admin-challenge-id').value = '';
+            criteriaGroup.style.display = 'none';
         }
         
         modal.style.display = 'block';

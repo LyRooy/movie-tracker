@@ -32,7 +32,7 @@ export async function onRequest(context) {
       });
     }
     
-    // Pobierz wyzwania z postępem
+    // Pobierz wyzwania z informacją o uczestnictwie i postępie
     const result = await env.db.prepare(`
       SELECT 
         c.id,
@@ -40,47 +40,88 @@ export async function onRequest(context) {
         c.description,
         c.target_count,
         c.type as challenge_type,
+        c.criteria_value,
         c.start_date,
         c.end_date,
-        COUNT(cp.id) as current_progress,
+        c.badge_id,
+        b.name as badge_name,
+        b.image_url as badge_image,
+        cp.id as participant_id,
+        cp.joined_at,
+        cp.completed_at,
         CASE 
-          WHEN COUNT(cp.id) >= c.target_count THEN 'completed'
+          WHEN date('now') < c.start_date THEN 'upcoming'
           WHEN date('now') > c.end_date THEN 'expired'
           ELSE 'active'
         END as status
       FROM challenges c
-      LEFT JOIN (
-        SELECT w.id, c.id as challenge_id
-        FROM watched w
-        JOIN movies m ON w.movie_id = m.id
-        JOIN challenges c ON (
-          (c.type = 'movies' AND m.media_type = 'movie') OR
-          (c.type = 'series' AND m.media_type = 'series') OR
-          c.type = 'both'
-        )
-        WHERE w.user_id = ? 
-        AND w.watched_date BETWEEN c.start_date AND c.end_date
-      ) cp ON c.id = cp.challenge_id
-      GROUP BY c.id, c.title, c.description, c.target_count, 
-               c.type, c.start_date, c.end_date
-      ORDER BY c.end_date ASC
+      LEFT JOIN badges b ON c.badge_id = b.id
+      LEFT JOIN challenge_participants cp ON c.id = cp.challenge_id AND cp.user_id = ?
+      ORDER BY 
+        CASE 
+          WHEN cp.id IS NOT NULL AND cp.completed_at IS NULL THEN 0
+          WHEN date('now') BETWEEN c.start_date AND c.end_date THEN 1
+          WHEN date('now') < c.start_date THEN 2
+          ELSE 3
+        END,
+        c.end_date ASC
     `).bind(userId).all();
 
-    // Przekształć do formatu zgodnego z frontendem
-    const challenges = result.results.map(row => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      target: row.target_count,
-      progress: row.current_progress,
-      type: row.challenge_type,
-      startDate: row.start_date,
-      endDate: row.end_date,
-      status: row.status,
-      percentage: Math.round((row.current_progress / row.target_count) * 100)
+    // Dla każdego wyzwania oblicz aktualny postęp użytkownika
+    const challengesWithProgress = await Promise.all(result.results.map(async (row) => {
+      let progress = 0;
+      
+      if (row.participant_id) {
+        // Oblicz postęp na podstawie obejrzanych filmów
+        const progressResult = await env.db.prepare(`
+          SELECT COUNT(DISTINCT w.id) as count
+          FROM watched w
+          JOIN movies m ON w.movie_id = m.id
+          WHERE w.user_id = ?
+          AND w.watched_date BETWEEN ? AND COALESCE(?, date('now'))
+          AND (
+            (? = 'movies' AND m.media_type = 'movie') OR
+            (? = 'series' AND m.media_type = 'series') OR
+            (? = 'genre' AND m.genre = ?) OR
+            ? = 'both'
+          )
+        `).bind(
+          userId,
+          row.start_date,
+          row.end_date,
+          row.challenge_type,
+          row.challenge_type,
+          row.challenge_type,
+          row.criteria_value,
+          row.challenge_type
+        ).first();
+        
+        progress = progressResult ? progressResult.count : 0;
+      }
+      
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        target_count: row.target_count,
+        progress: progress,
+        type: row.challenge_type,
+        criteria_value: row.criteria_value,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        status: row.status,
+        is_participant: !!row.participant_id,
+        completed_at: row.completed_at,
+        badge: row.badge_id ? {
+          id: row.badge_id,
+          name: row.badge_name,
+          image_url: row.badge_image
+        } : null,
+        percentage: row.target_count > 0 ? Math.round((progress / row.target_count) * 100) : 0
+      };
     }));
 
-    return new Response(JSON.stringify(challenges), {
+    return new Response(JSON.stringify(challengesWithProgress), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {

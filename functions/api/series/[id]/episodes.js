@@ -235,6 +235,13 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
 
     // Zaktualizuj status serialu w tabeli watched na podstawie ukończenia
     await updateSeriesStatus(db, userId, seriesId);
+    
+    // Sprawdź postęp w wyzwaniach po obejrzeniu odcinka
+    let completedChallenges = [];
+    if (watched) {
+      const watchedDate = new Date().toISOString().split('T')[0];
+      completedChallenges = await checkChallengeProgress(db, userId, seriesId, watchedDate);
+    }
 
     // Zwróć informacje o nieobejrzanych poprzednich odcinkach, aby frontend mógł wyświetlić komunikat
     const stillUnwatchedPrevious = await db.prepare(`
@@ -255,7 +262,8 @@ async function handleMarkEpisode(db, userId, request, corsHeaders) {
     return new Response(JSON.stringify({ 
       success: true,
       hasPreviousUnwatched: watched && !markPrevious && stillUnwatchedPrevious.count > 0,
-      previousUnwatchedCount: stillUnwatchedPrevious.count
+      previousUnwatchedCount: stillUnwatchedPrevious.count,
+      completedChallenges: completedChallenges
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
@@ -351,4 +359,144 @@ async function getUserIdFromRequest(request) {
   } catch {
     return null;
   }
+}
+
+// Sprawdź postęp w wyzwaniach i przyznaj odznakę, jeśli wyzwanie ukończone
+async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
+  const completedChallenges = [];
+  
+  try {
+    // Pobierz wszystkie aktywne wyzwania, w których użytkownik uczestniczy
+    const participations = await db.prepare(`
+      SELECT 
+        cp.id as participant_id,
+        cp.challenge_id,
+        c.type,
+        c.criteria_value,
+        c.target_count,
+        c.badge_id,
+        c.start_date,
+        c.end_date
+      FROM challenge_participants cp
+      JOIN challenges c ON cp.challenge_id = c.id
+      WHERE cp.user_id = ? 
+        AND cp.completed_at IS NULL
+        AND c.end_date >= date('now')
+    `).bind(userId).all();
+
+    if (!participations.results || participations.results.length === 0) {
+      return completedChallenges;
+    }
+
+    // Sprawdź każde wyzwanie
+    for (const participation of participations.results) {
+      // Policz postęp dla tego wyzwania
+      let progress = 0;
+      
+      if (participation.type === 'movies' || participation.type === 'both') {
+        // Zlicz obejrzane filmy w okresie wyzwania
+        const moviesQuery = await db.prepare(`
+          SELECT COUNT(DISTINCT w.movie_id) as count
+          FROM watched w
+          JOIN movies m ON w.movie_id = m.id
+          WHERE w.user_id = ?
+            AND m.type = 'movie'
+            AND w.watched_date >= ?
+            AND w.watched_date <= ?
+        `).bind(userId, participation.start_date, participation.end_date).first();
+        
+        progress += moviesQuery?.count || 0;
+      }
+
+      if (participation.type === 'series' || participation.type === 'both') {
+        // Zlicz obejrzane seriale (wszystkie odcinki) w okresie wyzwania
+        const seriesQuery = await db.prepare(`
+          SELECT COUNT(DISTINCT m.id) as count
+          FROM movies m
+          WHERE m.type = 'series'
+            AND m.id IN (
+              SELECT DISTINCT s.series_id
+              FROM seasons s
+              WHERE NOT EXISTS (
+                SELECT 1 FROM episodes e
+                WHERE e.season_id = s.id
+                  AND e.id NOT IN (
+                    SELECT uew.episode_id
+                    FROM user_episodes_watched uew
+                    WHERE uew.user_id = ?
+                      AND uew.watched_date >= ?
+                      AND uew.watched_date <= ?
+                  )
+              )
+            )
+        `).bind(userId, participation.start_date, participation.end_date).first();
+        
+        progress += seriesQuery?.count || 0;
+      }
+
+      if (participation.type === 'genre') {
+        // Zlicz filmy/seriale z określonego gatunku
+        const genreQuery = await db.prepare(`
+          SELECT COUNT(DISTINCT w.movie_id) as count
+          FROM watched w
+          JOIN movies m ON w.movie_id = m.id
+          WHERE w.user_id = ?
+            AND m.genre LIKE ?
+            AND w.watched_date >= ?
+            AND w.watched_date <= ?
+        `).bind(userId, `%${participation.criteria_value}%`, participation.start_date, participation.end_date).first();
+        
+        progress = genreQuery?.count || 0;
+      }
+
+      // Jeśli wyzwanie zostało ukończone
+      if (progress >= participation.target_count) {
+        // Oznacz wyzwanie jako ukończone
+        await db.prepare(`
+          UPDATE challenge_participants
+          SET completed_at = datetime('now')
+          WHERE id = ?
+        `).bind(participation.participant_id).run();
+
+        // Przyznaj odznakę użytkownikowi
+        if (participation.badge_id) {
+          const existingBadge = await db.prepare(`
+            SELECT id FROM user_badges
+            WHERE user_id = ? AND badge_id = ? AND challenge_participant_id = ?
+          `).bind(userId, participation.badge_id, participation.participant_id).first();
+
+          if (!existingBadge) {
+            await db.prepare(`
+              INSERT INTO user_badges (user_id, badge_id, level, challenge_participant_id)
+              VALUES (?, ?, 'gold', ?)
+            `).bind(userId, participation.badge_id, participation.participant_id).run();
+            
+            // Pobierz informacje o odznace
+            const badge = await db.prepare(`
+              SELECT id, name, description, image_url
+              FROM badges
+              WHERE id = ?
+            `).bind(participation.badge_id).first();
+            
+            // Pobierz nazwę wyzwania
+            const challenge = await db.prepare(`
+              SELECT title FROM challenges WHERE id = ?
+            `).bind(participation.challenge_id).first();
+            
+            // Dodaj do listy ukończonych wyzwań
+            completedChallenges.push({
+              challengeId: participation.challenge_id,
+              challengeTitle: challenge?.title,
+              badge: badge
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error checking challenge progress:', error);
+    // Nie przerywaj głównego procesu, jeśli wystąpi błąd
+  }
+  
+  return completedChallenges;
 }

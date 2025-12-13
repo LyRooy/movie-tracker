@@ -679,24 +679,118 @@ class MovieTracker {
                 <div class="empty-state">
                     <i class="fas fa-flag" style="font-size:48px;color:#ccc;margin-bottom:12px"></i>
                     <h3>Brak aktywnych wyzwań</h3>
-                    <p>Sprawdź ponownie później lub zobacz odznaki.</p>
-                    <button class="btn btn-primary" onclick="app.showSection('badges-all')">Zobacz odznaki</button>
+                    <p>Sprawdź ponownie później</p>
                 </div>
             `;
             return;
         }
 
-        container.innerHTML = challenges.map(ch => `
-            <div class="challenge-card">
-                <h3>${ch.title}</h3>
-                <p class="challenge-desc">${ch.description || ''}</p>
-                <div class="challenge-meta">
-                    <span>${ch.type || ''}</span>
-                    <span>Cel: ${ch.target_count || '-'}</span>
-                    <span>${ch.start_date ? this.formatDate(ch.start_date) : ''} - ${ch.end_date ? this.formatDate(ch.end_date) : ''}</span>
+        container.innerHTML = challenges.map(ch => {
+            const statusClass = ch.status === 'active' ? 'active' : ch.status === 'expired' ? 'expired' : 'upcoming';
+            const statusText = ch.status === 'active' ? 'Aktywne' : ch.status === 'expired' ? 'Zakończone' : 'Nadchodzące';
+            const typeText = ch.type === 'movies' ? 'Filmy' : ch.type === 'series' ? 'Seriale' : ch.type === 'genre' ? `Gatunek: ${ch.criteria_value}` : 'Wszystko';
+            
+            let actionButton = '';
+            if (ch.status === 'active' || ch.status === 'upcoming') {
+                if (ch.is_participant) {
+                    actionButton = `
+                        <button class="btn btn-secondary" onclick="app.leaveChallenge(${ch.id})">
+                            <i class="fas fa-sign-out-alt"></i> Opuść wyzwanie
+                        </button>
+                    `;
+                } else {
+                    actionButton = `
+                        <button class="btn btn-primary" onclick="app.joinChallenge(${ch.id})">
+                            <i class="fas fa-play"></i> Weź udział
+                        </button>
+                    `;
+                }
+            }
+            
+            const badgeInfo = ch.badge ? `
+                <div class="challenge-reward">
+                    <i class="fas fa-trophy"></i> Nagroda: ${ch.badge.name}
                 </div>
-            </div>
-        `).join('');
+            ` : '';
+            
+            const progressBar = ch.is_participant ? `
+                <div class="challenge-progress">
+                    <div class="challenge-progress-bar">
+                        <div class="challenge-progress-fill" style="width: ${ch.percentage}%"></div>
+                    </div>
+                    <span class="challenge-progress-text">${ch.progress} / ${ch.target_count}</span>
+                </div>
+            ` : '';
+            
+            return `
+                <div class="challenge-card ${statusClass}">
+                    <div class="challenge-header">
+                        <h3>${this.escapeHtml(ch.title)}</h3>
+                        <span class="challenge-status challenge-status-${statusClass}">${statusText}</span>
+                    </div>
+                    <p class="challenge-desc">${this.escapeHtml(ch.description || '')}</p>
+                    <div class="challenge-meta">
+                        <div class="challenge-meta-item">
+                            <i class="fas fa-bullseye"></i>
+                            <span>Cel: ${ch.target_count} ${typeText}</span>
+                        </div>
+                        <div class="challenge-meta-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>${this.formatDate(ch.start_date)} - ${this.formatDate(ch.end_date)}</span>
+                        </div>
+                    </div>
+                    ${badgeInfo}
+                    ${progressBar}
+                    <div class="challenge-actions">
+                        ${actionButton}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async joinChallenge(challengeId) {
+        try {
+            const response = await fetch(`/api/challenges/${challengeId}`, {
+                method: 'POST',
+                headers: this.getAuthHeaders()
+            });
+            
+            if (response.ok) {
+                this.showNotification('Dołączono do wyzwania!', 'success');
+                await this.loadChallenges(); // Odśwież listę
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas dołączania', 'error');
+            }
+        } catch (error) {
+            console.error('Error joining challenge:', error);
+            this.showNotification('Błąd podczas dołączania do wyzwania', 'error');
+        }
+    }
+
+    async leaveChallenge(challengeId) {
+        if (!(await this.showConfirm('Czy na pewno chcesz opuścić to wyzwanie?', 'Potwierdź'))) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/challenges/${challengeId}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+            
+            if (response.ok) {
+                this.showNotification('Opuszczono wyzwanie', 'success');
+                await this.loadChallenges(); // Odśwież listę
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Błąd podczas opuszczania', 'error');
+            }
+        } catch (error) {
+            console.error('Error leaving challenge:', error);
+            this.showNotification('Błąd podczas opuszczania wyzwania', 'error');
+        }
     }
 
     async showAllBadges() {
@@ -2636,6 +2730,22 @@ class MovieTracker {
             });
 
             if (response.ok) {
+                const result = await response.json();
+                
+                // Sprawdź, czy ukończono jakieś wyzwania
+                if (result.completedChallenges && result.completedChallenges.length > 0) {
+                    for (const completed of result.completedChallenges) {
+                        this.showNotification(
+                            `🎉 Gratulacje! Ukończyłeś wyzwanie "${completed.challengeTitle}" i zdobyłeś odznakę "${completed.badge.name}"!`,
+                            'success',
+                            true,
+                            7000
+                        );
+                    }
+                    // Odśwież odznaki w profilu
+                    await this.loadBadges();
+                }
+                
                 // Jeśli to serial i status zmieniono na 'watched', oznacz wszystkie odcinki jako obejrzane
                 if (movie.type === 'series' && selectedStatus === 'watched') {
                     const loadingNotification = this.showNotification('Oznaczam wszystkie odcinki jako obejrzane...', 'info', false);
@@ -2737,7 +2847,7 @@ class MovieTracker {
         }
     }
 
-    showNotification(message, type = 'success', autoHide = true) {
+    showNotification(message, type = 'success', autoHide = true, duration = 3000) {
         const notification = document.createElement('div');
         notification.className = 'notification';
         
@@ -2784,7 +2894,7 @@ class MovieTracker {
                         document.body.removeChild(notification);
                     }
                 }, 300);
-            }, 3000);
+            }, duration);
         }
         
         return notification; // Zwróć element, aby móc go usunąć ręcznie
@@ -3281,6 +3391,20 @@ class MovieTracker {
             }
 
             const data = await response.json();
+            
+            // Sprawdź, czy ukończono jakieś wyzwania
+            if (data.completedChallenges && data.completedChallenges.length > 0) {
+                for (const completed of data.completedChallenges) {
+                    this.showNotification(
+                        `🎉 Gratulacje! Ukończyłeś wyzwanie "${completed.challengeTitle}" i zdobyłeś odznakę "${completed.badge.name}"!`,
+                        'success',
+                        true,
+                        7000
+                    );
+                }
+                // Odśwież odznaki w profilu
+                await this.loadBadges();
+            }
 
             // Sprawdź czy były poprzednie nieobejrzane odcinki
             if (data.hasPreviousUnwatched && isChecked) {

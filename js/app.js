@@ -3966,7 +3966,7 @@ class MovieTracker {
                         <textarea class="admin-episode-description">${this.escapeHtml(ep.description || '')}</textarea>
                     </div>
                     <div class="admin-episode-actions">
-                        <button class="btn btn-primary admin-episode-save-btn" data-episode-id="${ep.id}">Zapisz</button>
+                        <button type="button" class="btn btn-primary admin-episode-save-btn" data-episode-id="${ep.id}">Zapisz</button>
                     </div>
                 `;
                 list.appendChild(row);

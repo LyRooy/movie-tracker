@@ -407,7 +407,7 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
           FROM watched w
           JOIN movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
-            AND m.type = 'movie'
+            AND m.media_type = 'movie'
             AND w.watched_date >= ?
             AND w.watched_date <= ?
         `).bind(userId, participation.start_date, participation.end_date).first();
@@ -420,7 +420,7 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
         const seriesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT m.id) as count
           FROM movies m
-          WHERE m.type = 'series'
+          WHERE m.media_type = 'series'
             AND m.id IN (
               SELECT DISTINCT s.series_id
               FROM seasons s

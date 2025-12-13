@@ -384,7 +384,7 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
 
     // Pobierz informacje o filmie
     const movie = await db.prepare(`
-      SELECT id, type, genre
+      SELECT id, media_type, genre
       FROM movies
       WHERE id = ?
     `).bind(movieId).first();
@@ -405,7 +405,7 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
           FROM watched w
           JOIN movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
-            AND m.type = 'movie'
+            AND m.media_type = 'movie'
             AND w.watched_date >= ?
             AND w.watched_date <= ?
         `).bind(userId, participation.start_date, participation.end_date).first();
@@ -418,7 +418,7 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
         const seriesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT m.id) as count
           FROM movies m
-          WHERE m.type = 'series'
+          WHERE m.media_type = 'series'
             AND m.id IN (
               SELECT DISTINCT e.series_id
               FROM episodes e

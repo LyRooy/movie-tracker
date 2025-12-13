@@ -454,6 +454,13 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
         progress = genreQuery?.count || 0;
       }
 
+      // Aktualizuj progress w bazie danych
+      await db.prepare(`
+        UPDATE challenge_participants
+        SET progress = ?
+        WHERE id = ?
+      `).bind(progress, participation.participant_id).run();
+
       // Sprawdź i przyznaj odznaki dla różnych tierów
       const tiersToCheck = [
         { name: 'platinum', target: participation.target_platinum, badgeId: participation.badge_platinum_id, completedField: 'completed_platinum_at', completed: participation.completed_platinum_at },

@@ -2849,31 +2849,30 @@ class MovieTracker {
         try {
             const premieres = [];
             
-            // Pobierz filmy z release_date
-            const moviesRes = await fetch('/api/movies', { headers: this.getAuthHeaders() });
+            // Pobierz wszystkie filmy z bazy (używamy endpointu admin dla pełnej listy)
+            const moviesRes = await fetch('/api/admin/movies', { headers: this.getAuthHeaders() });
             if (moviesRes.ok) {
                 const movies = await moviesRes.json();
+                console.log('Loaded movies for calendar:', movies.length);
+                
                 movies.forEach(movie => {
+                    // Sprawdź release_date dla filmów i seriali
                     if (movie.release_date) {
-                        // Wyciągnij datę - jeśli format YYYY-MM-DD lub pojedynczo YYYY
+                        // Wyciągnij datę - jeśli format YYYY-MM-DD
                         const dateMatch = String(movie.release_date).match(/^(\d{4}-\d{2}-\d{2})/);
                         if (dateMatch) {
+                            console.log(`Adding premiere: ${movie.title} on ${dateMatch[1]}`);
                             premieres.push({
                                 date: dateMatch[1],
                                 title: movie.title,
-                                type: 'movie'
+                                type: movie.media_type === 'series' ? 'series' : 'movie'
                             });
                         }
                     }
                 });
-            }
-            
-            // Pobierz odcinki z air_date
-            // Najpierw pobierz wszystkie seriale
-            if (moviesRes.ok) {
-                const movies = await moviesRes.json();
-                const series = movies.filter(m => m.media_type === 'series');
                 
+                // Pobierz odcinki dla seriali
+                const series = movies.filter(m => m.media_type === 'series');
                 for (const s of series) {
                     try {
                         const episodesRes = await fetch(`/api/series/${s.id}/episodes`, { headers: this.getAuthHeaders() });
@@ -2901,6 +2900,7 @@ class MovieTracker {
                 }
             }
             
+            console.log('Total premieres loaded:', premieres.length);
             return premieres;
         } catch (error) {
             console.error('Error loading premieres:', error);
@@ -3591,6 +3591,9 @@ class MovieTracker {
         document.querySelectorAll('#admin-badge-modal .close').forEach(btn => {
             btn.addEventListener('click', () => this.closeAdminModal('admin-badge-modal'));
         });
+        document.querySelectorAll('#admin-season-count-modal .close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeAdminModal('admin-season-count-modal'));
+        });
         document.querySelectorAll('#admin-seasons-modal .close').forEach(btn => {
             btn.addEventListener('click', () => this.closeAdminModal('admin-seasons-modal'));
         });
@@ -3607,6 +3610,11 @@ class MovieTracker {
         document.getElementById('admin-movie-form').addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveAdminMovie();
+        });
+        
+        document.getElementById('admin-season-count-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitSeasonCount();
         });
         
         document.getElementById('admin-seasons-form').addEventListener('submit', (e) => {
@@ -3844,6 +3852,10 @@ class MovieTracker {
             title.textContent = 'Dodaj film';
             document.getElementById('admin-movie-form').reset();
             document.getElementById('admin-movie-id').value = '';
+            // Ustaw domyślny typ na film i ukryj pola serialu
+            document.getElementById('admin-movie-type').value = 'movie';
+            document.getElementById('series-fields').style.display = 'none';
+            document.getElementById('duration-label').textContent = 'Czas trwania (minuty):';
         }
         
         modal.style.display = 'block';
@@ -3961,25 +3973,8 @@ class MovieTracker {
             
             const movie = await movieResponse.json();
             
-            // Pobierz istniejące sezony
-            const seasonsResponse = await fetch(`/api/admin/movies/${seriesId}/seasons`, {
-                headers: this.getAuthHeaders()
-            });
-            
-            const existingSeasons = seasonsResponse.ok ? await seasonsResponse.json() : [];
-            
-            // Otwórz modal z pytaniem o liczbę sezonów
-            const newSeasonCount = prompt(
-                `Aktualnie: ${movie.total_seasons} sezonów\n\nPodaj nową liczbę sezonów (lub zostaw jak jest):`,
-                movie.total_seasons
-            );
-            
-            if (newSeasonCount === null) return; // Anulowano
-            
-            const seasonCount = parseInt(newSeasonCount) || movie.total_seasons;
-            
-            // Otwórz modal konfiguracji sezonów
-            this.showSeasonsConfigModal(seriesId, seasonCount, seriesTitle, existingSeasons);
+            // Pokaż modal do wprowadzania liczby sezonów
+            this.showSeasonCountModal(seriesId, seriesTitle, movie.total_seasons);
             
         } catch (error) {
             console.error('Error loading series seasons:', error);
@@ -4530,6 +4525,53 @@ class MovieTracker {
         } catch (error) {
             console.error('Error deleting badge:', error);
             this.showNotification('Błąd podczas usuwania odznaki', 'error');
+        }
+    }
+
+    showSeasonCountModal(seriesId, seriesTitle, currentSeasonCount = null) {
+        const modal = document.getElementById('admin-season-count-modal');
+        const title = document.getElementById('admin-season-count-modal-title');
+        const subtitle = document.getElementById('admin-season-count-subtitle');
+        const input = document.getElementById('admin-season-count-input');
+        
+        document.getElementById('admin-season-count-series-id').value = seriesId;
+        document.getElementById('admin-season-count-series-title').value = seriesTitle;
+        
+        title.textContent = `Edycja sezonów: ${seriesTitle}`;
+        subtitle.textContent = 'Wprowadź nową liczbę sezonów';
+        input.value = currentSeasonCount || 1;
+        input.focus();
+        
+        modal.style.display = 'block';
+    }
+
+    async submitSeasonCount() {
+        const seriesId = document.getElementById('admin-season-count-series-id').value;
+        const seriesTitle = document.getElementById('admin-season-count-series-title').value;
+        const seasonCount = parseInt(document.getElementById('admin-season-count-input').value);
+        
+        if (!seasonCount || seasonCount < 1) {
+            this.showNotification('Podaj prawidłową liczbę sezonów (minimum 1)', 'error');
+            return;
+        }
+        
+        // Zamknij modal wyboru liczby sezonów
+        this.closeAdminModal('admin-season-count-modal');
+        
+        // Pobierz istniejące sezony
+        try {
+            const seasonsResponse = await fetch(`/api/admin/movies/${seriesId}/seasons`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            const existingSeasons = seasonsResponse.ok ? await seasonsResponse.json() : [];
+            
+            // Otwórz modal konfiguracji sezonów
+            this.showSeasonsConfigModal(seriesId, seasonCount, seriesTitle, existingSeasons);
+        } catch (error) {
+            console.error('Error loading seasons:', error);
+            // Kontynuuj z pustą listą sezonów
+            this.showSeasonsConfigModal(seriesId, seasonCount, seriesTitle, []);
         }
     }
 

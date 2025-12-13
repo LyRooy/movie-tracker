@@ -3779,13 +3779,10 @@ class MovieTracker {
         const id = document.getElementById('admin-movie-id').value;
         const movieType = document.getElementById('admin-movie-type').value;
         
-        // Handle year input - if only year provided, append -01-01
+        // Rok wydania - tylko dołączać jeśli niepusty
         let yearValue = document.getElementById('admin-movie-year').value || null;
-        if (yearValue && /^\d{4}$/.test(yearValue)) {
-            yearValue = yearValue + '-01-01';
-        }
         
-        // Read admin duration input and only include in payload if non-empty
+        // Czytaj i parsuj duration tylko jeśli podano wartość
         const rawDurationInput = (document.getElementById('admin-movie-duration').value || '').toString().trim();
         let durationValue = undefined;
         if (rawDurationInput !== '') {
@@ -3798,14 +3795,14 @@ class MovieTracker {
             type: movieType,
             year: yearValue,
             genre: document.getElementById('admin-movie-genre').value || null,
-            // Duration: for movies it's the movie length, for series it's episode length
-            // Include `duration` only if user provided a value (keep undefined otherwise)
+            // Długość tylko jeśli podano
+            // undefinied oznacza brak zmiany, null oznacza wyczyszczenie
             ...(durationValue !== undefined ? { duration: durationValue } : {}),
             description: document.getElementById('admin-movie-description').value || null,
             poster: document.getElementById('admin-movie-poster').value || null
         };
 
-        // Add series-specific fields
+        // Dodaj dodatkowe pole totalSeasons dla seriali
         if (movieType === 'series') {
             data.totalSeasons = parseInt(document.getElementById('admin-series-seasons').value) || 1;
             // Nie wysyłamy episodesPerSeason - będziemy konfigurować osobno
@@ -3815,7 +3812,7 @@ class MovieTracker {
             console.debug('Saving admin movie payload', data);
             const url = id ? `/api/admin/movies/${id}` : '/api/admin/movies';
             const method = id ? 'PUT' : 'POST';
-            if (id) data.id = id; // include ID in body for older API compatibility
+            if (id) data.id = id; // używaj id w payload przy aktualizacji
             
             const response = await fetch(url, {
                 method,

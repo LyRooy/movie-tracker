@@ -75,6 +75,9 @@ async function handleGetMovie(db, movieId, corsHeaders) {
     
     if (episodeDurations && episodeDurations.avg_duration) {
       movie.duration = Math.round(episodeDurations.avg_duration);
+    } else {
+      // Jeśli brak odcinków, ustaw domyślną wartość 45 minut
+      movie.duration = 45;
     }
   }
 
@@ -102,7 +105,7 @@ async function handleUpdateMovie(db, request, movieId, corsHeaders) {
   }
   if (data.year !== undefined) {
     updates.push('release_date = ?');
-    values.push(data.year ? `${data.year}-01-01` : null);
+    values.push(data.year || null);
   }
   if (data.genre !== undefined) {
     updates.push('genre = ?');
@@ -115,6 +118,13 @@ async function handleUpdateMovie(db, request, movieId, corsHeaders) {
   if (data.description !== undefined) {
     updates.push('description = ?');
     values.push(data.description);
+  }
+  // Zapisz duration przed dodaniem do updates, aby później propagować do episodes
+  let episodeDuration = null;
+  if (data.duration !== undefined) {
+    episodeDuration = Number(data.duration);
+    updates.push('duration = ?');
+    values.push(episodeDuration);
   }
   
   if (updates.length === 0) {
@@ -131,6 +141,23 @@ async function handleUpdateMovie(db, request, movieId, corsHeaders) {
     SET ${updates.join(', ')}
     WHERE id = ?
   `).bind(...values).run();
+
+  // Dla seriali - propaguj duration do wszystkich odcinków
+  if (episodeDuration !== null) {
+    try {
+      // Sprawdź czy to serial
+      const movie = await db.prepare('SELECT media_type FROM movies WHERE id = ?').bind(movieId).first();
+      if (movie && movie.media_type === 'series') {
+        await db.prepare(`
+          UPDATE episodes SET duration = ?
+          WHERE season_id IN (SELECT id FROM seasons WHERE series_id = ?)
+        `).bind(episodeDuration, movieId).run();
+        console.log(`Updated episodes duration to ${episodeDuration} for series ${movieId}`);
+      }
+    } catch (e) {
+      console.error('Error propagating duration to episodes:', e);
+    }
+  }
 
   return new Response(JSON.stringify({ success: true, id: movieId }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }

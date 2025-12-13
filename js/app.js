@@ -4596,24 +4596,48 @@ class MovieTracker {
         const description = document.getElementById('admin-badge-description').value || null;
         const level = document.getElementById('admin-badge-level').value;
         const iconUrl = document.getElementById('admin-badge-icon').value || null;
+        const fileInput = document.getElementById('admin-badge-file');
+        const file = fileInput.files[0];
         
         if (!level) {
             this.showNotification('Poziom odznaki jest wymagany', 'error');
             return;
         }
         
-        // Jeśli nie podano URL, użyj domyślnego obrazka
-        const imageUrl = iconUrl || '/images/default-badge.jpg';
+        let imageUrl = iconUrl || '/images/default-badge.jpg';
         
-        // Przygotuj payload i wyślij dane odznaki
-        const data = { 
-            name: name, 
-            description: description, 
-            level: level,
-            image_url: imageUrl 
-        };
-
         try {
+            // Jeśli wybrano plik, prześlij go najpierw
+            if (file) {
+                const formData = new FormData();
+                formData.append('badge', file);
+                
+                const uploadResponse = await fetch('/api/admin/upload-badge', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${this.authToken}`
+                    },
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    const uploadError = await uploadResponse.json();
+                    this.showNotification(uploadError.error || 'Błąd podczas uploadu pliku', 'error');
+                    return;
+                }
+                
+                const uploadResult = await uploadResponse.json();
+                imageUrl = uploadResult.key; // Zapisz tylko klucz (nazwa pliku w R2)
+            }
+            
+            // Przygotuj payload i wyślij dane odznaki
+            const data = { 
+                name: name, 
+                description: description, 
+                level: level,
+                image_url: imageUrl 
+            };
+
             const url = id ? `/api/admin/badges/${id}` : '/api/admin/badges';
             const method = id ? 'PUT' : 'POST';
 

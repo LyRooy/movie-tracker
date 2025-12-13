@@ -87,25 +87,29 @@ async function handleGetChallenges(db, request, corsHeaders) {
 async function handleCreateChallenge(db, request, corsHeaders) {
   const data = await request.json();
   
-  if (!data.title || !data.type || !data.targetCount || !data.startDate) {
-    return new Response(JSON.stringify({ error: 'Title, type, targetCount, and startDate are required' }), {
+  if (!data.title || !data.type || !data.start_date) {
+    return new Response(JSON.stringify({ error: 'Title, type, and start_date are required' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 
   const result = await db.prepare(`
-    INSERT INTO challenges (title, description, type, criteria_value, target_count, start_date, end_date, badge_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO challenges (title, description, type, criteria_value, target_silver, target_gold, target_platinum, start_date, end_date, badge_silver_id, badge_gold_id, badge_platinum_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     data.title,
     data.description || '',
     data.type,
-    data.criteriaValue || null,
-    data.targetCount,
-    data.startDate,
-    data.endDate || null,
-    data.badgeId || null
+    data.criteria_value || null,
+    data.target_silver || null,
+    data.target_gold || null,
+    data.target_platinum || null,
+    data.start_date,
+    data.end_date || null,
+    data.badge_silver_id || null,
+    data.badge_gold_id || null,
+    data.badge_platinum_id || null
   ).run();
 
   return new Response(JSON.stringify({ 
@@ -142,25 +146,41 @@ async function handleUpdateChallenge(db, request, corsHeaders) {
     updates.push('type = ?');
     params.push(data.type);
   }
-  if (data.criteriaValue !== undefined) {
+  if (data.criteria_value !== undefined) {
     updates.push('criteria_value = ?');
-    params.push(data.criteriaValue);
+    params.push(data.criteria_value);
   }
-  if (data.targetCount) {
-    updates.push('target_count = ?');
-    params.push(data.targetCount);
+  if (data.target_silver !== undefined) {
+    updates.push('target_silver = ?');
+    params.push(data.target_silver);
   }
-  if (data.startDate) {
+  if (data.target_gold !== undefined) {
+    updates.push('target_gold = ?');
+    params.push(data.target_gold);
+  }
+  if (data.target_platinum !== undefined) {
+    updates.push('target_platinum = ?');
+    params.push(data.target_platinum);
+  }
+  if (data.start_date) {
     updates.push('start_date = ?');
-    params.push(data.startDate);
+    params.push(data.start_date);
   }
-  if (data.endDate !== undefined) {
+  if (data.end_date !== undefined) {
     updates.push('end_date = ?');
-    params.push(data.endDate);
+    params.push(data.end_date);
   }
-  if (data.badgeId !== undefined) {
-    updates.push('badge_id = ?');
-    params.push(data.badgeId);
+  if (data.badge_silver_id !== undefined) {
+    updates.push('badge_silver_id = ?');
+    params.push(data.badge_silver_id);
+  }
+  if (data.badge_gold_id !== undefined) {
+    updates.push('badge_gold_id = ?');
+    params.push(data.badge_gold_id);
+  }
+  if (data.badge_platinum_id !== undefined) {
+    updates.push('badge_platinum_id = ?');
+    params.push(data.badge_platinum_id);
   }
 
   if (updates.length === 0) {

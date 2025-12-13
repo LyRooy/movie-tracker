@@ -265,7 +265,7 @@
                 <div id="profile-badges-tab" class="profile-tab-content active">
                     <div class="badges-header">
                         <h2>Moje Odznaki</h2>
-                        <a href="#badges-all" id="view-all-badges" class="view-all-link">Zobacz wszystkie →</a>
+                        <a href="#badges-all" id="view-all-badges" class="view-all-link">Zobacz wszystkie <i class="fas fa-arrow-right"></i></a>
                     </div>
                     <div id="badges-container" class="badges-grid">
                         <!-- Badges will be loaded here dynamically -->
@@ -343,10 +343,10 @@
         <!-- All Badges Section -->
         <section id="badges-all" class="section">
             <div class="container">
+                <button class="btn-back" onclick="app.showSection('profile')">
+                    <i class="fas fa-arrow-left"></i> Powrót do profilu
+                </button>
                 <div class="section-header">
-                    <button class="btn-back" onclick="app.showSection('profile')">
-                        <i class="fas fa-arrow-left"></i> Powrót do profilu
-                    </button>
                     <h1>Wszystkie Odznaki</h1>
                 </div>
                 
@@ -378,10 +378,10 @@
         <!-- Public Challenges Section -->
         <section id="challenges" class="section">
             <div class="container">
+                <button class="btn-back" onclick="app.showSection('dashboard')">
+                    <i class="fas fa-arrow-left"></i> Powrót
+                </button>
                 <div class="section-header">
-                    <button class="btn-back" onclick="app.showSection('dashboard')">
-                        <i class="fas fa-arrow-left"></i> Powrót
-                    </button>
                     <h1>Wyzwania</h1>
                 </div>
 
@@ -549,7 +549,7 @@
                     <div class="status-section">
                         <label>Status:</label>
                         <select id="movie-status">
-                            <option value="">Wybierz status</option>
+                            <option value="" disabled selected>Wybierz status</option>
                             <option value="watched">Obejrzane</option>
                             <option value="watching">Obecnie oglądane</option>
                             <option value="planning">Planowane</option>
@@ -773,8 +773,16 @@
                         <input type="text" id="admin-challenge-criteria">
                     </div>
                     <div class="form-group">
-                        <label>Cel (liczba):</label>
-                        <input type="number" id="admin-challenge-target" min="1" required>
+                        <label>Cel srebrny:</label>
+                        <input type="number" id="admin-challenge-target-silver" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Cel złoty:</label>
+                        <input type="number" id="admin-challenge-target-gold" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Cel platynowy:</label>
+                        <input type="number" id="admin-challenge-target-platinum" min="1">
                     </div>
                     <div class="form-group">
                         <label>Data rozpoczęcia:</label>
@@ -785,8 +793,16 @@
                         <input type="date" id="admin-challenge-end">
                     </div>
                     <div class="form-group">
-                        <label>Odznaka (ID):</label>
-                        <input type="number" id="admin-challenge-badge">
+                        <label>Odznaka srebrna (ID):</label>
+                        <input type="number" id="admin-challenge-badge-silver">
+                    </div>
+                    <div class="form-group">
+                        <label>Odznaka złota (ID):</label>
+                        <input type="number" id="admin-challenge-badge-gold">
+                    </div>
+                    <div class="form-group">
+                        <label>Odznaka platynowa (ID):</label>
+                        <input type="number" id="admin-challenge-badge-platinum">
                     </div>
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary close">Anuluj</button>
@@ -812,6 +828,15 @@
                     <div class="form-group">
                         <label>Opis:</label>
                         <textarea id="admin-badge-description" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Poziom (Tier):</label>
+                        <select id="admin-badge-level" required>
+                            <option value="" disabled selected>Wybierz poziom</option>
+                            <option value="platinum">Platynowy</option>
+                            <option value="gold">Złoty</option>
+                            <option value="silver">Srebrny</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Ikona odznaki:</label>

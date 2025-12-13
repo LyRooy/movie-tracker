@@ -38,28 +38,31 @@ export async function onRequest(context) {
         c.id,
         c.title,
         c.description,
-        c.target_count,
+        c.target_silver,
+        c.target_gold,
+        c.target_platinum,
         c.type as challenge_type,
         c.criteria_value,
         c.start_date,
         c.end_date,
-        c.badge_id,
-        b.name as badge_name,
-        b.image_url as badge_image,
+        c.badge_silver_id,
+        c.badge_gold_id,
+        c.badge_platinum_id,
         cp.id as participant_id,
         cp.joined_at,
-        cp.completed_at,
+        cp.completed_silver_at,
+        cp.completed_gold_at,
+        cp.completed_platinum_at,
         CASE 
           WHEN date('now') < c.start_date THEN 'upcoming'
           WHEN date('now') > c.end_date THEN 'expired'
           ELSE 'active'
         END as status
       FROM challenges c
-      LEFT JOIN badges b ON c.badge_id = b.id
       LEFT JOIN challenge_participants cp ON c.id = cp.challenge_id AND cp.user_id = ?
       ORDER BY 
         CASE 
-          WHEN cp.id IS NOT NULL AND cp.completed_at IS NULL THEN 0
+          WHEN cp.id IS NOT NULL AND cp.completed_platinum_at IS NULL THEN 0
           WHEN date('now') BETWEEN c.start_date AND c.end_date THEN 1
           WHEN date('now') < c.start_date THEN 2
           ELSE 3
@@ -99,11 +102,25 @@ export async function onRequest(context) {
         progress = progressResult ? progressResult.count : 0;
       }
       
+      // Określ aktualny tier użytkownika
+      let currentTier = 'none';
+      let targetForDisplay = row.target_platinum || row.target_gold || row.target_silver || 0;
+      
+      if (row.completed_platinum_at) {
+        currentTier = 'platinum';
+      } else if (row.completed_gold_at) {
+        currentTier = 'gold';
+      } else if (row.completed_silver_at) {
+        currentTier = 'silver';
+      }
+      
       return {
         id: row.id,
         title: row.title,
         description: row.description,
-        target_count: row.target_count,
+        target_silver: row.target_silver,
+        target_gold: row.target_gold,
+        target_platinum: row.target_platinum,
         progress: progress,
         type: row.challenge_type,
         criteria_value: row.criteria_value,
@@ -111,13 +128,14 @@ export async function onRequest(context) {
         end_date: row.end_date,
         status: row.status,
         is_participant: !!row.participant_id,
-        completed_at: row.completed_at,
-        badge: row.badge_id ? {
-          id: row.badge_id,
-          name: row.badge_name,
-          image_url: row.badge_image
-        } : null,
-        percentage: row.target_count > 0 ? Math.round((progress / row.target_count) * 100) : 0
+        completed_silver_at: row.completed_silver_at,
+        completed_gold_at: row.completed_gold_at,
+        completed_platinum_at: row.completed_platinum_at,
+        current_tier: currentTier,
+        badge_silver_id: row.badge_silver_id,
+        badge_gold_id: row.badge_gold_id,
+        badge_platinum_id: row.badge_platinum_id,
+        percentage: targetForDisplay > 0 ? Math.round((progress / targetForDisplay) * 100) : 0
       };
     }));
 

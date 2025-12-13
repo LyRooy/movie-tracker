@@ -358,16 +358,23 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
       SELECT 
         cp.id as participant_id,
         cp.challenge_id,
+        cp.completed_silver_at,
+        cp.completed_gold_at,
+        cp.completed_platinum_at,
         c.type,
         c.criteria_value,
-        c.target_count,
-        c.badge_id,
+        c.target_silver,
+        c.target_gold,
+        c.target_platinum,
+        c.badge_silver_id,
+        c.badge_gold_id,
+        c.badge_platinum_id,
         c.start_date,
         c.end_date
       FROM challenge_participants cp
       JOIN challenges c ON cp.challenge_id = c.id
       WHERE cp.user_id = ? 
-        AND cp.completed_at IS NULL
+        AND cp.completed_platinum_at IS NULL
         AND c.end_date >= date('now')
     `).bind(userId).all();
 
@@ -447,34 +454,41 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
         progress = genreQuery?.count || 0;
       }
 
-      // Jeśli wyzwanie zostało ukończone
-      if (progress >= participation.target_count) {
-        // Oznacz wyzwanie jako ukończone
-        await db.prepare(`
-          UPDATE challenge_participants
-          SET completed_at = datetime('now')
-          WHERE id = ?
-        `).bind(participation.participant_id).run();
+      // Sprawdź i przyznaj odznaki dla różnych tierów
+      const tiersToCheck = [
+        { name: 'platinum', target: participation.target_platinum, badgeId: participation.badge_platinum_id, completedField: 'completed_platinum_at', completed: participation.completed_platinum_at },
+        { name: 'gold', target: participation.target_gold, badgeId: participation.badge_gold_id, completedField: 'completed_gold_at', completed: participation.completed_gold_at },
+        { name: 'silver', target: participation.target_silver, badgeId: participation.badge_silver_id, completedField: 'completed_silver_at', completed: participation.completed_silver_at }
+      ];
 
-        // Przyznaj odznakę użytkownikowi
-        if (participation.badge_id) {
+      for (const tier of tiersToCheck) {
+        if (!tier.completed && tier.target && progress >= tier.target && tier.badgeId) {
+          // Oznacz tier jako ukończony
+          await db.prepare(`
+            UPDATE challenge_participants
+            SET ${tier.completedField} = datetime('now')
+            WHERE id = ?
+          `).bind(participation.participant_id).run();
+
+          // Sprawdź czy użytkownik już ma tę odznakę
           const existingBadge = await db.prepare(`
             SELECT id FROM user_badges
             WHERE user_id = ? AND badge_id = ? AND challenge_participant_id = ?
-          `).bind(userId, participation.badge_id, participation.participant_id).first();
+          `).bind(userId, tier.badgeId, participation.participant_id).first();
 
           if (!existingBadge) {
-            await db.prepare(`
-              INSERT INTO user_badges (user_id, badge_id, level, challenge_participant_id)
-              VALUES (?, ?, 'gold', ?)
-            `).bind(userId, participation.badge_id, participation.participant_id).run();
-            
             // Pobierz informacje o odznace
             const badge = await db.prepare(`
-              SELECT id, name, description, image_url
+              SELECT id, name, description, image_url, level
               FROM badges
               WHERE id = ?
-            `).bind(participation.badge_id).first();
+            `).bind(tier.badgeId).first();
+            
+            // Wstaw odznakę
+            await db.prepare(`
+              INSERT INTO user_badges (user_id, badge_id, level, challenge_participant_id)
+              VALUES (?, ?, ?, ?)
+            `).bind(userId, tier.badgeId, badge?.level || tier.name, participation.participant_id).run();
             
             // Pobierz nazwę wyzwania
             const challenge = await db.prepare(`
@@ -485,6 +499,7 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
             completedChallenges.push({
               challengeId: participation.challenge_id,
               challengeTitle: challenge?.title,
+              tier: tier.name,
               badge: badge
             });
           }

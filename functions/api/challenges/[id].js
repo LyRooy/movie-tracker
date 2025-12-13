@@ -52,13 +52,12 @@ async function handleGetChallengeDetails(env, challengeId, userId, corsHeaders) 
       c.*,
       cp.id as participant_id,
       cp.progress,
-      cp.completed_at,
-      cp.joined_at,
-      b.name as badge_name,
-      b.image_url as badge_image
+      cp.completed_silver_at,
+      cp.completed_gold_at,
+      cp.completed_platinum_at,
+      cp.joined_at
     FROM challenges c
     LEFT JOIN challenge_participants cp ON c.id = cp.challenge_id AND cp.user_id = ?
-    LEFT JOIN badges b ON c.badge_id = b.id
     WHERE c.id = ?
   `).bind(userId, challengeId).first();
 
@@ -94,12 +93,15 @@ async function handleGetChallengeDetails(env, challengeId, userId, corsHeaders) 
   ).first();
 
   const actualProgress = progressResult ? progressResult.count : 0;
+  
+  // Określ najwyższy cel dla procentu
+  const maxTarget = challenge.target_platinum || challenge.target_gold || challenge.target_silver || 0;
 
   return new Response(JSON.stringify({
     ...challenge,
     is_participant: !!challenge.participant_id,
     progress: actualProgress,
-    percentage: Math.round((actualProgress / challenge.target_count) * 100)
+    percentage: maxTarget > 0 ? Math.round((actualProgress / maxTarget) * 100) : 0
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });

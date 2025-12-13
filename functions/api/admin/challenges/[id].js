@@ -93,9 +93,17 @@ async function handleUpdateChallenge(db, request, challengeId, corsHeaders) {
     updates.push('criteria_value = ?');
     values.push(data.criteria_value);
   }
-  if (data.target_count !== undefined) {
-    updates.push('target_count = ?');
-    values.push(data.target_count);
+  if (data.target_silver !== undefined) {
+    updates.push('target_silver = ?');
+    values.push(data.target_silver);
+  }
+  if (data.target_gold !== undefined) {
+    updates.push('target_gold = ?');
+    values.push(data.target_gold);
+  }
+  if (data.target_platinum !== undefined) {
+    updates.push('target_platinum = ?');
+    values.push(data.target_platinum);
   }
   if (data.start_date !== undefined) {
     updates.push('start_date = ?');
@@ -105,9 +113,17 @@ async function handleUpdateChallenge(db, request, challengeId, corsHeaders) {
     updates.push('end_date = ?');
     values.push(data.end_date);
   }
-  if (data.badge_id !== undefined) {
-    updates.push('badge_id = ?');
-    values.push(data.badge_id);
+  if (data.badge_silver_id !== undefined) {
+    updates.push('badge_silver_id = ?');
+    values.push(data.badge_silver_id);
+  }
+  if (data.badge_gold_id !== undefined) {
+    updates.push('badge_gold_id = ?');
+    values.push(data.badge_gold_id);
+  }
+  if (data.badge_platinum_id !== undefined) {
+    updates.push('badge_platinum_id = ?');
+    values.push(data.badge_platinum_id);
   }
   
   if (updates.length === 0) {

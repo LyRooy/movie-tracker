@@ -886,19 +886,15 @@ class MovieTracker {
         if (!container) return;
 
         if (badges.length === 0) {
-            // Pokaż placeholder
+            // Pokaż placeholder wyśrodkowany
             container.innerHTML = `
-                <div class="badge-item badge-placeholder">
-                    <i class="fas fa-award"></i>
-                    <span>Zdobądź odznakę!</span>
-                </div>
-                <div class="badge-item badge-placeholder">
-                    <i class="fas fa-award"></i>
-                    <span>Zdobądź odznakę!</span>
-                </div>
-                <div class="badge-item badge-placeholder">
-                    <i class="fas fa-award"></i>
-                    <span>Zdobądź odznakę!</span>
+                <div class="no-badges-message" style="grid-column: 1 / -1;">
+                    <i class="fas fa-award" style="font-size: 4rem; color: #ccc; margin-bottom: 1rem;"></i>
+                    <h3>Nie masz jeszcze żadnych odznak</h3>
+                    <p>Ukończ wyzwania, aby zdobyć odznaki!</p>
+                    <button class="btn btn-primary" onclick="app.showSection('challenges')">
+                        <i class="fas fa-trophy"></i> Zobacz wyzwania
+                    </button>
                 </div>
             `;
             return;
@@ -4327,14 +4323,18 @@ class MovieTracker {
         if (challenge) {
             title.textContent = 'Edytuj wyzwanie';
             document.getElementById('admin-challenge-id').value = challenge.id;
-            document.getElementById('admin-challenge-name').value = challenge.name;
+            document.getElementById('admin-challenge-name').value = challenge.title;
             document.getElementById('admin-challenge-description').value = challenge.description || '';
             document.getElementById('admin-challenge-type').value = challenge.type;
             document.getElementById('admin-challenge-criteria').value = challenge.criteria_value || '';
-            document.getElementById('admin-challenge-target').value = challenge.target_count;
+            document.getElementById('admin-challenge-target-silver').value = challenge.target_silver || '';
+            document.getElementById('admin-challenge-target-gold').value = challenge.target_gold || '';
+            document.getElementById('admin-challenge-target-platinum').value = challenge.target_platinum || '';
             document.getElementById('admin-challenge-start').value = challenge.start_date ? challenge.start_date.split('T')[0] : '';
             document.getElementById('admin-challenge-end').value = challenge.end_date ? challenge.end_date.split('T')[0] : '';
-            document.getElementById('admin-challenge-badge').value = challenge.badge_id || '';
+            document.getElementById('admin-challenge-badge-silver').value = challenge.badge_silver_id || '';
+            document.getElementById('admin-challenge-badge-gold').value = challenge.badge_gold_id || '';
+            document.getElementById('admin-challenge-badge-platinum').value = challenge.badge_platinum_id || '';
         } else {
             title.textContent = 'Dodaj wyzwanie';
             document.getElementById('admin-challenge-form').reset();
@@ -4396,10 +4396,14 @@ class MovieTracker {
 
         const rawName = document.getElementById('admin-challenge-name').value;
         const rawType = document.getElementById('admin-challenge-type').value;
-        const rawTarget = document.getElementById('admin-challenge-target').value;
+        const rawTargetSilver = document.getElementById('admin-challenge-target-silver').value;
+        const rawTargetGold = document.getElementById('admin-challenge-target-gold').value;
+        const rawTargetPlatinum = document.getElementById('admin-challenge-target-platinum').value;
         const rawStart = document.getElementById('admin-challenge-start').value;
         const rawEnd = document.getElementById('admin-challenge-end').value;
-        const rawBadge = document.getElementById('admin-challenge-badge').value;
+        const rawBadgeSilver = document.getElementById('admin-challenge-badge-silver').value;
+        const rawBadgeGold = document.getElementById('admin-challenge-badge-gold').value;
+        const rawBadgePlatinum = document.getElementById('admin-challenge-badge-platinum').value;
 
         // Podstawowa walidacja po stronie klienta
         if (!rawName || rawName.trim().length === 0) {
@@ -4412,21 +4416,19 @@ class MovieTracker {
             return;
         }
 
-        const targetCount = parseInt(rawTarget);
-        if (isNaN(targetCount) || targetCount <= 0) {
-            this.showNotification('Cel (liczba) musi być dodatnią liczbą', 'error');
-            return;
-        }
-
         const data = {
             title: rawName.trim(),
             description: document.getElementById('admin-challenge-description').value || null,
             type: rawType.trim(),
             criteria_value: document.getElementById('admin-challenge-criteria').value || null,
-            target_count: targetCount,
+            target_silver: (rawTargetSilver && rawTargetSilver.trim() !== '') ? parseInt(rawTargetSilver) : null,
+            target_gold: (rawTargetGold && rawTargetGold.trim() !== '') ? parseInt(rawTargetGold) : null,
+            target_platinum: (rawTargetPlatinum && rawTargetPlatinum.trim() !== '') ? parseInt(rawTargetPlatinum) : null,
             start_date: parseDateInput(rawStart),
             end_date: parseDateInput(rawEnd),
-            badge_id: (rawBadge && rawBadge.trim() !== '') ? (parseInt(rawBadge) || null) : null
+            badge_silver_id: (rawBadgeSilver && rawBadgeSilver.trim() !== '') ? (parseInt(rawBadgeSilver) || null) : null,
+            badge_gold_id: (rawBadgeGold && rawBadgeGold.trim() !== '') ? (parseInt(rawBadgeGold) || null) : null,
+            badge_platinum_id: (rawBadgePlatinum && rawBadgePlatinum.trim() !== '') ? (parseInt(rawBadgePlatinum) || null) : null
         };
 
         // Walidacja wymagalnych pól zgodnie ze schematem DB
@@ -4510,6 +4512,7 @@ class MovieTracker {
             document.getElementById('admin-badge-id').value = badge.id;
             document.getElementById('admin-badge-name').value = badge.name;
             document.getElementById('admin-badge-description').value = badge.description;
+            document.getElementById('admin-badge-level').value = badge.level || 'gold';
             document.getElementById('admin-badge-icon').value = badge.image_url || '';
         } else {
             title.textContent = 'Dodaj odznakę';
@@ -4542,7 +4545,13 @@ class MovieTracker {
         const id = document.getElementById('admin-badge-id').value;
         const name = document.getElementById('admin-badge-name').value;
         const description = document.getElementById('admin-badge-description').value || null;
+        const level = document.getElementById('admin-badge-level').value;
         const iconUrl = document.getElementById('admin-badge-icon').value || null;
+        
+        if (!level) {
+            this.showNotification('Poziom odznaki jest wymagany', 'error');
+            return;
+        }
         
         // Jeśli nie podano URL, użyj domyślnego obrazka
         const imageUrl = iconUrl || '/images/default-badge.jpg';
@@ -4551,6 +4560,7 @@ class MovieTracker {
         const data = { 
             name: name, 
             description: description, 
+            level: level,
             image_url: imageUrl 
         };
 

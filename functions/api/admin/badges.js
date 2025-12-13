@@ -97,7 +97,7 @@ async function handleGetBadges(env, request, corsHeaders) {
 async function handleCreateBadge(env, request, corsHeaders) {
   try {
     const data = await request.json();
-    const { name, description, image_url } = data;
+    const { name, description, level, image_url } = data;
     
     if (!name) {
       return new Response(JSON.stringify({ error: 'Badge name is required' }), {
@@ -108,13 +108,15 @@ async function handleCreateBadge(env, request, corsHeaders) {
 
     // Użyj podanego URL lub domyślnego obrazka
     const imageUrl = image_url || '/images/default-badge.jpg';
+    const badgeLevel = level || 'gold';
 
     const result = await env.db.prepare(`
-      INSERT INTO badges (name, description, image_url)
-      VALUES (?, ?, ?)
+      INSERT INTO badges (name, description, level, image_url)
+      VALUES (?, ?, ?, ?)
     `).bind(
       name,
       description || '',
+      badgeLevel,
       imageUrl
     ).run();
 
@@ -139,7 +141,7 @@ async function handleCreateBadge(env, request, corsHeaders) {
 async function handleUpdateBadge(env, request, corsHeaders) {
   try {
     const data = await request.json();
-    const { id, name, description, image_url } = data;
+    const { id, name, description, level, image_url } = data;
     
     if (!id) {
       return new Response(JSON.stringify({ error: 'Badge ID is required' }), {
@@ -158,6 +160,10 @@ async function handleUpdateBadge(env, request, corsHeaders) {
     if (description !== null && description !== undefined) {
       updates.push('description = ?');
       params.push(description);
+    }
+    if (level) {
+      updates.push('level = ?');
+      params.push(level);
     }
     if (image_url !== null && image_url !== undefined) {
       updates.push('image_url = ?');
@@ -202,7 +208,7 @@ async function handleDeleteBadge(env, request, corsHeaders) {
   }
 
   // Sprawdź czy odznaka jest używana w wyzwaniach
-  const usedInChallenges = await env.db.prepare('SELECT id FROM challenges WHERE badge_id = ? LIMIT 1').bind(id).first();
+  const usedInChallenges = await env.db.prepare('SELECT id FROM challenges WHERE badge_silver_id = ? OR badge_gold_id = ? OR badge_platinum_id = ? LIMIT 1').bind(id, id, id).first();
   if (usedInChallenges) {
     return new Response(JSON.stringify({ error: 'Cannot delete badge that is used in challenges' }), {
       status: 400,

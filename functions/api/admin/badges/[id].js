@@ -113,7 +113,7 @@ async function handleUpdateBadge(db, request, badgeId, corsHeaders) {
 // Usuń odznakę
 async function handleDeleteBadge(db, badgeId, corsHeaders) {
   // Sprawdź czy odznaka jest używana w wyzwaniach
-  const challenges = await db.prepare('SELECT COUNT(*) as count FROM challenges WHERE badge_id = ?').bind(badgeId).first();
+  const challenges = await db.prepare('SELECT COUNT(*) as count FROM challenges WHERE badge_silver_id = ? OR badge_gold_id = ? OR badge_platinum_id = ?').bind(badgeId, badgeId, badgeId).first();
   
   if (challenges.count > 0) {
     return new Response(JSON.stringify({ 

@@ -2937,10 +2937,10 @@ class MovieTracker {
             const isToday = this.isToday(currentDate);
             
             // Użyj lokalnej daty zamiast UTC aby uniknąć przesunięcia czasowego
-            const year = currentDate.getFullYear();
-            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const day = String(currentDate.getDate()).padStart(2, '0');
-            const dateString = `${year}-${month}-${day}`;
+            const dateYear = currentDate.getFullYear();
+            const dateMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const dateDay = String(currentDate.getDate()).padStart(2, '0');
+            const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
             
             const dayPremieres = premieres.filter(p => p.date === dateString);
             

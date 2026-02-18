@@ -1,0 +1,42 @@
+# ========== NODE / BACKEND ==========
+# Node dependencies
+node_modules/
+
+# Environment variables (secrets, API keys, DB URLs)
+.env
+.env.local
+.env.production
+.env.development
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Railway CLI configuration (not needed in repo)
+railway.json
+
+# Editor temporary files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ========== REACT / FRONTEND ==========
+# Frontend dependencies
+frontend/node_modules/
+
+# Production build (if generated locally before deploying to GitHub Pages)
+frontend/build/
+
+# React environment variables
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+
+# ========== SYSTEM ==========
+.DS_Store
+Thumbs.db

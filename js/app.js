@@ -4036,6 +4036,10 @@ class MovieTracker {
         const skipBtn2 = document.getElementById('favorites-skip-btn2');
         const saveBtn = document.getElementById('favorites-save-btn');
 
+        // Zresetuj przycisk zapisu (mógł zostać w stanie ładowania po poprzednim otwarciu)
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-check"></i> Zapisz wybór';
+
         // Usuń stare listenery przez zamianę elementów na klony
         const freshSkip = skipBtn.cloneNode(true);
         const freshSkip2 = skipBtn2.cloneNode(true);
@@ -4137,8 +4141,25 @@ class MovieTracker {
     }
 
     async saveFavoriteMovies() {
-        const cards = document.querySelectorAll('#favorites-movies-grid .favorites-movie-card.selected');
-        const movieIds = Array.from(cards).map(c => parseInt(c.dataset.id)).filter(Boolean);
+        const grid = document.getElementById('favorites-movies-grid');
+        const cards = grid ? grid.querySelectorAll('.favorites-movie-card.selected') : [];
+        const selectedInGrid = Array.from(cards).map(c => parseInt(c.dataset.id)).filter(Boolean);
+
+        // Zbierz ID wszystkich kart w siatce (niekoniecznie zaznaczonych)
+        const allInGrid = grid
+            ? Array.from(grid.querySelectorAll('.favorites-movie-card')).map(c => parseInt(c.dataset.id)).filter(Boolean)
+            : [];
+
+        // Zachowaj poprzednio zapisane ID, które nie są widoczne w bieżącej siatce
+        let prevIds = [];
+        try {
+            if (this.currentUser?.favorite_kaggle_ids) {
+                prevIds = JSON.parse(this.currentUser.favorite_kaggle_ids) || [];
+            }
+        } catch { prevIds = []; }
+        const preservedIds = prevIds.filter(id => !allInGrid.includes(id));
+
+        const movieIds = [...preservedIds, ...selectedInGrid];
 
         const saveBtn = document.getElementById('favorites-save-btn');
         if (saveBtn) {

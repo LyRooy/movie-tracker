@@ -46,7 +46,7 @@ export async function onRequest(context) {
 // Pobierz wszystkie odcinki serialu ze statusem obejrzenia użytkownika
 async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
   // Pobierz informacje o serialu
-  const series = await db.prepare('SELECT * FROM movies WHERE id = ? AND media_type = ?')
+  const series = await db.prepare('SELECT * FROM kaggle_movies WHERE id = ? AND media_type = ?')
     .bind(seriesId, 'series')
     .first();
 
@@ -418,12 +418,12 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
       // Policz postęp dla tego wyzwania
       let progress = 0;
       
-      if (participation.type === 'movies' || participation.type === 'both') {
+      if (participation.type === 'movies') {
         // Zlicz obejrzane filmy w okresie wyzwania
         const moviesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT w.movie_id) as count
           FROM watched w
-          JOIN movies m ON w.movie_id = m.id
+          JOIN kaggle_movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
             AND m.media_type = 'movie'
             AND w.watched_date >= ?
@@ -433,11 +433,11 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
         progress += moviesQuery?.count || 0;
       }
 
-      if (participation.type === 'series' || participation.type === 'both') {
+      if (participation.type === 'series') {
         // Zlicz obejrzane seriale (wszystkie odcinki) w okresie wyzwania
         const seriesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT m.id) as count
-          FROM movies m
+          FROM kaggle_movies m
           WHERE m.media_type = 'series'
             AND m.id IN (
               SELECT DISTINCT s.series_id
@@ -464,7 +464,7 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
         const genreQuery = await db.prepare(`
           SELECT COUNT(DISTINCT w.movie_id) as count
           FROM watched w
-          JOIN movies m ON w.movie_id = m.id
+          JOIN kaggle_movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
             AND m.genre LIKE ?
             AND w.watched_date >= ?

@@ -36,11 +36,10 @@ class MovieTracker {
         await this.loadMoviesData();
         this.setupTheme();
 
-        // Do dodania: po dodaniu kolumny favorites_selected do tabeli users,
-        // odkomentować poniższy blok żeby modal onboardingu pokazywał się nowym użytkownikom.
-        // if (this.currentUser && !this.currentUser.favorites_selected) {
-        //     await this.showFavoritesModal();
-        // }
+        // Pokaż modal onboardingu nowym użytkownikom (kolumna favorites_selected istnieje w tabeli users)
+        if (this.currentUser && !this.currentUser.favorites_selected) {
+            await this.showFavoritesModal();
+        }
 
         // Pokaż sekcję admina jeśli użytkownik jest adminem
         if (this.currentUser && this.currentUser.role === 'admin') {
@@ -4081,7 +4080,7 @@ class MovieTracker {
                     headers: this.getAuthHeaders(),
                     body: JSON.stringify({ movieIds: [], skipped: true }),
                 });
-                // Do dodania: this.currentUser.favorites_selected = 1;
+                this.currentUser.favorites_selected = 1;
             } catch (e) { /* ignoruj */ }
         }
 
@@ -4108,7 +4107,7 @@ class MovieTracker {
 
             if (!res.ok) throw new Error('Błąd zapisu');
 
-            // Do dodania: this.currentUser.favorites_selected = 1;
+            this.currentUser.favorites_selected = 1;
 
             await this.closeFavoritesModal(false);
 

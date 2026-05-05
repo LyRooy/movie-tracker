@@ -35,7 +35,7 @@ const corsHeaders = {
 
 // GET – zwróć listę filmów do wyboru (z datasetu Kaggle)
 export async function onRequestGet(context) {
-  const { request } = context;
+  const { request, env } = context;
 
   const userId = await getUserIdFromRequest(request);
   if (!userId) {
@@ -45,16 +45,17 @@ export async function onRequestGet(context) {
     });
   }
 
-  // Do dodania: pobieranie losowych filmów z datasetu Kaggle po jego imporcie do bazy.
-  // Docelowo: SELECT kaggle_id, title, poster_url, ... FROM kaggle_movies ORDER BY RANDOM() LIMIT 16
-  return new Response(JSON.stringify([]), {
+  const movies = await env.db.prepare(
+    'SELECT id, title, poster_url, media_type FROM kaggle_movies ORDER BY RANDOM() LIMIT 16'
+  ).all();
+  return new Response(JSON.stringify(movies.results || []), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
 // POST – zapisz zaznaczone ID filmów z Kaggle i oznacz favorites_selected = 1
 export async function onRequestPost(context) {
-  const { request } = context;
+  const { request, env } = context;
 
   const userId = await getUserIdFromRequest(request);
   if (!userId) {
@@ -69,10 +70,9 @@ export async function onRequestPost(context) {
     const movieIds = Array.isArray(body.movieIds) ? body.movieIds : [];
     const skipped = body.skipped === true;
 
-    // Do dodania: zapis wybranych ID z datasetu Kaggle oraz oznaczenie onboardingu jako zakończonego.
-    // Wymaga wcześniejszego dodania kolumn do tabeli users (patrz komentarz na górze pliku).
-    // UPDATE users SET favorite_kaggle_ids = ?, favorites_selected = 1 WHERE id = ?
-    //   gdzie pierwszym parametrem: JSON.stringify(movieIds)
+    await env.db.prepare(
+      'UPDATE users SET favorite_kaggle_ids = ?, favorites_selected = 1 WHERE id = ?'
+    ).bind(JSON.stringify(movieIds), userId).run();
 
     return new Response(JSON.stringify({ success: true, skipped }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

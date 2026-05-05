@@ -69,13 +69,13 @@ async function handleGetFriends(db, userId, url, corsHeaders) {
       (
         SELECT COUNT(1)
         FROM watched w
-        JOIN movies m ON w.movie_id = m.id
+        JOIN kaggle_movies m ON w.movie_id = m.id
         WHERE w.user_id = u.id AND w.status = 'watched' AND m.media_type = 'movie'
       ) AS total_movies,
       (
         SELECT COUNT(1)
         FROM watched w2
-        JOIN movies m2 ON w2.movie_id = m2.id
+        JOIN kaggle_movies m2 ON w2.movie_id = m2.id
         WHERE w2.user_id = u.id AND w2.status = 'watched' AND m2.media_type = 'series'
       ) AS total_series,
       CASE 

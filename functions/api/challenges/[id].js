@@ -72,14 +72,13 @@ async function handleGetChallengeDetails(env, challengeId, userId, corsHeaders) 
   const progressResult = await env.db.prepare(`
     SELECT COUNT(DISTINCT w.id) as count
     FROM watched w
-    JOIN movies m ON w.movie_id = m.id
+    JOIN kaggle_movies m ON w.movie_id = m.id
     WHERE w.user_id = ?
     AND w.watched_date BETWEEN ? AND COALESCE(?, date('now'))
     AND (
       (? = 'movies' AND m.media_type = 'movie') OR
       (? = 'series' AND m.media_type = 'series') OR
-      (? = 'genre' AND m.genre = ?) OR
-      ? = 'both'
+      (? = 'genre' AND m.genre = ?)
     )
   `).bind(
     userId,
@@ -88,8 +87,7 @@ async function handleGetChallengeDetails(env, challengeId, userId, corsHeaders) 
     challenge.type,
     challenge.type,
     challenge.type,
-    challenge.criteria_value,
-    challenge.type
+    challenge.criteria_value
   ).first();
 
   const actualProgress = progressResult ? progressResult.count : 0;

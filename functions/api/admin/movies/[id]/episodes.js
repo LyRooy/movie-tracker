@@ -66,7 +66,7 @@ export async function onRequest(context) {
 
 async function handleGetAdminEpisodes(db, seriesId, corsHeaders) {
   try {
-    const series = await db.prepare('SELECT id, title FROM movies WHERE id = ? AND media_type = ?').bind(seriesId, 'series').first();
+    const series = await db.prepare('SELECT id, title FROM kaggle_movies WHERE id = ? AND media_type = ?').bind(seriesId, 'series').first();
     if (!series) return new Response(JSON.stringify({ error: 'Series not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     // Warunkowo pobierz display_number tylko jeśli kolumna istnieje w DB

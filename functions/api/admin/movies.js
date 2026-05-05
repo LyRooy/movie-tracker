@@ -72,7 +72,7 @@ async function handleGetMovies(db, request, corsHeaders) {
 
   if (movieId) {
     // Pobierz konkretny film
-    const movie = await db.prepare('SELECT * FROM movies WHERE id = ?').bind(movieId).first();
+    const movie = await db.prepare('SELECT * FROM kaggle_movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
         status: 404,
@@ -85,7 +85,7 @@ async function handleGetMovies(db, request, corsHeaders) {
     });
   } else {
     // Pobierz wszystkie filmy
-    const movies = await db.prepare('SELECT * FROM movies ORDER BY title').all();
+    const movies = await db.prepare('SELECT * FROM kaggle_movies ORDER BY title').all();
     return new Response(JSON.stringify(movies.results || []), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -110,7 +110,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
   try {
     const data = await request.json();
     // Check if DB has duration column so we can persist minutes (don't alter DB automatically)
-    const hasMoviesDuration = await hasColumn(db, 'movies', 'duration');
+    const hasMoviesDuration = await hasColumn(db, 'kaggle_movies', 'duration');
     
     console.log('[admin/movies] Creating movie with data:', JSON.stringify(data, null, 2));
     
@@ -122,7 +122,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     }
 
     // Sprawdź czy film już istnieje
-    const existing = await db.prepare('SELECT id FROM movies WHERE title = ? AND media_type = ?')
+    const existing = await db.prepare('SELECT id FROM kaggle_movies WHERE title = ? AND media_type = ?')
       .bind(data.title, data.type).first();
     
     if (existing) {
@@ -159,7 +159,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     }
 
     const result = await db.prepare(`
-      INSERT INTO movies (${insertCols.join(',')})
+      INSERT INTO kaggle_movies (${insertCols.join(',')})
       VALUES (${insertPlaceholders.join(',')})
     `).bind(...insertValues).run();
 
@@ -257,7 +257,7 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   }
 
   // Pobierz istniejący film, aby znać aktualny media_type na wypadek, gdyby `data.type` nie było podane
-  const existingMovie = await db.prepare('SELECT id, media_type FROM movies WHERE id = ?').bind(data.id).first();
+  const existingMovie = await db.prepare('SELECT id, media_type FROM kaggle_movies WHERE id = ?').bind(data.id).first();
   const existingType = existingMovie ? existingMovie.media_type : null;
   const updates = [];
   const params = [];
@@ -295,8 +295,8 @@ async function handleUpdateMovie(db, request, corsHeaders) {
   if (data.duration !== undefined) {
     episodeDuration = Number(data.duration);
     if (Number.isNaN(episodeDuration)) episodeDuration = null;
-    // Przechowuj duration w movies tylko jeśli tabela movies ma kolumnę duration
-    const hasMoviesDuration = await hasColumn(db, 'movies', 'duration');
+    // Przechowuj duration w kaggle_movies tylko jeśli tabela kaggle_movies ma kolumnę duration
+    const hasMoviesDuration = await hasColumn(db, 'kaggle_movies', 'duration');
     // Dla filmów powinny być przechowywane wartości duration, dla seriali będzie to NULL
     // Określ, czy ten film jest traktowany jako serial czy film; preferuj podany data.type, a następnie istniejący typ filmu
     const isSeries = (data.type !== undefined) ? (data.type === 'series') : (existingType === 'series');
@@ -327,12 +327,12 @@ async function handleUpdateMovie(db, request, corsHeaders) {
 
   params.push(data.id);
   
-  // Sprawdź obecność kolumny duration w tabeli movies (nie zmieniaj schematu tutaj)
-  const hasMoviesDuration = await hasColumn(db, 'movies', 'duration');
+  // Sprawdź obecność kolumny duration w tabeli kaggle_movies (nie zmieniaj schematu tutaj)
+  const hasMoviesDuration = await hasColumn(db, 'kaggle_movies', 'duration');
   console.log('[admin/movies] Updates:', updates, 'Params:', params);
   if (updates.length > 0) {
     await db.prepare(`
-      UPDATE movies SET ${updates.join(', ')} WHERE id = ?
+      UPDATE kaggle_movies SET ${updates.join(', ')} WHERE id = ?
     `).bind(...params).run();
   } else {
     console.log('[admin/movies] No direct movie updates to run, skipping UPDATE movies query');
@@ -372,10 +372,9 @@ async function handleDeleteMovie(db, request, corsHeaders) {
   }
 
   // Usuń powiązane rekordy najpierw (jeśli nie ma kaskadowania)
-  await db.prepare('DELETE FROM challenge_watched WHERE movie_id = ?').bind(id).run();
   await db.prepare('DELETE FROM reviews WHERE movie_id = ?').bind(id).run();
   await db.prepare('DELETE FROM watched WHERE movie_id = ?').bind(id).run();
-  await db.prepare('DELETE FROM movies WHERE id = ?').bind(id).run();
+  await db.prepare('DELETE FROM kaggle_movies WHERE id = ?').bind(id).run();
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -95,7 +95,7 @@ async function handleGetMovie(db, userId, movieId, corsHeaders) {
       r.content as review,
       w.watched_date as watchedDate,
       COALESCE(w.status, CASE WHEN w.id IS NOT NULL THEN 'watched' ELSE 'planning' END) as status
-    FROM movies m
+    FROM kaggle_movies m
     LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
     LEFT JOIN watched w ON m.id = w.movie_id AND w.user_id = ?
     WHERE m.id = ?
@@ -183,7 +183,7 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
   
   try {
     // Zweryfikuj, czy film istnieje
-    const movie = await db.prepare('SELECT id FROM movies WHERE id = ?').bind(movieId).first();
+    const movie = await db.prepare('SELECT id FROM kaggle_movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
         status: 404,
@@ -280,7 +280,7 @@ async function handleUpdateMovie(db, userId, request, movieId, corsHeaders) {
 async function handleDeleteMovie(db, userId, movieId, corsHeaders) {
   try {
     // Zweryfikuj, czy film istnieje
-    const movie = await db.prepare('SELECT id, media_type FROM movies WHERE id = ?').bind(movieId).first();
+    const movie = await db.prepare('SELECT id, media_type FROM kaggle_movies WHERE id = ?').bind(movieId).first();
     if (!movie) {
       return new Response(JSON.stringify({ error: 'Movie not found' }), {
         status: 404,
@@ -395,7 +395,7 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
     // Pobierz informacje o filmie
     const movie = await db.prepare(`
       SELECT id, media_type, genre
-      FROM movies
+      FROM kaggle_movies
       WHERE id = ?
     `).bind(movieId).first();
 
@@ -408,12 +408,12 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
       // Policz postęp dla tego wyzwania
       let progress = 0;
       
-      if (participation.type === 'movies' || participation.type === 'both') {
+      if (participation.type === 'movies') {
         // Zlicz obejrzane filmy w okresie wyzwania
         const moviesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT w.movie_id) as count
           FROM watched w
-          JOIN movies m ON w.movie_id = m.id
+          JOIN kaggle_movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
             AND m.media_type = 'movie'
             AND w.watched_date >= ?
@@ -423,11 +423,11 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
         progress += moviesQuery?.count || 0;
       }
 
-      if (participation.type === 'series' || participation.type === 'both') {
+      if (participation.type === 'series') {
         // Zlicz obejrzane seriale (wszystkie odcinki) w okresie wyzwania
         const seriesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT m.id) as count
-          FROM movies m
+          FROM kaggle_movies m
           WHERE m.media_type = 'series'
             AND m.id IN (
               SELECT DISTINCT e.series_id
@@ -454,7 +454,7 @@ async function checkChallengeProgress(db, userId, movieId, watchedDate) {
         const genreQuery = await db.prepare(`
           SELECT COUNT(DISTINCT w.movie_id) as count
           FROM watched w
-          JOIN movies m ON w.movie_id = m.id
+          JOIN kaggle_movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
             AND m.genre LIKE ?
             AND w.watched_date >= ?

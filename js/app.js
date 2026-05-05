@@ -4002,7 +4002,15 @@ class MovieTracker {
         const modal = document.getElementById('favorites-modal');
         const modalOpen = modal && modal.style.display !== 'none' && modal.style.display !== '';
         const dismissed = sessionStorage.getItem('favorites_banner_dismissed') === '1';
-        const show = this.currentUser && !this.currentUser.favorites_selected && !modalOpen && !dismissed;
+        // Pokaż baner gdy użytkownik nie wybrał żadnych ulubionych (null, pusty string lub pusta tablica)
+        let hasNoFavorites = true;
+        if (this.currentUser?.favorite_kaggle_ids) {
+            try {
+                const ids = JSON.parse(this.currentUser.favorite_kaggle_ids);
+                hasNoFavorites = !Array.isArray(ids) || ids.length === 0;
+            } catch { hasNoFavorites = true; }
+        }
+        const show = !!this.currentUser && hasNoFavorites && !modalOpen && !dismissed;
         banner.style.display = show ? 'block' : 'none';
     }
 
@@ -4125,17 +4133,12 @@ class MovieTracker {
             if (!res.ok) throw new Error('Błąd zapisu');
 
             this.currentUser.favorites_selected = 1;
+            this.currentUser.favorite_kaggle_ids = JSON.stringify(movieIds);
             this._updateFavoritesBanner();
 
             await this.closeFavoritesModal(false);
 
-            if (movieIds.length > 0) {
-                // Odśwież listę filmów by uwzględnić nowo dodane
-                await this.loadMoviesData();
-                this.showNotification(`Dodano ${movieIds.length} ${movieIds.length === 1 ? 'film' : 'filmy/filmów'} do Twojej listy!`, 'success');
-            } else {
-                this.showNotification('Preferencje zostały zapisane!', 'success');
-            }
+            this.showNotification('Ulubione filmy zostały zapisane!', 'success');
         } catch (e) {
             console.error('Error saving favorites:', e);
             this.showNotification('Błąd podczas zapisywania. Spróbuj ponownie.', 'error');

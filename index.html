@@ -49,6 +49,15 @@
         </div>
     </nav>
 
+    <!-- Pasek onboardingu ulubionych (widoczny tylko gdy favorites_selected = 0) -->
+    <div id="favorites-banner" style="display:none;">
+        <div class="favorites-banner-inner">
+            <i class="fas fa-star"></i>
+            <span>Wybierz ulubione filmy, żeby spersonalizować swoje rekomendacje.&nbsp;<button class="favorites-banner-link" onclick="app.showFavoritesModal()">Uzupełnij teraz</button></span>
+            <button class="favorites-banner-close" title="Zamknij" onclick="app.dismissFavoritesBanner()"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
     <main class="main-content">
         <!-- Sekcja Dashboard -->
         <section id="dashboard" class="section active">

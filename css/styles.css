@@ -264,6 +264,72 @@ body {
     margin-top: 70px;
 }
 
+/* Pasek onboardingu ulubionych */
+#favorites-banner {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    width: 100%;
+    z-index: 999;
+    background: linear-gradient(90deg, var(--secondary-color), #a855f7);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+
+#favorites-banner + .main-content {
+    margin-top: 110px;
+}
+
+.favorites-banner-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.6rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.92rem;
+}
+
+.favorites-banner-inner > i {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.favorites-banner-inner > span {
+    flex: 1;
+}
+
+.favorites-banner-link {
+    background: none;
+    border: 1px solid rgba(255,255,255,.7);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    transition: background .2s;
+}
+
+.favorites-banner-link:hover {
+    background: rgba(255,255,255,.2);
+}
+
+.favorites-banner-close {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,.85);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.25rem 0.4rem;
+    flex-shrink: 0;
+    transition: color .2s;
+}
+
+.favorites-banner-close:hover {
+    color: #fff;
+}
+
 .section {
     display: none;
     padding: 2rem 0;

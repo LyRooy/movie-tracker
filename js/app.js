@@ -41,6 +41,8 @@ class MovieTracker {
             await this.showFavoritesModal();
         }
 
+        this._updateFavoritesBanner();
+
         // Pokaż sekcję admina jeśli użytkownik jest adminem
         if (this.currentUser && this.currentUser.role === 'admin') {
             const adminSection = document.getElementById('admin');
@@ -3992,6 +3994,18 @@ class MovieTracker {
 
     // ============= MODAL WYBORU ULUBIONYCH FILMÓW =============
 
+    _updateFavoritesBanner() {
+        const banner = document.getElementById('favorites-banner');
+        if (!banner) return;
+        const show = this.currentUser && !this.currentUser.favorites_selected;
+        banner.style.display = show ? 'block' : 'none';
+    }
+
+    dismissFavoritesBanner() {
+        const banner = document.getElementById('favorites-banner');
+        if (banner) banner.style.display = 'none';
+    }
+
     async showFavoritesModal() {
         const modal = document.getElementById('favorites-modal');
         if (!modal) return;
@@ -4081,6 +4095,7 @@ class MovieTracker {
                     body: JSON.stringify({ movieIds: [], skipped: true }),
                 });
                 this.currentUser.favorites_selected = 1;
+                this._updateFavoritesBanner();
             } catch (e) { /* ignoruj */ }
         }
 
@@ -4108,6 +4123,7 @@ class MovieTracker {
             if (!res.ok) throw new Error('Błąd zapisu');
 
             this.currentUser.favorites_selected = 1;
+            this._updateFavoritesBanner();
 
             await this.closeFavoritesModal(false);
 

@@ -18,6 +18,8 @@ export async function onRequestGet(context) {
       });
     }
 
+    // Do dodania: po dodaniu kolumn favorites_selected i favorite_kaggle_ids do tabeli users,
+    // dodać je tutaj do zapytania SELECT.
     const user = await env.db.prepare('SELECT id, nickname, email, role, theme_preference, avatar_url, description, created_at FROM users WHERE id = ?').bind(userId).first();
     if (!user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {

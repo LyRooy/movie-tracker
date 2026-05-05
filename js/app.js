@@ -36,6 +36,12 @@ class MovieTracker {
         await this.loadMoviesData();
         this.setupTheme();
 
+        // Do dodania: po dodaniu kolumny favorites_selected do tabeli users,
+        // odkomentować poniższy blok żeby modal onboardingu pokazywał się nowym użytkownikom.
+        // if (this.currentUser && !this.currentUser.favorites_selected) {
+        //     await this.showFavoritesModal();
+        // }
+
         // Pokaż sekcję admina jeśli użytkownik jest adminem
         if (this.currentUser && this.currentUser.role === 'admin') {
             const adminSection = document.getElementById('admin');
@@ -3984,6 +3990,146 @@ class MovieTracker {
             this.showNotification('Błąd podczas ładowania szczegółów odcinka', 'error');
         }
     }
+
+    // ============= MODAL WYBORU ULUBIONYCH FILMÓW =============
+
+    async showFavoritesModal() {
+        const modal = document.getElementById('favorites-modal');
+        if (!modal) return;
+
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+
+        // Powiąż przyciski
+        const skipBtn = document.getElementById('favorites-skip-btn');
+        const skipBtn2 = document.getElementById('favorites-skip-btn2');
+        const saveBtn = document.getElementById('favorites-save-btn');
+
+        const handleSkip = () => this.closeFavoritesModal(true);
+        const handleSave = () => this.saveFavoriteMovies();
+
+        skipBtn?.addEventListener('click', handleSkip);
+        skipBtn2?.addEventListener('click', handleSkip);
+        saveBtn?.addEventListener('click', handleSave);
+
+        // Zamknięcie przez kliknięcie tła
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) this.closeFavoritesModal(true);
+        });
+
+        // Załaduj filmy do wyboru
+        await this._loadFavoritesMovies();
+    }
+
+    async _loadFavoritesMovies() {
+        const grid = document.getElementById('favorites-movies-grid');
+        if (!grid) return;
+
+        try {
+            const res = await fetch('/api/auth/favorites-setup', {
+                headers: this.getAuthHeaders(),
+            });
+
+            if (!res.ok) throw new Error('Błąd ładowania filmów');
+
+            const movies = await res.json();
+
+            if (!Array.isArray(movies) || movies.length === 0) {
+                grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:2rem;">Brak filmów do wyświetlenia. Możesz pominąć ten krok.</p>';
+                return;
+            }
+
+            grid.innerHTML = movies.map(m => {
+                const poster = m.poster_url
+                    ? (m.poster_url.startsWith('http://') ? m.poster_url.replace('http://', 'https://') : m.poster_url)
+                    : `https://placehold.co/200x300/cccccc/666666/png?text=${encodeURIComponent(m.title || 'Film')}`;
+                return `
+                    <div class="favorites-movie-card" data-id="${m.id}" onclick="app._toggleFavoriteCard(this)">
+                        <img class="favorites-movie-poster" src="${poster}" alt="${this.escapeHtml(m.title)}" loading="lazy"
+                             onerror="this.src='https://placehold.co/200x300/cccccc/666666/png?text=${encodeURIComponent(m.title || 'Film')}'">
+                        <div class="favorites-check-overlay"><i class="fas fa-check"></i></div>
+                        <div class="favorites-movie-title">${this.escapeHtml(m.title)}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) {
+            console.error('Error loading favorites movies:', e);
+            grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:2rem;">Nie udało się załadować filmów.</p>';
+        }
+    }
+
+    _toggleFavoriteCard(card) {
+        card.classList.toggle('selected');
+        this._updateFavoritesCount();
+    }
+
+    _updateFavoritesCount() {
+        const selected = document.querySelectorAll('#favorites-movies-grid .favorites-movie-card.selected').length;
+        const label = document.getElementById('favorites-selected-count');
+        if (label) label.textContent = `Zaznaczono: ${selected}`;
+    }
+
+    async closeFavoritesModal(skip = false) {
+        const modal = document.getElementById('favorites-modal');
+        if (!modal) return;
+
+        if (skip) {
+            // Zapisz że użytkownik pominął — żeby nie pokazywać ponownie
+            try {
+                await fetch('/api/auth/favorites-setup', {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify({ movieIds: [], skipped: true }),
+                });
+                // Do dodania: this.currentUser.favorites_selected = 1;
+            } catch (e) { /* ignoruj */ }
+        }
+
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    async saveFavoriteMovies() {
+        const cards = document.querySelectorAll('#favorites-movies-grid .favorites-movie-card.selected');
+        const movieIds = Array.from(cards).map(c => parseInt(c.dataset.id)).filter(Boolean);
+
+        const saveBtn = document.getElementById('favorites-save-btn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Zapisywanie...';
+        }
+
+        try {
+            const res = await fetch('/api/auth/favorites-setup', {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({ movieIds }),
+            });
+
+            if (!res.ok) throw new Error('Błąd zapisu');
+
+            // Do dodania: this.currentUser.favorites_selected = 1;
+
+            await this.closeFavoritesModal(false);
+
+            if (movieIds.length > 0) {
+                // Odśwież listę filmów by uwzględnić nowo dodane
+                await this.loadMoviesData();
+                this.showNotification(`Dodano ${movieIds.length} ${movieIds.length === 1 ? 'film' : 'filmy/filmów'} do Twojej listy!`, 'success');
+            } else {
+                this.showNotification('Preferencje zostały zapisane!', 'success');
+            }
+        } catch (e) {
+            console.error('Error saving favorites:', e);
+            this.showNotification('Błąd podczas zapisywania. Spróbuj ponownie.', 'error');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Zapisz wybór';
+            }
+        }
+    }
+
+    // ============= KONIEC MODALU ULUBIONYCH =============
 
     // Metody uwierzytelniania
     async checkAuth() {

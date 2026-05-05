@@ -1565,6 +1565,13 @@ h3 {
     font-size: 1.3rem;
 }
 
+.setting-description {
+    color: var(--text-secondary);
+    font-size: 0.93rem;
+    margin-bottom: 1rem;
+    margin-top: -0.75rem;
+}
+
 .setting-item {
     display: flex;
     flex-direction: column;

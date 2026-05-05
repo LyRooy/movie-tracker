@@ -36,8 +36,10 @@ class MovieTracker {
         await this.loadMoviesData();
         this.setupTheme();
 
-        // Pokaż modal onboardingu nowym użytkownikom (kolumna favorites_selected istnieje w tabeli users)
-        if (this.currentUser && !this.currentUser.favorites_selected) {
+        // Pokaż modal onboardingu nowym użytkownikom tylko raz na sesję
+        if (this.currentUser && !this.currentUser.favorites_selected
+                && !sessionStorage.getItem('favorites_modal_shown')) {
+            sessionStorage.setItem('favorites_modal_shown', '1');
             await this.showFavoritesModal();
         }
 
@@ -3997,11 +3999,15 @@ class MovieTracker {
     _updateFavoritesBanner() {
         const banner = document.getElementById('favorites-banner');
         if (!banner) return;
-        const show = this.currentUser && !this.currentUser.favorites_selected;
+        const modal = document.getElementById('favorites-modal');
+        const modalOpen = modal && modal.style.display !== 'none' && modal.style.display !== '';
+        const dismissed = sessionStorage.getItem('favorites_banner_dismissed') === '1';
+        const show = this.currentUser && !this.currentUser.favorites_selected && !modalOpen && !dismissed;
         banner.style.display = show ? 'block' : 'none';
     }
 
     dismissFavoritesBanner() {
+        sessionStorage.setItem('favorites_banner_dismissed', '1');
         const banner = document.getElementById('favorites-banner');
         if (banner) banner.style.display = 'none';
     }
@@ -4009,6 +4015,10 @@ class MovieTracker {
     async showFavoritesModal() {
         const modal = document.getElementById('favorites-modal');
         if (!modal) return;
+
+        // Ukryj baner gdy modal jest otwarty
+        const banner = document.getElementById('favorites-banner');
+        if (banner) banner.style.display = 'none';
 
         modal.style.display = 'block';
         document.body.style.overflow = 'hidden';
@@ -4086,21 +4096,13 @@ class MovieTracker {
         const modal = document.getElementById('favorites-modal');
         if (!modal) return;
 
-        if (skip) {
-            // Zapisz że użytkownik pominął — żeby nie pokazywać ponownie
-            try {
-                await fetch('/api/auth/favorites-setup', {
-                    method: 'POST',
-                    headers: this.getAuthHeaders(),
-                    body: JSON.stringify({ movieIds: [], skipped: true }),
-                });
-                this.currentUser.favorites_selected = 1;
-                this._updateFavoritesBanner();
-            } catch (e) { /* ignoruj */ }
-        }
-
         modal.style.display = 'none';
         document.body.style.overflow = '';
+
+        // Po zamknięciu modala pokaż baner jeśli ulubione wciąż nieuzupełnione
+        if (!skip || (this.currentUser && !this.currentUser.favorites_selected)) {
+            this._updateFavoritesBanner();
+        }
     }
 
     async saveFavoriteMovies() {

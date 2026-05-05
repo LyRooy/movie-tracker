@@ -4036,12 +4036,20 @@ class MovieTracker {
         const skipBtn2 = document.getElementById('favorites-skip-btn2');
         const saveBtn = document.getElementById('favorites-save-btn');
 
+        // Usuń stare listenery przez zamianę elementów na klony
+        const freshSkip = skipBtn.cloneNode(true);
+        const freshSkip2 = skipBtn2.cloneNode(true);
+        const freshSave = saveBtn.cloneNode(true);
+        skipBtn.replaceWith(freshSkip);
+        skipBtn2.replaceWith(freshSkip2);
+        saveBtn.replaceWith(freshSave);
+
         const handleSkip = () => this.closeFavoritesModal(true);
         const handleSave = () => this.saveFavoriteMovies();
 
-        skipBtn?.addEventListener('click', handleSkip);
-        skipBtn2?.addEventListener('click', handleSkip);
-        saveBtn?.addEventListener('click', handleSave);
+        freshSkip.addEventListener('click', handleSkip);
+        freshSkip2.addEventListener('click', handleSkip);
+        freshSave.addEventListener('click', handleSave);
 
         // Zamknięcie przez kliknięcie tła
         modal.addEventListener('click', (e) => {
@@ -4083,6 +4091,21 @@ class MovieTracker {
                     </div>
                 `;
             }).join('');
+
+            // Zaznacz filmy, które użytkownik już wybrał wcześniej
+            let savedIds = [];
+            try {
+                if (this.currentUser?.favorite_kaggle_ids) {
+                    savedIds = JSON.parse(this.currentUser.favorite_kaggle_ids) || [];
+                }
+            } catch { savedIds = []; }
+            if (savedIds.length > 0) {
+                savedIds.forEach(id => {
+                    const card = grid.querySelector(`.favorites-movie-card[data-id="${id}"]`);
+                    if (card) card.classList.add('selected');
+                });
+                this._updateFavoritesCount();
+            }
         } catch (e) {
             console.error('Error loading favorites movies:', e);
             grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:2rem;">Nie udało się załadować filmów.</p>';

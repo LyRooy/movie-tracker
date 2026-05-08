@@ -28,19 +28,20 @@
                 <li><a href="#calendar" class="nav-link">Kalendarz</a></li>
                 <li><a href="#statistics" class="nav-link">Statystyki</a></li>
                 <li><a href="#challenges" class="nav-link">Wyzwania</a></li>
-                <li><a href="#profile" class="nav-link">Profil</a></li>
                 <li id="admin-nav-item" style="display: none;"><a href="#admin" class="nav-link">Panel Admina</a></li>
-                <li>
-                    <button id="theme-toggle" class="theme-toggle" title="Przełącz motyw">
-                        <i class="fas fa-adjust"></i>
-                    </button>
-                </li>
-                <li>
-                    <button id="logout-btn" class="theme-toggle" title="Wyloguj">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
-                </li>
             </ul>
+            <div class="nav-user-actions">
+                <a href="#profile" class="nav-link nav-profile-link" title="Profil">
+                    <img id="nav-avatar" src="https://placehold.co/32x32/cccccc/666666/png?text=U" alt="Avatar" class="nav-avatar-img">
+                    <span id="nav-username" class="nav-username-text"></span>
+                </a>
+                <button id="theme-toggle" class="theme-toggle" title="Przełącz motyw">
+                    <i class="fas fa-adjust"></i>
+                </button>
+                <button id="logout-btn" class="theme-toggle" title="Wyloguj">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
             <div class="hamburger">
                 <span></span>
                 <span></span>
@@ -61,53 +62,81 @@
     <main class="main-content">
         <!-- Sekcja Dashboard -->
         <section id="dashboard" class="section active">
-            <div class="container">
-                <h1>Witaj, <span id="username">Użytkowniku</span>!</h1>
-                
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <i class="fas fa-film"></i>
-                        <div class="stat-info">
-                            <h3 id="movies-count">0</h3>
-                            <p>Obejrzane filmy</p>
+            <div class="container dashboard-layout">
+
+                <!-- LEWA KOLUMNA: profil + statsy + aktywność -->
+                <aside class="dashboard-sidebar">
+                    <div class="dashboard-profile-card">
+                        <img id="dashboard-avatar" src="https://placehold.co/80x80/cccccc/666666/png?text=U" alt="Avatar" class="dashboard-avatar">
+                        <div class="dashboard-profile-info">
+                            <span id="username" class="dashboard-nickname">Użytkowniku</span>
+                            <a href="#profile" class="nav-link dashboard-profile-link">Edytuj profil</a>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <i class="fas fa-tv"></i>
-                        <div class="stat-info">
-                            <h3 id="series-count">0</h3>
-                            <p>Obejrzane seriale</p>
+
+                    <div class="stats-grid stats-grid--compact">
+                        <div class="stat-card">
+                            <i class="fas fa-film"></i>
+                            <div class="stat-info">
+                                <h3 id="movies-count">0</h3>
+                                <p>Filmy</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-tv"></i>
+                            <div class="stat-info">
+                                <h3 id="series-count">0</h3>
+                                <p>Seriale</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-solid fa-clock"></i>
+                            <div class="stat-info">
+                                <h3 id="movies-hours-count">0</h3>
+                                <p>Godz. filmów</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-regular fa-clock"></i>
+                            <div class="stat-info">
+                                <h3 id="series-hours-count">0</h3>
+                                <p>Godz. seriali</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-star"></i>
+                            <div class="stat-info">
+                                <h3 id="avg-rating">0.0</h3>
+                                <p>Śr. ocena</p>
+                            </div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <i class="fa-solid fa-clock"></i>
-                        <div class="stat-info">
-                            <h3 id="movies-hours-count">0</h3>
-                            <p>Godzin filmów</p>
+
+                    <div class="recent-activity">
+                        <h2>Ostatnie aktywności</h2>
+                        <div id="recent-list" class="activity-list">
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <i class="fa-regular fa-clock"></i>
-                        <div class="stat-info">
-                            <h3 id="series-hours-count">0</h3>
-                            <p>Godzin seriali</p>
+                </aside>
+
+                <!-- PRAWA KOLUMNA: top lista -->
+                <div class="dashboard-top-movies">
+                    <div class="top-movies-header">
+                        <h2>Top filmy</h2>
+                        <div class="top-sort-tabs">
+                            <button class="top-sort-btn active" data-sort="popularity">Popularność</button>
+                            <button class="top-sort-btn" data-sort="imdb_rating">IMDb</button>
+                            <button class="top-sort-btn" data-sort="avg_rating">Oceny użytk.</button>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <i class="fas fa-star"></i>
-                        <div class="stat-info">
-                            <h3 id="avg-rating">0.0</h3>
-                            <p>Średnia ocena</p>
-                        </div>
+                    <div id="top-movies-list" class="top-movies-grid">
+                        <!-- karty filmów -->
+                    </div>
+                    <div id="top-movies-more" class="load-more-btn" style="display:none;">
+                        <button id="top-movies-load-more">Pokaż więcej</button>
                     </div>
                 </div>
 
-                <div class="recent-activity">
-                    <h2>Ostatnie aktywności</h2>
-                    <div id="recent-list" class="activity-list">
-                        <!-- Ostatnie aktywności zostaną tutaj załadowane -->
-                    </div>
-                </div>
             </div>
         </section>
 

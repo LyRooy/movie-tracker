@@ -510,6 +510,17 @@ class MovieTracker {
                 userAvatar.src = this.currentUser.avatar_url;
             }
 
+            // Awatar + nick w navbarze i dashboardzie
+            const avatarUrl = this.currentUser.avatar_url ||
+                `https://placehold.co/32x32/cccccc/666666/png?text=${encodeURIComponent((this.currentUser.nickname || 'U')[0].toUpperCase())}`;
+            const navAvatar = document.getElementById('nav-avatar');
+            const navUsername = document.getElementById('nav-username');
+            const dashAvatar = document.getElementById('dashboard-avatar');
+            if (navAvatar) navAvatar.src = avatarUrl;
+            if (navUsername) navUsername.textContent = this.currentUser.nickname;
+            if (dashAvatar) dashAvatar.src = this.currentUser.avatar_url ||
+                `https://placehold.co/80x80/cccccc/666666/png?text=${encodeURIComponent((this.currentUser.nickname || 'U')[0].toUpperCase())}`;
+
             // Pokaż nawigację admina jeśli użytkownik jest adminem
             if (this.currentUser.role === 'admin') {
                 const adminNavItem = document.getElementById('admin-nav-item');
@@ -2168,6 +2179,7 @@ class MovieTracker {
         
         this.updateStats();
         this.displayRecentActivity();
+        this.loadTopMovies('popularity', 0, false);
         this.displayMyList(this.currentListStatus);
         // Wypełnij filtry gatunków na podstawie załadowanych filmów
         try { this.populateGenreFilterFromList(this.watchedMovies); } catch (e) { /* ignore */ }
@@ -2402,6 +2414,78 @@ class MovieTracker {
         }
         
         return sortedItems;
+    }
+
+    // ============= TOP MOVIES W DASHBOARDZIE =============
+    async loadTopMovies(sort, page, append) {
+        try {
+            const res = await fetch(`/api/movies/top?sort=${sort}&page=${page}`, {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            this._topSort = sort;
+            this._topPage = page;
+            this._topHasMore = data.hasMore;
+            this.renderTopMovies(data.results, append, page);
+        } catch (e) {
+            console.error('loadTopMovies error', e);
+        }
+    }
+
+    renderTopMovies(movies, append, page) {
+        const container = document.getElementById('top-movies-list');
+        const moreWrap = document.getElementById('top-movies-more');
+        const moreBtn  = document.getElementById('top-movies-load-more');
+        if (!container) return;
+
+        if (!append) container.innerHTML = '';
+
+        const offset = page * 40;
+        movies.forEach((m, i) => {
+            const rank = offset + i + 1;
+            const poster = m.poster_path
+                ? `https://image.tmdb.org/t/p/w200${m.poster_path}`
+                : `https://placehold.co/140x210/cccccc/666666/png?text=${encodeURIComponent(m.title || '?')}`;
+
+            let scoreLabel = '';
+            if (this._topSort === 'imdb_rating') {
+                scoreLabel = m.imdb_rating != null ? `⭐ IMDb ${parseFloat(m.imdb_rating).toFixed(1)}` : '';
+            } else if (this._topSort === 'avg_rating') {
+                scoreLabel = m.avg_user_rating != null ? `⭐ ${parseFloat(m.avg_user_rating).toFixed(1)} (${m.review_count})` : 'Brak ocen';
+            } else {
+                scoreLabel = m.popularity != null ? `🔥 ${parseFloat(m.popularity).toFixed(0)}` : '';
+            }
+
+            const card = document.createElement('div');
+            card.className = 'top-movie-card';
+            card.dataset.movieId = m.id;
+            card.innerHTML = `
+                <span class="top-movie-rank">#${rank}</span>
+                <img src="${poster}" alt="${this.escapeHtml(m.title || '')}" loading="lazy">
+                <div class="top-movie-info">
+                    <div class="top-movie-title">${this.escapeHtml(m.title || '')}</div>
+                    <div class="top-movie-score">${scoreLabel}</div>
+                </div>
+            `;
+            card.addEventListener('click', () => this.showMovieDetails(m.id));
+            container.appendChild(card);
+        });
+
+        if (moreWrap) moreWrap.style.display = this._topHasMore ? 'flex' : 'none';
+        if (moreBtn) {
+            moreBtn.onclick = () => this.loadTopMovies(this._topSort, this._topPage + 1, true);
+        }
+
+        // Podpnij przyciski sortowania (tylko raz przy pierwszym renderze)
+        if (!append) {
+            document.querySelectorAll('.top-sort-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.sort === this._topSort);
+                btn.onclick = () => {
+                    this.loadTopMovies(btn.dataset.sort, 0, false);
+                };
+            });
+        }
     }
 
     displayRecentActivity() {

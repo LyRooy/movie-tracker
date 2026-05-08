@@ -101,7 +101,7 @@ export async function onRequest(context) {
 
     // ── ZWYKŁE WYSZUKIWANIE Z PAGINACJĄ ─────────────────────────────────────
     const page  = Math.max(0, parseInt(url.searchParams.get('page') || '0'));
-    const limit = 20;
+    const limit = 24;
     const offset = page * limit;
     const searchQuery = `%${query.toLowerCase()}%`;
 

@@ -3505,7 +3505,7 @@ class MovieTracker {
                 });
                 
                 // Pobierz odcinki dla seriali
-                const series = movies.filter(m => m.type === 'series');
+                const series = movies.filter(m => m.media_type === 'series');
                 console.log('Found series:', series.length, series.map(s => s.title));
                 for (const s of series) {
                     try {
@@ -4746,14 +4746,16 @@ class MovieTracker {
         this.switchAdminTab(activeTab);
     }
 
-    async loadAdminMovies(page = 0, search = '') {
+    async loadAdminMovies(page = 0, search = '', type = '') {
         try {
             // Zapamiętaj stan paginacji
             this._adminMoviesPage   = page;
             this._adminMoviesSearch = search;
+            this._adminMoviesType   = type;
 
             const params = new URLSearchParams({ page, limit: 50 });
             if (search) params.set('search', search);
+            if (type)   params.set('type', type);
 
             const response = await fetch(`/api/admin/movies?${params}`, {
                 headers: this.getAuthHeaders()
@@ -4770,14 +4772,14 @@ class MovieTracker {
 
             this.updateAdminCounts(movies, total);
             this.displayAdminMovies(movies);
-            this._setupAdminMoviesPagination(page, total, hasMore, search);
+            this._setupAdminMoviesPagination(page, total, hasMore, search, type);
         } catch (error) {
             console.error('Error loading admin movies:', error);
             this.showNotification('Błąd podczas ładowania filmów', 'error');
         }
     }
 
-    _setupAdminMoviesPagination(page, total, hasMore, search) {
+    _setupAdminMoviesPagination(page, total, hasMore, search, type = '') {
         const wrap     = document.getElementById('admin-movies-pagination');
         const prevBtn  = document.getElementById('admin-movies-prev');
         const nextBtn  = document.getElementById('admin-movies-next');
@@ -4789,11 +4791,11 @@ class MovieTracker {
         if (pageInfo) pageInfo.textContent = `Strona ${page + 1} / ${totalPages} (${total} pozycji)`;
         if (prevBtn) {
             prevBtn.disabled = page === 0;
-            prevBtn.onclick  = () => this.loadAdminMovies(page - 1, search);
+            prevBtn.onclick  = () => this.loadAdminMovies(page - 1, search, type);
         }
         if (nextBtn) {
             nextBtn.disabled = !hasMore;
-            nextBtn.onclick  = () => this.loadAdminMovies(page + 1, search);
+            nextBtn.onclick  = () => this.loadAdminMovies(page + 1, search, type);
         }
 
         // Podepnij search input (tylko raz)
@@ -4803,9 +4805,22 @@ class MovieTracker {
             let debounce;
             searchInput.addEventListener('input', () => {
                 clearTimeout(debounce);
-                debounce = setTimeout(() => this.loadAdminMovies(0, searchInput.value.trim()), 350);
+                const typeVal = (document.getElementById('admin-movies-type-filter') || {}).value || '';
+                debounce = setTimeout(() => this.loadAdminMovies(0, searchInput.value.trim(), typeVal), 350);
             });
         }
+
+        // Podepnij type filter (tylko raz)
+        const typeFilter = document.getElementById('admin-movies-type-filter');
+        if (typeFilter && !typeFilter._bound) {
+            typeFilter._bound = true;
+            typeFilter.addEventListener('change', () => {
+                const searchVal = (document.getElementById('admin-movies-search') || {}).value?.trim() || '';
+                this.loadAdminMovies(0, searchVal, typeFilter.value);
+            });
+        }
+        // Synchronizuj value dropdownu z aktualnym filtrem
+        if (typeFilter) typeFilter.value = type;
     }
 
     // Aktualizuje liczniki filmów i seriali w panelu admina

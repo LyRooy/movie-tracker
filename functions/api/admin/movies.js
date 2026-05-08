@@ -92,11 +92,22 @@ async function handleGetMovies(db, request, corsHeaders) {
     const offset = page * limit;
 
     let countSql, listSql, bindArgs;
-    if (search) {
+    const typeFilter = url.searchParams.get('type') || '';  // 'movie' | 'series' | ''
+
+    if (search && typeFilter) {
+      const like = `%${search}%`;
+      countSql = 'SELECT COUNT(*) AS cnt FROM movies WHERE (title LIKE ? OR genre LIKE ?) AND media_type = ?';
+      listSql  = 'SELECT * FROM movies WHERE (title LIKE ? OR genre LIKE ?) AND media_type = ? ORDER BY title LIMIT ? OFFSET ?';
+      bindArgs = [like, like, typeFilter];
+    } else if (search) {
       const like = `%${search}%`;
       countSql = 'SELECT COUNT(*) AS cnt FROM movies WHERE title LIKE ? OR genre LIKE ?';
       listSql  = 'SELECT * FROM movies WHERE title LIKE ? OR genre LIKE ? ORDER BY title LIMIT ? OFFSET ?';
       bindArgs = [like, like];
+    } else if (typeFilter) {
+      countSql = 'SELECT COUNT(*) AS cnt FROM movies WHERE media_type = ?';
+      listSql  = 'SELECT * FROM movies WHERE media_type = ? ORDER BY title LIMIT ? OFFSET ?';
+      bindArgs = [typeFilter];
     } else {
       countSql = 'SELECT COUNT(*) AS cnt FROM movies';
       listSql  = 'SELECT * FROM movies ORDER BY title LIMIT ? OFFSET ?';

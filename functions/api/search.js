@@ -86,7 +86,7 @@ export async function onRequest(context) {
         0 as rating,
         'planning' as status,
         date('now') as watchedDate
-      FROM kaggle_movies 
+      FROM movies 
       WHERE LOWER(title) LIKE ? OR LOWER(genre) LIKE ? OR LOWER(description) LIKE ?
       ORDER BY title ${limitClause}
     `).bind(searchQuery, searchQuery, searchQuery).all();

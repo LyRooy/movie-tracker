@@ -46,7 +46,7 @@ export async function onRequest(context) {
 // Pobierz wszystkie odcinki serialu ze statusem obejrzenia użytkownika
 async function handleGetEpisodes(db, userId, seriesId, corsHeaders) {
   // Pobierz informacje o serialu
-  const series = await db.prepare('SELECT * FROM kaggle_movies WHERE id = ? AND media_type = ?')
+  const series = await db.prepare('SELECT * FROM movies WHERE id = ? AND media_type = ?')
     .bind(seriesId, 'series')
     .first();
 
@@ -423,7 +423,7 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
         const moviesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT w.movie_id) as count
           FROM watched w
-          JOIN kaggle_movies m ON w.movie_id = m.id
+          JOIN movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
             AND m.media_type = 'movie'
             AND w.watched_date >= ?
@@ -437,7 +437,7 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
         // Zlicz obejrzane seriale (wszystkie odcinki) w okresie wyzwania
         const seriesQuery = await db.prepare(`
           SELECT COUNT(DISTINCT m.id) as count
-          FROM kaggle_movies m
+          FROM movies m
           WHERE m.media_type = 'series'
             AND m.id IN (
               SELECT DISTINCT s.series_id
@@ -464,7 +464,7 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
         const genreQuery = await db.prepare(`
           SELECT COUNT(DISTINCT w.movie_id) as count
           FROM watched w
-          JOIN kaggle_movies m ON w.movie_id = m.id
+          JOIN movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
             AND m.genre LIKE ?
             AND w.watched_date >= ?
@@ -550,3 +550,4 @@ async function checkChallengeProgress(db, userId, seriesId, watchedDate) {
   
   return completedChallenges;
 }
+

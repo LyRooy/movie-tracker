@@ -46,7 +46,7 @@ export async function onRequestGet(context) {
   }
 
   const movies = await env.db.prepare(
-    "SELECT id, title, poster_url, media_type FROM kaggle_movies WHERE media_type = 'movie' ORDER BY RANDOM() LIMIT 16"
+    "SELECT id, title, poster_url, media_type FROM movies WHERE media_type = 'movie' ORDER BY RANDOM() LIMIT 16"
   ).all();
   return new Response(JSON.stringify(movies.results || []), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -88,3 +88,4 @@ export async function onRequestPost(context) {
 export async function onRequestOptions() {
   return new Response(null, { headers: corsHeaders });
 }
+

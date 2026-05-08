@@ -79,7 +79,7 @@ export async function onRequest(context) {
         const progressResult = await env.db.prepare(`
           SELECT COUNT(DISTINCT w.id) as count
           FROM watched w
-          JOIN kaggle_movies m ON w.movie_id = m.id
+          JOIN movies m ON w.movie_id = m.id
           WHERE w.user_id = ?
           AND w.watched_date BETWEEN ? AND COALESCE(?, date('now'))
           AND (

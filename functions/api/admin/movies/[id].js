@@ -55,7 +55,7 @@ export async function onRequest(context) {
 
 // Pobierz konkretny film
 async function handleGetMovie(db, movieId, corsHeaders) {
-  const movie = await db.prepare('SELECT * FROM kaggle_movies WHERE id = ?').bind(movieId).first();
+  const movie = await db.prepare('SELECT * FROM movies WHERE id = ?').bind(movieId).first();
   
   if (!movie) {
     return new Response(JSON.stringify({ error: 'Movie not found' }), {
@@ -117,7 +117,7 @@ async function handleUpdateMovie(db, request, movieId, corsHeaders) {
     
     // Pobierz aktualną wartość duration dla serialu
     try {
-      const movie = await db.prepare('SELECT media_type, duration FROM kaggle_movies WHERE id = ?').bind(movieId).first();
+      const movie = await db.prepare('SELECT media_type, duration FROM movies WHERE id = ?').bind(movieId).first();
       if (movie && movie.media_type === 'series') {
         oldAvgDuration = movie.duration;
       }
@@ -139,7 +139,7 @@ async function handleUpdateMovie(db, request, movieId, corsHeaders) {
   values.push(movieId);
   
   await db.prepare(`
-    UPDATE kaggle_movies 
+    UPDATE movies 
     SET ${updates.join(', ')}
     WHERE id = ?
   `).bind(...values).run();
@@ -172,7 +172,7 @@ async function handleDeleteMovie(db, movieId, corsHeaders) {
     console.log(`[DELETE] Starting deletion for movie ID: ${movieId}`);
     
     // Sprawdź czy film istnieje
-    const movie = await db.prepare('SELECT media_type FROM kaggle_movies WHERE id = ?').bind(movieId).first();
+    const movie = await db.prepare('SELECT media_type FROM movies WHERE id = ?').bind(movieId).first();
     
     if (!movie) {
       console.log(`[DELETE] Movie ${movieId} not found`);
@@ -222,7 +222,7 @@ async function handleDeleteMovie(db, movieId, corsHeaders) {
     
     // Usuń film/serial
     console.log(`[DELETE] Deleting movie record`);
-    await db.prepare('DELETE FROM kaggle_movies WHERE id = ?').bind(movieId).run();
+    await db.prepare('DELETE FROM movies WHERE id = ?').bind(movieId).run();
 
     console.log(`[DELETE] Successfully deleted movie ${movieId}`);
     return new Response(JSON.stringify({ success: true }), {
@@ -256,3 +256,4 @@ async function getUserIdFromRequest(request) {
     return null;
   }
 }
+

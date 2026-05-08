@@ -177,3 +177,4 @@ async function verifyPassword(password, storedHash) {
   }
   return true;
 }
+

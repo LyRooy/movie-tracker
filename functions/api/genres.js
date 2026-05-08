@@ -31,7 +31,7 @@ export async function onRequest(context) {
 
   try {
     // Pobierz wszystkie niepuste ciągi gatunków
-    const result = await env.db.prepare(`SELECT genre FROM kaggle_movies WHERE genre IS NOT NULL AND genre != ''`).all();
+    const result = await env.db.prepare(`SELECT genre FROM movies WHERE genre IS NOT NULL AND genre != ''`).all();
     const unique = new Set();
 
     if (result && Array.isArray(result.results)) {
@@ -48,3 +48,4 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: 'Failed to load genres' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 }
+

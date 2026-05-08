@@ -113,7 +113,7 @@ export async function onRequestPost(context) {
     }
 
     // Zweryfikuj czy serial istnieje
-    const series = await env.db.prepare('SELECT id, media_type FROM kaggle_movies WHERE id = ? AND media_type = ?')
+    const series = await env.db.prepare('SELECT id, media_type FROM movies WHERE id = ? AND media_type = ?')
       .bind(seriesId, 'series').first();
     
     if (!series) {
@@ -146,7 +146,7 @@ export async function onRequestPost(context) {
         return Array.isArray(cols) && cols.some(c => c.name === 'display_number');
       }).catch(e => { console.warn('[admin/seasons] hasEpisodeDisplay error:', e); return false; });
       // Determine default episodeDuration: prefer the movie's duration (if exists), otherwise fallback to 45
-      const movieInfo = await env.db.prepare('SELECT id, duration FROM kaggle_movies WHERE id = ?').bind(seriesId).first();
+      const movieInfo = await env.db.prepare('SELECT id, duration FROM movies WHERE id = ?').bind(seriesId).first();
       const defaultEpisodeDuration = (movieInfo && movieInfo.duration !== null && movieInfo.duration !== undefined) ? Number(movieInfo.duration) : 45;
         for (let epNum = 1; epNum <= episodeCount; epNum++) {
         const displayNumber = `S${String(seasonNumber).padStart(2, '0')} - E${String(epNum).padStart(3, '0')}`;
@@ -168,7 +168,7 @@ export async function onRequestPost(context) {
 
     // Zaktualizuj całkowitą liczbę odcinków serialu
     await env.db.prepare(`
-      UPDATE kaggle_movies 
+      UPDATE movies 
       SET total_seasons = ?, total_episodes = ?
       WHERE id = ?
     `).bind(seasons.length, totalEpisodes, seriesId).run();
@@ -201,3 +201,4 @@ export async function onRequestOptions() {
     }
   });
 }
+

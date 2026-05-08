@@ -74,7 +74,7 @@ async function handleGet(db, request, url, corsHeaders) {
       r.content as review,
       w.watched_date as watchedDate,
       COALESCE(w.status, 'watched') as status
-    FROM kaggle_movies m
+    FROM movies m
     LEFT JOIN reviews r ON m.id = r.movie_id AND r.user_id = ?
     LEFT JOIN watched w ON m.id = w.movie_id AND w.user_id = ?
     WHERE (w.id IS NOT NULL OR r.id IS NOT NULL)

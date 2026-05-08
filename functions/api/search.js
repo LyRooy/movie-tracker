@@ -128,9 +128,11 @@ export async function onRequest(context) {
         COALESCE(total_episodes, 1) as total_episodes
       FROM movies 
       WHERE LOWER(title) LIKE ? OR LOWER(genre) LIKE ? OR LOWER(description) LIKE ?
-      ORDER BY title
+      ORDER BY
+        CASE WHEN LOWER(title) LIKE ? THEN 0 ELSE 1 END,
+        title
       LIMIT ? OFFSET ?
-    `).bind(searchQuery, searchQuery, searchQuery, limit, offset).all();
+    `).bind(searchQuery, searchQuery, searchQuery, searchQuery, limit, offset).all();
 
     // Przekształć do formatu zgodnego z frontendem
     const transformedResults = await Promise.all(result.results.map(async row => {

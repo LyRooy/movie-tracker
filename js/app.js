@@ -2485,19 +2485,27 @@ class MovieTracker {
         const yearFilter = document.getElementById('year-filter').value;
 
         if (!query) {
-            this.displaySearchResults([]);
+            this.displaySearchResults([], false, false);
             return;
         }
 
+        // Nowe wyszukiwanie — resetuj paginację
+        this._searchState = { query, typeFilter, genreFilter, yearFilter, page: 0 };
+
         try {
-            // Użyj API wyszukiwania
-            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`, {
+            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}&page=0`, {
                 headers: this.getAuthHeaders()
             });
             let results = [];
+            let hasMore = false;
+            let total = 0;
             
             if (response.ok) {
-                results = await response.json();
+                const data = await response.json();
+                // Nowe API zwraca { results, total, hasMore, page }
+                results = data.results || (Array.isArray(data) ? data : []);
+                hasMore  = data.hasMore || false;
+                total    = data.total || results.length;
             } else {
                 console.warn('Search API failed, showing empty results');
             }
@@ -2550,20 +2558,59 @@ class MovieTracker {
                 });
             }
 
-            this.displaySearchResults(filteredResults);
+            this.displaySearchResults(filteredResults, hasMore, false);
         } catch (error) {
             console.error('Search error:', error);
-            this.displaySearchResults([]);
+            this.displaySearchResults([], false, false);
         }
     }
 
-    displaySearchResults(results) {
-        const resultsContainer = document.getElementById('search-results');
-        resultsContainer.innerHTML = '';
+    async loadMoreSearchResults() {
+        if (!this._searchState) return;
+        this._searchState.page++;
+        const { query, typeFilter, genreFilter, yearFilter, page } = this._searchState;
+        try {
+            const response = await fetch(`/api/search?query=${encodeURIComponent(query)}&page=${page}`, {
+                headers: this.getAuthHeaders()
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            let results = data.results || [];
+            const hasMore = data.hasMore || false;
 
-        if (results.length === 0) {
+            if (typeFilter)  results = results.filter(i => i.type === typeFilter);
+            if (genreFilter) results = results.filter(i => { try { return this.genreMatches(i.genre, genreFilter); } catch(e) { return false; } });
+            if (yearFilter)  results = results.filter(i => {
+                const rd = String(i.release_date || i.year || '');
+                const ym = rd.match(/(\d{4})/);
+                const yr = ym ? ym[1] : null;
+                if (!yr) return false;
+                if (/^\d{4}-\d{4}$/.test(yearFilter)) {
+                    const [s, e] = yearFilter.split('-').map(Number);
+                    return Number(yr) >= s && Number(yr) <= e;
+                }
+                return yr === yearFilter;
+            });
+
+            this.displaySearchResults(results, hasMore, true);
+        } catch (e) {
+            console.error('Load more error:', e);
+        }
+    }
+
+    displaySearchResults(results, hasMore = false, append = false) {
+        const resultsContainer = document.getElementById('search-results');
+
+        // Usuń poprzedni przycisk "Pokaż więcej" jeśli istnieje
+        const existingBtn = resultsContainer.querySelector('.load-more-btn');
+        if (existingBtn) existingBtn.remove();
+
+        if (!append) {
+            resultsContainer.innerHTML = '';
+        }
+
+        if (!append && results.length === 0) {
             resultsContainer.innerHTML = '<p>Nie znaleziono wyników.</p>';
-            // Aktualizuj filtry gatunków nawet jeśli brak wyników
             this.populateGenreFilterFromList(results);
             return;
         }
@@ -2607,8 +2654,18 @@ class MovieTracker {
             resultsContainer.appendChild(movieCard);
         });
 
+        // Przycisk "Pokaż więcej"
+        if (hasMore) {
+            const loadMoreBtn = document.createElement('div');
+            loadMoreBtn.className = 'load-more-btn';
+            loadMoreBtn.innerHTML = '<button onclick="app.loadMoreSearchResults()">Pokaż więcej wyników</button>';
+            resultsContainer.appendChild(loadMoreBtn);
+        }
+
         // Aktualizuj filtry gatunków nawet jeśli brak wyników
-        try { this.populateGenreFilterFromList(results); } catch (e) { /* ignore */ }
+        if (!append) {
+            try { this.populateGenreFilterFromList(results); } catch (e) { /* ignore */ }
+        }
     }
 
     async openMovieModal(movie, isEdit = false) {
@@ -3290,19 +3347,25 @@ class MovieTracker {
                 return [];
             }
             
-            // Pobierz wszystkie filmy z bazy danych
-            const moviesRes = await fetch('/api/search?query=', { headers: this.getAuthHeaders() });
+            // Oblicz zakres dat widocznej siatki kalendarza
+            const firstDay = new Date(this.calendarYear, this.calendarMonth, 1);
+            const dayOfWeek = firstDay.getDay();
+            const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            const gridStart = new Date(firstDay);
+            gridStart.setDate(gridStart.getDate() - daysToSubtract);
+            const gridEnd = new Date(gridStart);
+            gridEnd.setDate(gridEnd.getDate() + 41);
+            const dateFrom = gridStart.toISOString().split('T')[0];
+            const dateTo   = gridEnd.toISOString().split('T')[0];
+
+            // Pobierz tylko filmy z datą premiery w widocznym zakresie
+            const moviesRes = await fetch(`/api/search?mode=calendar&date_from=${dateFrom}&date_to=${dateTo}`, { headers: this.getAuthHeaders() });
             console.log('Calendar API response status:', moviesRes.status);
             if (moviesRes.ok) {
                 const data = await moviesRes.json();
-                console.log('Calendar API raw data:', data);
-                // API zwraca tablicę bezpośrednio, nie obiekt z results
-                const movies = Array.isArray(data) ? data : (data.results || []);
+                // Nowe API zwraca { results: [...] }
+                const movies = data.results || (Array.isArray(data) ? data : []);
                 console.log('Loaded movies for calendar:', movies.length);
-                if (movies.length > 0) {
-                    console.log('First movie with release_date:', movies.find(m => m.release_date));
-                    console.log('Sample movie with all fields:', movies[0]);
-                }
                 
                 movies.forEach(movie => {
                     // Sprawdź release_date dla filmów i seriali

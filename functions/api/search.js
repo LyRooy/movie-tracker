@@ -47,7 +47,8 @@ export async function onRequest(context) {
   }
 
   const query = url.searchParams.get('query');
-  if (query === null) {
+  const isCal = url.searchParams.get('mode') === 'calendar';
+  if (query === null && !isCal) {
     return new Response(JSON.stringify({ error: 'Query parameter required' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -63,12 +64,54 @@ export async function onRequest(context) {
     });
   }
 
+  const mode = url.searchParams.get('mode');
+
   try {
-    // Wyszukaj w naszej bazie danych D1 - jeśli query jest puste, zwróć wszystko
-    const searchQuery = query ? `%${query.toLowerCase()}%` : '%';
-    // Dla pustego query (kalendarz) zwróć wszystko, dla wyszukiwania ogranicz do 20
-    const limitClause = query ? 'LIMIT 20' : '';
-    console.log('[search] query:', query, 'limitClause:', limitClause);
+    // ── TRYB KALENDARZA: lekkie zapytanie filtrowane po dacie ────────────────
+    if (mode === 'calendar') {
+      const dateFrom = url.searchParams.get('date_from');
+      const dateTo   = url.searchParams.get('date_to');
+      if (!dateFrom || !dateTo) {
+        return new Response(JSON.stringify({ error: 'date_from and date_to required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      const result = await env.db.prepare(`
+        SELECT id, title, media_type as type, release_date, trailer_url, poster_url as poster, description
+        FROM movies
+        WHERE release_date IS NOT NULL AND release_date >= ? AND release_date <= ?
+        ORDER BY release_date
+        LIMIT 1000
+      `).bind(dateFrom, dateTo).all();
+
+      const calendarResults = result.results.map(row => ({
+        id: `db_${row.id}`,
+        title: row.title,
+        type: row.type,
+        release_date: row.release_date,
+        trailer_url: row.trailer_url || null,
+        poster: normalizePosterUrl(row.poster) || null,
+        description: row.description || ''
+      }));
+      return new Response(JSON.stringify({ results: calendarResults }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ── ZWYKŁE WYSZUKIWANIE Z PAGINACJĄ ─────────────────────────────────────
+    const page  = Math.max(0, parseInt(url.searchParams.get('page') || '0'));
+    const limit = 20;
+    const offset = page * limit;
+    const searchQuery = `%${query.toLowerCase()}%`;
+
+    // Zlicz wszystkie pasujące rekordy
+    const countRow = await env.db.prepare(`
+      SELECT COUNT(*) as total FROM movies
+      WHERE LOWER(title) LIKE ? OR LOWER(genre) LIKE ? OR LOWER(description) LIKE ?
+    `).bind(searchQuery, searchQuery, searchQuery).first();
+    const total = countRow ? countRow.total : 0;
+
     const result = await env.db.prepare(`
       SELECT 
         id,
@@ -82,20 +125,15 @@ export async function onRequest(context) {
         description,
         duration,
         COALESCE(total_seasons, 1) as total_seasons,
-        COALESCE(total_episodes, 1) as total_episodes,
-        0 as rating,
-        'planning' as status,
-        date('now') as watchedDate
+        COALESCE(total_episodes, 1) as total_episodes
       FROM movies 
       WHERE LOWER(title) LIKE ? OR LOWER(genre) LIKE ? OR LOWER(description) LIKE ?
-      ORDER BY title ${limitClause}
-    `).bind(searchQuery, searchQuery, searchQuery).all();
+      ORDER BY title
+      LIMIT ? OFFSET ?
+    `).bind(searchQuery, searchQuery, searchQuery, limit, offset).all();
 
     // Przekształć do formatu zgodnego z frontendem
     const transformedResults = await Promise.all(result.results.map(async row => {
-      if (row.title && row.title.includes('Avatar') && row.title.includes('Ogień')) {
-        console.log('[search] Avatar 3 raw data:', JSON.stringify(row));
-      }
       const rawYear = parseInt(row.year);
       const currentYear = new Date().getFullYear();
       const year = (Number.isFinite(rawYear) && rawYear >= 1800 && rawYear <= currentYear + 5) ? rawYear : null;
@@ -128,7 +166,7 @@ export async function onRequest(context) {
           WHERE movie_id = ?
         `).bind(row.id).first();
         if (reviewsRes && reviewsRes.review_count > 0 && reviewsRes.avg_rating !== null) {
-          avgRating = Math.round(reviewsRes.avg_rating * 10) / 10; // Zaokrąglij do 1 miejsca po przecinku
+          avgRating = Math.round(reviewsRes.avg_rating * 10) / 10;
         }
       } catch (e) {
         console.warn('Could not compute avg rating for search:', e);
@@ -141,7 +179,6 @@ export async function onRequest(context) {
         year: year,
         release_date: row.release_date || null,
         genre: normalizeGenre(row.genre) || 'Unknown',
-        // Znormalizuj URL plakatu w różnych formatach kluczy
         poster_url: normalizePosterUrl(row.poster) || null,
         poster: normalizePosterUrl(row.poster) || `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(row.title)}`,
         trailer_url: row.trailer_url || null,
@@ -156,7 +193,12 @@ export async function onRequest(context) {
       };
     }));
 
-    return new Response(JSON.stringify(transformedResults), {
+    return new Response(JSON.stringify({
+      results: transformedResults,
+      total,
+      page,
+      hasMore: offset + limit < total
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {

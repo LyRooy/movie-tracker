@@ -1660,6 +1660,28 @@ h3 {
     overflow-y: auto;
 }
 
+.load-more-btn {
+    display: flex;
+    justify-content: center;
+    padding: 1rem 0 0.5rem;
+    grid-column: 1 / -1;
+}
+
+.load-more-btn button {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 2rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.load-more-btn button:hover {
+    opacity: 0.85;
+}
+
 .user-search-item {
     display: flex;
     align-items: center;

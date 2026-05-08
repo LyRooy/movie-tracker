@@ -2469,7 +2469,14 @@ class MovieTracker {
                     <div class="top-movie-score">${scoreLabel}</div>
                 </div>
             `;
-            card.addEventListener('click', () => this.showMovieDetails(m.id));
+            card.addEventListener('click', () => {
+                const watched = this.watchedMovies.find(w => w.id === m.id || w.movie_id === m.id);
+                if (watched) {
+                    this.openMovieModal(watched, false);
+                } else {
+                    this.openMovieModal(m, false);
+                }
+            });
             container.appendChild(card);
         });
 

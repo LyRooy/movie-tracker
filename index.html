@@ -64,56 +64,39 @@
         <section id="dashboard" class="section active">
             <div class="container dashboard-layout">
 
-                <!-- LEWA KOLUMNA: profil + statsy + aktywność -->
+                <!-- LEWA KOLUMNA: statsy + aktywność -->
                 <aside class="dashboard-sidebar">
-                    <div class="dashboard-profile-card">
-                        <img id="dashboard-avatar" src="https://placehold.co/80x80/cccccc/666666/png?text=U" alt="Avatar" class="dashboard-avatar">
-                        <div class="dashboard-profile-info">
-                            <span id="username" class="dashboard-nickname">Użytkowniku</span>
-                            <a href="#profile" class="nav-link dashboard-profile-link">Edytuj profil</a>
-                        </div>
-                    </div>
 
-                    <div class="stats-grid stats-grid--compact">
-                        <div class="stat-card">
+                    <div class="sidebar-stats-list">
+                        <div class="sidebar-stat-item">
                             <i class="fas fa-film"></i>
-                            <div class="stat-info">
-                                <h3 id="movies-count">0</h3>
-                                <p>Filmy</p>
-                            </div>
+                            <span id="movies-count" class="sidebar-stat-value">0</span>
+                            <span class="sidebar-stat-label">Filmów</span>
                         </div>
-                        <div class="stat-card">
+                        <div class="sidebar-stat-item">
                             <i class="fas fa-tv"></i>
-                            <div class="stat-info">
-                                <h3 id="series-count">0</h3>
-                                <p>Seriale</p>
-                            </div>
+                            <span id="series-count" class="sidebar-stat-value">0</span>
+                            <span class="sidebar-stat-label">Seriali</span>
                         </div>
-                        <div class="stat-card">
+                        <div class="sidebar-stat-item">
                             <i class="fa-solid fa-clock"></i>
-                            <div class="stat-info">
-                                <h3 id="movies-hours-count">0</h3>
-                                <p>Godz. filmów</p>
-                            </div>
+                            <span id="movies-hours-count" class="sidebar-stat-value">0</span>
+                            <span class="sidebar-stat-label">Godz. filmów</span>
                         </div>
-                        <div class="stat-card">
+                        <div class="sidebar-stat-item">
                             <i class="fa-regular fa-clock"></i>
-                            <div class="stat-info">
-                                <h3 id="series-hours-count">0</h3>
-                                <p>Godz. seriali</p>
-                            </div>
+                            <span id="series-hours-count" class="sidebar-stat-value">0</span>
+                            <span class="sidebar-stat-label">Godz. seriali</span>
                         </div>
-                        <div class="stat-card">
+                        <div class="sidebar-stat-item">
                             <i class="fas fa-star"></i>
-                            <div class="stat-info">
-                                <h3 id="avg-rating">0.0</h3>
-                                <p>Śr. ocena</p>
-                            </div>
+                            <span id="avg-rating" class="sidebar-stat-value">0.0</span>
+                            <span class="sidebar-stat-label">Śr. ocena</span>
                         </div>
                     </div>
 
                     <div class="recent-activity">
-                        <h2>Ostatnie aktywności</h2>
+                        <h3>Ostatnie aktywności</h3>
                         <div id="recent-list" class="activity-list">
                         </div>
                     </div>

@@ -466,7 +466,8 @@ class MovieTracker {
     loadUserData() {
         // Zaktualizuj interfejs danymi bieżącego użytkownika (załadowane z uwierzytelnienia)
         if (this.currentUser) {
-            document.getElementById('username').textContent = this.currentUser.nickname;
+            const usernameEl = document.getElementById('username');
+            if (usernameEl) usernameEl.textContent = this.currentUser.nickname;
             const profileUsername = document.getElementById('profile-username');
             const profileEmail = document.getElementById('profile-email');
             const profileDescription = document.getElementById('profile-user-description');

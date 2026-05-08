@@ -1,10 +1,21 @@
-import { getUserIdFromRequest } from '../../auth/me.js';
-
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+async function getUserIdFromRequest(request) {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+    try {
+        const token = authHeader.substring(7);
+        const payload = JSON.parse(atob(token));
+        if (payload.exp < Date.now()) return null;
+        return payload.userId;
+    } catch {
+        return null;
+    }
+}
 
 export async function onRequestOptions() {
     return new Response(null, { status: 204, headers: CORS });

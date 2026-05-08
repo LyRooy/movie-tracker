@@ -4906,6 +4906,7 @@ class MovieTracker {
     }
 
     displayAdminMovies(movies) {
+        const tbody = document.getElementById('admin-movies-list');
         tbody.innerHTML = movies.map(movie => {
             const displayYear = this.normalizeYear(movie.release_date || movie.year || movie.releaseDate) || '-';
             return `

@@ -4746,24 +4746,70 @@ class MovieTracker {
         this.switchAdminTab(activeTab);
     }
 
-    async loadAdminMovies() {
+    async loadAdminMovies(page = 0, search = '') {
         try {
-            const response = await fetch('/api/admin/movies', {
+            // Zapamiętaj stan paginacji
+            this._adminMoviesPage   = page;
+            this._adminMoviesSearch = search;
+
+            const params = new URLSearchParams({ page, limit: 50 });
+            if (search) params.set('search', search);
+
+            const response = await fetch(`/api/admin/movies?${params}`, {
                 headers: this.getAuthHeaders()
             });
-            if (response.ok) {
-                const movies = await response.json();
-                this.updateAdminCounts(movies);
-                this.displayAdminMovies(movies);
+            if (!response.ok) {
+                this.showNotification('Błąd podczas ładowania filmów (' + response.status + ')', 'error');
+                return;
             }
+            const data = await response.json();
+            // Odpowiedź to { results, total, page, hasMore }
+            const movies = Array.isArray(data) ? data : (data.results || []);
+            const total   = data.total   ?? movies.length;
+            const hasMore = data.hasMore ?? false;
+
+            this.updateAdminCounts(movies, total);
+            this.displayAdminMovies(movies);
+            this._setupAdminMoviesPagination(page, total, hasMore, search);
         } catch (error) {
             console.error('Error loading admin movies:', error);
             this.showNotification('Błąd podczas ładowania filmów', 'error');
         }
     }
 
+    _setupAdminMoviesPagination(page, total, hasMore, search) {
+        const wrap     = document.getElementById('admin-movies-pagination');
+        const prevBtn  = document.getElementById('admin-movies-prev');
+        const nextBtn  = document.getElementById('admin-movies-next');
+        const pageInfo = document.getElementById('admin-movies-page-info');
+        if (!wrap) return;
+
+        const totalPages = Math.ceil(total / 50) || 1;
+        wrap.style.display = totalPages > 1 ? 'flex' : 'none';
+        if (pageInfo) pageInfo.textContent = `Strona ${page + 1} / ${totalPages} (${total} pozycji)`;
+        if (prevBtn) {
+            prevBtn.disabled = page === 0;
+            prevBtn.onclick  = () => this.loadAdminMovies(page - 1, search);
+        }
+        if (nextBtn) {
+            nextBtn.disabled = !hasMore;
+            nextBtn.onclick  = () => this.loadAdminMovies(page + 1, search);
+        }
+
+        // Podepnij search input (tylko raz)
+        const searchInput = document.getElementById('admin-movies-search');
+        if (searchInput && !searchInput._bound) {
+            searchInput._bound = true;
+            let debounce;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => this.loadAdminMovies(0, searchInput.value.trim()), 350);
+            });
+        }
+    }
+
     // Aktualizuje liczniki filmów i seriali w panelu admina
-    updateAdminCounts(movies) {
+    updateAdminCounts(movies, serverTotal) {
         if (!Array.isArray(movies)) return;
         const moviesCount = movies.filter(m => ((m.media_type || m.type) === 'movie')).length;
         const seriesCount = movies.filter(m => ((m.media_type || m.type) === 'series')).length;
@@ -4771,8 +4817,9 @@ class MovieTracker {
         const moviesEl = document.getElementById('admin-total-movies-count');
         const seriesEl = document.getElementById('admin-total-series-count');
 
-        if (moviesEl) moviesEl.textContent = String(moviesCount);
-        if (seriesEl) seriesEl.textContent = String(seriesCount);
+        // Jeśli serwer zwrócił łączną liczbę, wyświetl ją zamiast tylko bieżącej strony
+        if (moviesEl) moviesEl.textContent = serverTotal != null ? String(serverTotal) : String(moviesCount);
+        if (seriesEl) seriesEl.textContent = serverTotal != null ? '…' : String(seriesCount);
         
         // Pobierz liczniki dla wyzwań i odznak
         this.updateAdminChallengesCount();

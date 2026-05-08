@@ -495,6 +495,8 @@
                         <button id="delete-selected-movies-btn" class="btn btn-secondary" style="display: none;">
                             <i class="fas fa-trash"></i> Usuń zaznaczone
                         </button>
+                        <input type="search" id="admin-movies-search" placeholder="Szukaj po tytule / gatunku…"
+                               class="admin-search-input" style="margin-left:auto;">
                     </div>
                     
                     <div class="admin-table-container">
@@ -514,6 +516,11 @@
                                 <!-- Filmy lub seriale zostaną tutaj załadowane dynamicznie -->
                             </tbody>
                         </table>
+                    </div>
+                    <div id="admin-movies-pagination" class="admin-pagination" style="display:none;">
+                        <button id="admin-movies-prev" class="btn btn-secondary btn-sm">&#8592; Poprzednia</button>
+                        <span id="admin-movies-page-info"></span>
+                        <button id="admin-movies-next" class="btn btn-secondary btn-sm">Następna &#8594;</button>
                     </div>
                 </div>
 
@@ -744,7 +751,7 @@
                 <form id="admin-password-form">
                     <div class="form-group">
                         <label>Hasło:</label>
-                        <input type="password" id="admin-password-input" required autofocus>
+                        <input type="password" id="admin-password-input" required>
                     </div>
                     <div id="admin-password-error" class="error-message"></div>
                     <div class="modal-actions">

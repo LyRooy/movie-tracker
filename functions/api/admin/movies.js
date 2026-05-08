@@ -84,9 +84,35 @@ async function handleGetMovies(db, request, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } else {
-    // Pobierz wszystkie filmy
-    const movies = await db.prepare('SELECT * FROM movies ORDER BY title').all();
-    return new Response(JSON.stringify(movies.results || []), {
+    // Pobierz filmy z paginacją i wyszukiwaniem
+    const url = new URL(request.url);
+    const page   = Math.max(0, parseInt(url.searchParams.get('page')  || '0', 10));
+    const limit  = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
+    const search = (url.searchParams.get('search') || '').trim();
+    const offset = page * limit;
+
+    let countSql, listSql, bindArgs;
+    if (search) {
+      const like = `%${search}%`;
+      countSql = 'SELECT COUNT(*) AS cnt FROM movies WHERE title LIKE ? OR genre LIKE ?';
+      listSql  = 'SELECT * FROM movies WHERE title LIKE ? OR genre LIKE ? ORDER BY title LIMIT ? OFFSET ?';
+      bindArgs = [like, like];
+    } else {
+      countSql = 'SELECT COUNT(*) AS cnt FROM movies';
+      listSql  = 'SELECT * FROM movies ORDER BY title LIMIT ? OFFSET ?';
+      bindArgs = [];
+    }
+
+    const countRow = await db.prepare(countSql).bind(...bindArgs).first();
+    const total    = countRow?.cnt ?? 0;
+    const rows     = await db.prepare(listSql).bind(...bindArgs, limit, offset).all();
+
+    return new Response(JSON.stringify({
+      results: rows.results || [],
+      total,
+      page,
+      hasMore: offset + limit < total,
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

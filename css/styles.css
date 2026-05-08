@@ -3214,6 +3214,44 @@ body.transitions-enabled * {
 
 .admin-actions {
     margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.admin-search-input {
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--background-color);
+    color: var(--text-color);
+    font-size: 0.9rem;
+    min-width: 220px;
+}
+
+.admin-search-input:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+}
+
+.admin-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.admin-pagination span {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.btn-sm {
+    padding: 0.35rem 0.8rem;
+    font-size: 0.82rem;
 }
 
 .admin-table-container {

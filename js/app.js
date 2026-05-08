@@ -1764,71 +1764,64 @@ class MovieTracker {
         const modalHtml = `
             <div class="modal active" id="friend-profile-modal" role="dialog" aria-modal="true" aria-labelledby="friend-profile-title">
                 <div class="modal-content profile-modal">
-                    <span class="close" onclick="app.closeFriendProfileModal()">&times;</span>
-                    <div class="profile-header">
-                        <img src="${avatar}" alt="${profile.nickname}" class="profile-avatar-large">
-                        <div class="profile-info">
+                    <button class="fpm-close" onclick="app.closeFriendProfileModal()" aria-label="Zamknij">&times;</button>
+
+                    <!-- GÓRNY PASEK: avatar + info + przyciski -->
+                    <div class="fpm-header">
+                        <img src="${avatar}" alt="${profile.nickname}" class="fpm-avatar">
+                        <div class="fpm-info">
                             <h2 id="friend-profile-title">${profile.nickname}</h2>
                             ${profile.friendship ? `<span class="friendship-status ${profile.friendship.status}">${profile.friendship.status === 'pending' ? 'Oczekujące' : profile.friendship.status === 'accepted' ? 'Znajomi' : profile.friendship.status === 'rejected' ? 'Odrzucone' : profile.friendship.status}</span>` : ''}
-                            <p class="profile-description">${profile.description || 'Brak opisu'}</p>
-                            <p class="profile-member-since">Członek od ${memberSince}</p>
+                            <p class="fpm-desc">${profile.description || ''}</p>
+                            <p class="fpm-since"><i class="fas fa-calendar-alt"></i> Członek od ${memberSince}</p>
                         </div>
-                        <div class="profile-actions-top">
+                        <div class="fpm-actions">
                             ${this.getProfileFriendshipControls(profile)}
                         </div>
                     </div>
 
-                    <div class="profile-stats">
-                        <div class="stat-item">
+                    <!-- STATYSTYKI - jeden rząd -->
+                    <div class="fpm-stats">
+                        <div class="fpm-stat">
                             <i class="fas fa-film"></i>
-                            <div>
-                                <strong>${profile.stats.watchedMovies || 0}</strong>
-                                <span>Filmy</span>
-                            </div>
+                            <strong>${profile.stats.watchedMovies || 0}</strong>
+                            <span>Filmy</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="fpm-stat">
                             <i class="fas fa-tv"></i>
-                            <div>
-                                <strong>${profile.stats.watchedSeries || 0}</strong>
-                                <span>Seriale</span>
-                            </div>
+                            <strong>${profile.stats.watchedSeries || 0}</strong>
+                            <span>Seriale</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="fpm-stat">
                             <i class="fas fa-eye"></i>
-                            <div>
-                                <strong>${profile.stats.watching || 0}</strong>
-                                <span>Oglądane</span>
-                            </div>
+                            <strong>${profile.stats.watching || 0}</strong>
+                            <span>Oglądane</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="fpm-stat">
                             <i class="fas fa-calendar"></i>
-                            <div>
-                                <strong>${profile.stats.planning || 0}</strong>
-                                <span>Planowane</span>
-                            </div>
+                            <strong>${profile.stats.planning || 0}</strong>
+                            <span>Planowane</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="fpm-stat">
                             <i class="fas fa-user-friends"></i>
-                            <div>
-                                <strong>${profile.stats.friends || 0}</strong>
-                                <span>Znajomi</span>
+                            <strong>${profile.stats.friends || 0}</strong>
+                            <span>Znajomi</span>
+                        </div>
+                    </div>
+
+                    <!-- DOLNA CZĘŚĆ: odznaki (lewo) + aktywność ze scrollem (prawo) -->
+                    <div class="fpm-body">
+                        <div class="fpm-badges-col">
+                            <h3 class="fpm-section-title"><i class="fas fa-award"></i> Odznaki</h3>
+                            <div class="fpm-badges-row">
+                                ${badgesHtml}
                             </div>
                         </div>
-                    </div>
-
-                    <div class="profile-section">
-                        <h3><i class="fas fa-award"></i> Odznaki</h3>
-                        <div class="badges-list">
-                            ${badgesHtml}
-                        </div>
-                    </div>
-
-                    <!-- Actions moved to header: profile-actions-top -->
-
-                    <div class="profile-section">
-                        <h3><i class="fas fa-clock"></i> Ostatnia aktywność</h3>
-                        <div class="recent-activity-list">
-                            ${recentActivityHtml}
+                        <div class="fpm-activity-col">
+                            <h3 class="fpm-section-title"><i class="fas fa-clock"></i> Ostatnia aktywność</h3>
+                            <div class="fpm-activity-scroll">
+                                ${recentActivityHtml}
+                            </div>
                         </div>
                     </div>
                 </div>

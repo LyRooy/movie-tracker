@@ -4825,17 +4825,9 @@ class MovieTracker {
 
     // Aktualizuje liczniki filmów i seriali w panelu admina
     updateAdminCounts(movies, serverTotal) {
-        if (!Array.isArray(movies)) return;
-        const moviesCount = movies.filter(m => ((m.media_type || m.type) === 'movie')).length;
-        const seriesCount = movies.filter(m => ((m.media_type || m.type) === 'series')).length;
+        // Pobierz rzeczywiste liczniki niezależnie od aktywnego filtra
+        this._fetchAdminTypeCounts();
 
-        const moviesEl = document.getElementById('admin-total-movies-count');
-        const seriesEl = document.getElementById('admin-total-series-count');
-
-        // Jeśli serwer zwrócił łączną liczbę, wyświetl ją zamiast tylko bieżącej strony
-        if (moviesEl) moviesEl.textContent = serverTotal != null ? String(serverTotal) : String(moviesCount);
-        if (seriesEl) seriesEl.textContent = serverTotal != null ? '…' : String(seriesCount);
-        
         // Pobierz liczniki dla wyzwań i odznak
         this.updateAdminChallengesCount();
         this.updateAdminBadgesCount();
@@ -4887,8 +4879,33 @@ class MovieTracker {
         }
     }
 
+    async _fetchAdminTypeCounts() {
+        // Debounce — nie wysyłaj dwa razy na raz
+        if (this._fetchingTypeCounts) return;
+        this._fetchingTypeCounts = true;
+        try {
+            const [moviesRes, seriesRes] = await Promise.all([
+                fetch('/api/admin/movies?type=movie&limit=1&page=0', { headers: this.getAuthHeaders() }),
+                fetch('/api/admin/movies?type=series&limit=1&page=0', { headers: this.getAuthHeaders() }),
+            ]);
+            if (moviesRes.ok) {
+                const d = await moviesRes.json();
+                const el = document.getElementById('admin-total-movies-count');
+                if (el) el.textContent = String(d.total ?? 0);
+            }
+            if (seriesRes.ok) {
+                const d = await seriesRes.json();
+                const el = document.getElementById('admin-total-series-count');
+                if (el) el.textContent = String(d.total ?? 0);
+            }
+        } catch (e) {
+            console.error('Error fetching type counts:', e);
+        } finally {
+            this._fetchingTypeCounts = false;
+        }
+    }
+
     displayAdminMovies(movies) {
-        const tbody = document.getElementById('admin-movies-list');
         tbody.innerHTML = movies.map(movie => {
             const displayYear = this.normalizeYear(movie.release_date || movie.year || movie.releaseDate) || '-';
             return `

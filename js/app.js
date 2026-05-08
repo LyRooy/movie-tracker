@@ -2506,6 +2506,7 @@ class MovieTracker {
                 results = data.results || (Array.isArray(data) ? data : []);
                 hasMore  = data.hasMore || false;
                 total    = data.total || results.length;
+                this._searchTotal = total;
             } else {
                 console.warn('Search API failed, showing empty results');
             }
@@ -2601,9 +2602,9 @@ class MovieTracker {
     displaySearchResults(results, hasMore = false, append = false) {
         const resultsContainer = document.getElementById('search-results');
 
-        // Usuń poprzedni przycisk "Pokaż więcej" jeśli istnieje
-        const existingBtn = resultsContainer.querySelector('.load-more-btn');
-        if (existingBtn) existingBtn.remove();
+        // Usuń poprzedni przycisk "Pokaż więcej" i licznik jeśli istnieją
+        resultsContainer.querySelector('.load-more-btn')?.remove();
+        resultsContainer.querySelector('.search-count')?.remove();
 
         if (!append) {
             resultsContainer.innerHTML = '';
@@ -2613,6 +2614,14 @@ class MovieTracker {
             resultsContainer.innerHTML = '<p>Nie znaleziono wyników.</p>';
             this.populateGenreFilterFromList(results);
             return;
+        }
+
+        // Licznik wyników — tylko przy pierwszej stronie
+        if (!append && this._searchTotal !== undefined) {
+            const counter = document.createElement('div');
+            counter.className = 'search-count';
+            counter.textContent = `Znaleziono: ${this._searchTotal.toLocaleString('pl-PL')} wyników`;
+            resultsContainer.appendChild(counter);
         }
 
         results.forEach(item => {
@@ -2654,11 +2663,14 @@ class MovieTracker {
             resultsContainer.appendChild(movieCard);
         });
 
-        // Przycisk "Pokaż więcej"
+        // Przycisk "Pokaż więcej" z liczbą pozostałych
         if (hasMore) {
+            const shown = resultsContainer.querySelectorAll('.movie-card').length;
+            const remaining = this._searchTotal ? this._searchTotal - shown : '';
+            const label = remaining ? `Pokaż więcej (jeszcze ~${remaining.toLocaleString('pl-PL')})` : 'Pokaż więcej wyników';
             const loadMoreBtn = document.createElement('div');
             loadMoreBtn.className = 'load-more-btn';
-            loadMoreBtn.innerHTML = '<button onclick="app.loadMoreSearchResults()">Pokaż więcej wyników</button>';
+            loadMoreBtn.innerHTML = `<button onclick="app.loadMoreSearchResults()">${label}</button>`;
             resultsContainer.appendChild(loadMoreBtn);
         }
 

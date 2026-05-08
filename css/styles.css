@@ -1667,6 +1667,13 @@ h3 {
     grid-column: 1 / -1;
 }
 
+.search-count {
+    grid-column: 1 / -1;
+    font-size: 0.85rem;
+    color: var(--text-muted, #888);
+    padding: 0 0 0.5rem 0;
+}
+
 .load-more-btn button {
     background: var(--primary-color);
     color: #fff;

@@ -3450,12 +3450,21 @@ class MovieTracker {
         this.loadTimeChart();
     }
 
+    destroyChart(key) {
+        if (this._charts && this._charts[key]) {
+            this._charts[key].destroy();
+            this._charts[key] = null;
+        }
+    }
+
     loadTypeChart() {
+        if (!this._charts) this._charts = {};
+        this.destroyChart('type');
         const ctx = document.getElementById('typeChart').getContext('2d');
         const movies = this.watchedMovies.filter(item => item.type === 'movie').length;
         const series = this.watchedMovies.filter(item => item.type === 'series').length;
 
-        new Chart(ctx, {
+        this._charts['type'] = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Filmy', 'Seriale'],
@@ -3476,6 +3485,8 @@ class MovieTracker {
     }
 
     loadGenreChart() {
+        if (!this._charts) this._charts = {};
+        this.destroyChart('genre');
         const ctx = document.getElementById('genreChart').getContext('2d');
         const genres = {};
         
@@ -3483,7 +3494,7 @@ class MovieTracker {
             genres[item.genre] = (genres[item.genre] || 0) + 1;
         });
 
-        new Chart(ctx, {
+        this._charts['genre'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: Object.keys(genres),
@@ -3505,6 +3516,8 @@ class MovieTracker {
     }
 
     loadTimeChart() {
+        if (!this._charts) this._charts = {};
+        this.destroyChart('time');
         const ctx = document.getElementById('timeChart').getContext('2d');
         const monthlyData = {};
         
@@ -3513,7 +3526,7 @@ class MovieTracker {
             monthlyData[month] = (monthlyData[month] || 0) + 1;
         });
 
-        new Chart(ctx, {
+        this._charts['time'] = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: Object.keys(monthlyData),

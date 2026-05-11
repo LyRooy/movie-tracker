@@ -31,11 +31,8 @@ class MovieTracker {
         
         this.bindEvents();
         this.loadUserData();
-        // Uruchom niezależne żądania równolegle — skraca czas ładowania strony głównej
-        await Promise.all([
-            this.generateCalendar(),
-            this.loadMoviesData()
-        ]);
+        await this.generateCalendar();
+        await this.loadMoviesData();
         this.setupTheme();
 
         // Pokaż modal onboardingu nowym użytkownikom tylko raz na sesję

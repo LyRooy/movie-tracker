@@ -22,7 +22,6 @@ export async function onRequestGet({ request, env }) {
         orderBy  = 'm.imdb_rating DESC NULLS LAST';
         countSql = `SELECT COUNT(*) AS cnt FROM movies m WHERE m.media_type='movie' AND m.imdb_rating IS NOT NULL`;
     } else if (sort === 'avg_rating') {
-        // sortujemy po AVG(r.rating) — alias działa w ORDER BY po GROUP BY w SQLite
         orderBy  = 'AVG(r.rating) DESC NULLS LAST';
         countSql = `SELECT COUNT(DISTINCT m.id) AS cnt FROM movies m INNER JOIN reviews r ON r.movie_id = m.id WHERE m.media_type='movie'`;
     } else {

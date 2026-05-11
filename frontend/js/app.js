@@ -31,9 +31,11 @@ class MovieTracker {
         
         this.bindEvents();
         this.loadUserData();
-        await this.generateCalendar();
-        await this.loadGenres();
-        await this.loadMoviesData();
+        // Uruchom niezależne żądania równolegle — skraca czas ładowania strony głównej
+        await Promise.all([
+            this.generateCalendar(),
+            this.loadMoviesData()
+        ]);
         this.setupTheme();
 
         // Pokaż modal onboardingu nowym użytkownikom tylko raz na sesję
@@ -2092,6 +2094,9 @@ class MovieTracker {
 
 
     async loadMoviesData() {
+        // Odśwież listę top filmów równolegle z ładowaniem danych użytkownika
+        this.loadTopMovies('popularity', 0, false);
+
         try {
             // Załaduj WSZYSTKIE filmy (obejrzane, oglądane, planowane, porzucone)
             const response = await fetch('/api/movies?status=all', {
@@ -2180,7 +2185,6 @@ class MovieTracker {
         
         this.updateStats();
         this.displayRecentActivity();
-        this.loadTopMovies('popularity', 0, false);
         this.displayMyList(this.currentListStatus);
         // Wypełnij filtry gatunków na podstawie załadowanych filmów
         try { this.populateGenreFilterFromList(this.watchedMovies); } catch (e) { /* ignore */ }
@@ -2421,7 +2425,7 @@ class MovieTracker {
     async loadTopMovies(sort, page, append) {
         try {
             const res = await fetch(`/api/movies/top?sort=${sort}&page=${page}`, {
-                headers: { 'Authorization': `Bearer ${this.token}` }
+                headers: { 'Authorization': `Bearer ${this.authToken}` }
             });
             if (!res.ok) return;
             const data = await res.json();

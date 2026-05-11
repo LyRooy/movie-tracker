@@ -45,9 +45,28 @@ export async function onRequestGet(context) {
     });
   }
 
-  const movies = await env.db.prepare(
-    "SELECT id, title, poster_url, media_type FROM movies WHERE media_type = 'movie' ORDER BY RANDOM() LIMIT 16"
-  ).all();
+  // Zwróć popularne filmy z różnych gatunków (po 2 z każdego głównego gatunku, max 16 łącznie)
+  const movies = await env.db.prepare(`
+    WITH base AS (
+      SELECT id, title, poster_url, media_type,
+             TRIM(CASE
+               WHEN INSTR(genre, ',') > 0 THEN SUBSTR(genre, 1, INSTR(genre, ',') - 1)
+               ELSE genre
+             END) AS primary_genre,
+             COALESCE(popularity, 0) AS pop
+      FROM movies
+      WHERE media_type = 'movie' AND genre IS NOT NULL AND genre != ''
+    ),
+    ranked AS (
+      SELECT *, ROW_NUMBER() OVER (PARTITION BY primary_genre ORDER BY pop DESC) AS rn
+      FROM base
+    )
+    SELECT id, title, poster_url, media_type
+    FROM ranked
+    WHERE rn <= 2
+    ORDER BY pop DESC
+    LIMIT 16
+  `).all();
   return new Response(JSON.stringify(movies.results || []), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });

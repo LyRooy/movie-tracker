@@ -45,10 +45,10 @@ export async function onRequestGet(context) {
     });
   }
 
-  // Losuj z puli 60 najpopularniejszych filmów z plakatem i różnych gatunków
-  // (po jednym z każdego gatunku z top 60, żeby były znane ale nie powtarzały się)
+  // Pobierz 30 zróżnicowanych filmów: pula 300 najpopularniejszych, max 3 z każdego gatunku
+  // Gwarantuje 30 wyników nawet przy małej liczbie gatunków
   const movies = await env.db.prepare(`
-    WITH top AS (
+    WITH pool AS (
       SELECT id, title, poster_url, media_type,
              TRIM(CASE
                WHEN INSTR(genre, ',') > 0 THEN SUBSTR(genre, 1, INSTR(genre, ',') - 1)
@@ -59,17 +59,17 @@ export async function onRequestGet(context) {
         AND poster_url IS NOT NULL AND poster_url != ''
         AND genre IS NOT NULL AND genre != ''
       ORDER BY popularity DESC
-      LIMIT 60
+      LIMIT 300
     ),
     ranked AS (
       SELECT *, ROW_NUMBER() OVER (PARTITION BY primary_genre ORDER BY RANDOM()) AS rn
-      FROM top
+      FROM pool
     )
     SELECT id, title, poster_url, media_type
     FROM ranked
-    WHERE rn = 1
+    WHERE rn <= 3
     ORDER BY RANDOM()
-    LIMIT 16
+    LIMIT 30
   `).all();
   return new Response(JSON.stringify(movies.results || []), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

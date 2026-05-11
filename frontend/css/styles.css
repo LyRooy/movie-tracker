@@ -3452,7 +3452,7 @@ body.transitions-enabled * {
 
 /* ===== MODAL WYBORU ULUBIONYCH FILMÓW ===== */
 .favorites-modal-content {
-    max-width: 860px;
+    max-width: 1100px;
     width: 95%;
     max-height: 90vh;
     display: flex;
@@ -3468,6 +3468,11 @@ body.transitions-enabled * {
     padding: 1.5rem 1.75rem 1rem;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    position: relative;
+}
+
+.favorites-modal-header > div {
+    padding-right: 2rem;
 }
 
 .favorites-modal-header h2 {
@@ -3488,11 +3493,14 @@ body.transitions-enabled * {
     border: none;
     cursor: pointer;
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 1.4rem;
+    line-height: 1;
     white-space: nowrap;
-    padding: 0.25rem 0.5rem;
+    padding: 0.2rem 0.5rem;
     border-radius: 4px;
-    flex-shrink: 0;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
     transition: color 0.2s, background 0.2s;
 }
 .favorites-skip-btn:hover {
@@ -3508,8 +3516,8 @@ body.transitions-enabled * {
 
 .favorites-movies-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.85rem;
 }
 
 .favorites-movie-card {
@@ -3595,6 +3603,15 @@ body.transitions-enabled * {
 .favorites-count-label {
     color: var(--text-secondary);
     font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.favorites-count-label.warn {
+    color: var(--accent-color);
+}
+
+.favorites-count-label.good {
+    color: #27ae60;
 }
 
 .favorites-footer-actions {
@@ -3604,9 +3621,10 @@ body.transitions-enabled * {
 
 @media (max-width: 600px) {
     .favorites-modal-content { max-height: 95vh; }
-    .favorites-modal-header { padding: 1rem; flex-direction: column; }
-    .favorites-modal-body { padding: 1rem; }
-    .favorites-movies-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.75rem; }
+    .favorites-modal-header { padding: 1rem 3rem 1rem 1rem; }
+    .favorites-skip-btn { top: 0.75rem; right: 0.75rem; }
+    .favorites-modal-body { padding: 0.75rem 1rem; }
+    .favorites-movies-grid { grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
     .favorites-modal-footer { padding: 0.75rem 1rem; flex-wrap: wrap; }
 }
 /* ===== KONIEC MODALU ULUBIONYCH ===== */

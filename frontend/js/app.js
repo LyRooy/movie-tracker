@@ -4175,16 +4175,9 @@ class MovieTracker {
         if (!banner) return;
         const modal = document.getElementById('favorites-modal');
         const modalOpen = modal && modal.style.display !== 'none' && modal.style.display !== '';
-        const dismissed = sessionStorage.getItem('favorites_banner_dismissed') === '1';
-        // Pokaż baner gdy użytkownik nie wybrał żadnych ulubionych (null, pusty string lub pusta tablica)
-        let hasNoFavorites = true;
-        if (this.currentUser?.favorite_kaggle_ids) {
-            try {
-                const ids = JSON.parse(this.currentUser.favorite_kaggle_ids);
-                hasNoFavorites = !Array.isArray(ids) || ids.length === 0;
-            } catch { hasNoFavorites = true; }
-        }
-        const show = !!this.currentUser && hasNoFavorites && !modalOpen && !dismissed;
+        // Baner znika gdy użytkownik choć raz przeszedł przez onboarding (nawet pomijając)
+        const notSetup = !this.currentUser?.favorites_selected;
+        const show = !!this.currentUser && notSetup && !modalOpen;
         banner.style.display = show ? 'block' : 'none';
     }
 
@@ -4277,13 +4270,11 @@ class MovieTracker {
                     savedIds = JSON.parse(this.currentUser.favorite_kaggle_ids) || [];
                 }
             } catch { savedIds = []; }
-            if (savedIds.length > 0) {
-                savedIds.forEach(id => {
-                    const card = grid.querySelector(`.favorites-movie-card[data-id="${id}"]`);
-                    if (card) card.classList.add('selected');
-                });
-                this._updateFavoritesCount();
-            }
+            savedIds.forEach(id => {
+                const card = grid.querySelector(`.favorites-movie-card[data-id="${id}"]`);
+                if (card) card.classList.add('selected');
+            });
+            this._updateFavoritesCount();
         } catch (e) {
             console.error('Error loading favorites movies:', e);
             grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:2rem;">Nie udało się załadować filmów.</p>';
@@ -4298,7 +4289,18 @@ class MovieTracker {
     _updateFavoritesCount() {
         const selected = document.querySelectorAll('#favorites-movies-grid .favorites-movie-card.selected').length;
         const label = document.getElementById('favorites-selected-count');
-        if (label) label.textContent = `Zaznaczono: ${selected}`;
+        if (!label) return;
+        if (selected === 0) {
+            label.textContent = 'Zaznacz co najmniej 3 filmy';
+            label.className = 'favorites-count-label';
+        } else if (selected < 3) {
+            const left = 3 - selected;
+            label.textContent = `Zaznaczono: ${selected} — jeszcze ${left} ${left === 1 ? 'film' : 'filmy'}`;
+            label.className = 'favorites-count-label warn';
+        } else {
+            label.textContent = `Zaznaczono: ${selected} ✔`;
+            label.className = 'favorites-count-label good';
+        }
     }
 
     async closeFavoritesModal(skip = false) {
@@ -4308,10 +4310,27 @@ class MovieTracker {
         modal.style.display = 'none';
         document.body.style.overflow = '';
 
-        // Po zamknięciu modala pokaż baner jeśli ulubione wciąż nieuzupełnione
-        if (!skip || (this.currentUser && !this.currentUser.favorites_selected)) {
-            this._updateFavoritesBanner();
+        // Gdy użytkownik kliknie "Pomiń" — zapisz favorites_selected=1 żeby nie pytać ponownie.
+        // Zachowuje ewentualne poprzednie wybory, nie wymaga zaznaczenia czegokolwiek.
+        if (skip && this.currentUser && !this.currentUser.favorites_selected) {
+            try {
+                let prevIds = [];
+                try {
+                    if (this.currentUser.favorite_kaggle_ids)
+                        prevIds = JSON.parse(this.currentUser.favorite_kaggle_ids) || [];
+                } catch { prevIds = []; }
+                await fetch('/api/auth/favorites-setup', {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify({ movieIds: prevIds, skipped: true }),
+                });
+                this.currentUser.favorites_selected = 1;
+            } catch (e) {
+                console.warn('Could not mark favorites as dismissed:', e);
+            }
         }
+
+        this._updateFavoritesBanner();
     }
 
     async saveFavoriteMovies() {
@@ -4334,6 +4353,13 @@ class MovieTracker {
         const preservedIds = prevIds.filter(id => !allInGrid.includes(id));
 
         const movieIds = [...preservedIds, ...selectedInGrid];
+
+        // Jeśli nic nie zaznaczono — traktuj jak pominięcie (nie blokuj użytkownika)
+        if (movieIds.length === 0) {
+            await this.closeFavoritesModal(true);
+            this.showNotification('Pominięto wybór — możesz wrócić do ulubionych w ustawieniach.', 'info');
+            return;
+        }
 
         const saveBtn = document.getElementById('favorites-save-btn');
         if (saveBtn) {

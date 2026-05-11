@@ -2420,16 +2420,43 @@ class MovieTracker {
 
     // ============= TOP MOVIES W DASHBOARDZIE =============
     async loadTopMovies(sort, page, append) {
+        const CACHE_TTL = 15 * 60 * 1000; // 15 minut
+        const cacheKey = `_top_${sort}_p${page}`;
+
+        // Próbuj odczytać z localStorage (pomaga przy zimnym starcie workera)
+        if (!append) {
+            try {
+                const raw = localStorage.getItem(cacheKey);
+                if (raw) {
+                    const { data, ts } = JSON.parse(raw);
+                    if (Date.now() - ts < CACHE_TTL) {
+                        this._topSort = sort;
+                        this._topPage = page;
+                        this._topHasMore = data.hasMore;
+                        this.renderTopMovies(data.results, false, page);
+                        return; // dane świeże — nie odpytuj serwera
+                    }
+                }
+            } catch {}
+        }
+
         try {
-            const res = await fetch(`/api/movies/top?sort=${sort}&page=${page}`, {
-                headers: { 'Authorization': `Bearer ${this.authToken}` }
-            });
+            // Bez nagłówka Authorization — top filmy są globalne (nie per-user),
+            // dzięki temu Cloudflare CDN może cachować odpowiedź na poziomie edge.
+            const res = await fetch(`/api/movies/top?sort=${sort}&page=${page}`);
             if (!res.ok) return;
             const data = await res.json();
             this._topSort = sort;
             this._topPage = page;
             this._topHasMore = data.hasMore;
             this.renderTopMovies(data.results, append, page);
+
+            // Zapisz stronę 0 do localStorage jako cache
+            if (page === 0) {
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+                } catch {}
+            }
         } catch (e) {
             console.error('loadTopMovies error', e);
         }

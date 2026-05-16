@@ -1,0 +1,37 @@
+# Ignoruj lokalną kopie bazy danych SQLite
+backend/python/movies.db
+*.db
+*.db-journal
+*.db-wal
+*.sql
+
+# Ignoruj pliki wirtualnego środowiska Pythona i cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+python_env/
+
+# Ignoruj skompilowane pliki bazy danych i binarne z Go
+backend/go-admin/main
+backend/go-admin/go-admin
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+__debug_bin
+.crash
+
+# Ignoruj pliki IDE i systemowe
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+.env
+.env.local
+.env.*.local

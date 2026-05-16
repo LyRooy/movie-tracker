@@ -31,7 +31,7 @@ async def verify_api_key(header_value: str = Depends(api_key_header)):
 # Dodajemy `dependencies=[Depends(verify_api_key)]` do każdego endpointu, który ma być tajny
 @app.get("/movies/recommendations", dependencies=[Depends(verify_api_key)])
 async def get_recommendations():
-    # Tutaj będzie Twoja logika rekomendacji dla 40k filmów
+    # Tutaj będzie Twoja logika rekomendacji dla 250k filmów
     return {
         "status": "success",
         "recommendations": ["Incepcja", "Interstellar", "Matrix"]

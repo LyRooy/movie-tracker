@@ -75,7 +75,8 @@ func main() {
 
 	// Strona logowania
 	r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-		renderTemplate(w, "login.html", nil)
+		hasError := r.URL.Query().Get("error") == "1"
+		renderTemplate(w, "login.html", map[string]bool{"Error": hasError})
 	})
 
 	// Obsługa wysłanego formularza
@@ -94,8 +95,8 @@ func main() {
 			return
 		}
 
-		// Złe dane
-		http.Error(w, "Nieprawidłowy login lub hasło", http.StatusUnauthorized)
+		// Złe dane - wróć na stronę logowania z flagą błędu
+		http.Redirect(w, r, "/login?error=1", http.StatusSeeOther)
 	})
 
 	// Wylogowanie

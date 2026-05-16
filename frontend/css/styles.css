@@ -788,6 +788,35 @@ h3 {
 }
 
 /* Liczniki panelu administracyjnego (małe kafelki statystyk dopasowane do stylu strony) */
+.admin-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.btn-reco-admin {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    background-color: var(--secondary-color);
+    color: #fff;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.btn-reco-admin:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
 .admin-stats {
     margin-top: 10px;
     display: flex;

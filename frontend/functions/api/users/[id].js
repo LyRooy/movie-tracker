@@ -33,7 +33,7 @@ export async function onRequest(context) {
 
     // Pobierz podstawowe informacje o użytkowniku
     const user = await env.db.prepare(`
-      SELECT id, nickname, avatar_url, description, created_at
+      SELECT id, nickname, avatar_url, description, created_at, theme_preference
       FROM users
       WHERE id = ?
     `).bind(targetUserId).first();
@@ -116,6 +116,7 @@ export async function onRequest(context) {
       avatar_url: avatar,
       description: user.description,
       created_at: user.created_at,
+      theme_preference: user.theme_preference || 'light',
       stats: {
         watchedMovies: stats?.watched_movies || 0,
         watchedSeries: stats?.watched_series || 0,

@@ -39,4 +39,4 @@ with open(sql_dump_path, 'r', encoding='utf-8') as file:
 conn.commit()
 conn.close()
 
-print(f"Sukces! Masz czysty plik movies.db gotowy do wrzucenia przez SMB.")
+print(f"Sukces!")

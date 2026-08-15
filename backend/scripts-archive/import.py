@@ -1,4 +1,4 @@
-# KOD IMPORTERA DO BAZY D1 Z PLIKU CSV TMDB WERSJA Z PLACEHOLDERAMI I CENZURĄ 
+# KOD IMPORTERA DO BAZY D1 Z PLIKU CSV ZBIORU DANYCH Z KAGGLE
 import csv
 import json
 import re
@@ -25,7 +25,7 @@ BLOCKED_WORDS = [
     "p*nis", "v*gina", "h**ker", "esc*rt", "camgirl", "camming", "adult film", "er*tica",
     "bdsm", "b*ndage", "domin*trix", "subm*ssive", "f*tish", "k*nk", "s&m", "sadom*sochism",
     "[explicit]", "[explicit]", "most offensive"
-]
+] # W tym kodzie zasosowana placeholdery w oryginalnym import.py nie było gwiazdek itd.
 
 def read_progress() -> int:
     """Zwróć numer ostatnio zapisanego wiersza CSV (0 = nic nie zaimportowano)."""

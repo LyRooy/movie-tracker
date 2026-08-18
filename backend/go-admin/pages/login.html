@@ -269,6 +269,15 @@ input:focus {
         }
         
         console.log(`User theme: ${userTheme}`);
+        
+        // Ustawia motyw na body i dokument
+        if (userTheme === 'dark') {
+            document.body.setAttribute('data-theme', 'dark');
+            document.body.classList.add('dark-theme');
+        } else {
+            document.body.removeAttribute('data-theme');
+            document.body.classList.remove('dark-theme');
+        }
     })();
 </script>
 </body>

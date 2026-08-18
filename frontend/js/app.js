@@ -5988,6 +5988,18 @@ class MovieTracker {
         }
     }
 
+    // ============================= PASS THEME TO ADMIN PANEL =============================
+    
+    // Funkcja: Przekazanie theme użytkownika do panelu admina
+    passThemeToAdmin() {
+        const userTheme = localStorage.getItem('theme') || 'dark';
+        console.log(`Przekazuję theme "${userTheme}" do panelu admina...`);
+        
+        // Dodaj theme do URL przekierowania
+        const newUrl = `https://mvt-reco-admin.110187.xyz/login?__user_theme__=${encodeURIComponent(userTheme)}`;
+        window.location.href = newUrl;
+    }
+
     // ============ USUWANIE HURTOWE =============
     updateBulkDeleteButton(type) {
         const checkboxes = document.querySelectorAll(`.${type.slice(0, -1)}-checkbox:checked`);

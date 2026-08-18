@@ -251,9 +251,28 @@ body {
 
 <script>
     (function() {
-        // Wymuszamy motyw ciemny dla lokalnej aplikacji
-        document.body.className = 'dark-theme';
-        document.documentElement.className = 'dark-theme';
+        // Pobierz theme z parametru URL (jeśli istnieje), inaczej domyślnie 'dark' dla lokalnej aplikacji
+        const urlParams = new URLSearchParams(window.location.search);
+        let userTheme = urlParams.get('__user_theme__');
+        
+        // Jeśli theme nie został przekazany przez URL - użyj localStorage lub dark
+        if (!userTheme) {
+            const savedTheme = localStorage.getItem('theme');
+            userTheme = savedTheme || 'dark'; // Domyślnie ciemny motyw dla lokalnego panelu admina
+        }
+        
+        console.log(`User theme: ${userTheme}`);
+        
+        // Ustawia motyw na body i dokument
+        if (userTheme === 'dark') {
+            document.body.setAttribute('data-theme', 'dark');
+            document.body.classList.add('dark-theme');
+            document.documentElement.classList.add('dark-theme');
+        } else {
+            document.body.removeAttribute('data-theme');
+            document.body.classList.remove('dark-theme');
+            document.documentElement.classList.remove('dark-theme');
+        }
     })();
 </script>
 

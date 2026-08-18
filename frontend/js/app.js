@@ -5991,16 +5991,13 @@ class MovieTracker {
     // ============================= PRZEKIEROWANIE MOTYWU DO MVT GO ADMIN PANEL =============================
     
     // Funkcja: Przekazanie theme użytkownika do panelu admina
-    passThemeToAdmin() {
+    passThemeToAdmin(event) {
+        event.preventDefault();
         const userTheme = localStorage.getItem('theme') || 'dark';
         console.log(`Przekazuję theme "${userTheme}" do panelu admina...`);
-        
-        // Panel admina zawsze używa ciemnego motywu (domyślny dla lokalnej aplikacji)
-        // NIE bierz theme z localStorage - zawsze dark dla Go admin panelu!
-        const adminTheme = 'dark';
-        console.log(`Panel admina zawsze używa ciemny motyw: ${adminTheme}`);
-        
-        const newUrl = `https://mvt-reco-admin.110187.xyz/login?__user_theme__=${encodeURIComponent(adminTheme)}`;
+        const newUrl = `https://mvt-reco-admin.110187.xyz/login?__user_theme__=${encodeURIComponent(userTheme)}`;
+
+        // Otwiera link w obecnej karcie
         window.location.href = newUrl;
     }
 

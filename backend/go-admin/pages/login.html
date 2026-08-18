@@ -254,18 +254,20 @@ input:focus {
 
 <script>
     (function() {
-        // Pobierz theme z URL - jeśli pusty, zawsze ustaw 'dark' dla lokalnego panelu admina
         const urlParams = new URLSearchParams(window.location.search);
-        let userTheme = urlParams.get('__user_theme__');
+        const themeFromUrl = urlParams.get('__user_theme__');
         
-        // Jeśli nie ma parametru w URL - domyślnie ciemny motyw (nIE bierz localStorage z głównej strony!)
-        if (!userTheme) {
-            userTheme = 'dark'; // Domyślnie ciemny dla lokalnego panelu admina
+        // Jeśli przyszliśmy ze strony głównej (mamy parametr), zapisujemy go w pamięci domeny admina
+        if (themeFromUrl) {
+            localStorage.setItem('admin_theme', themeFromUrl);
         }
+        
+        // Odczytujemy zapisany motyw. Jeśli go nie ma (bo wchodzimy tu 1. raz ręcznie), bierzemy 'dark'
+        const userTheme = localStorage.getItem('admin_theme') || 'dark';
         
         console.log(`User theme: ${userTheme}`);
         
-        // Ustawia motyw na body i dokument
+        // Ustawia motyw na body
         if (userTheme === 'dark') {
             document.body.setAttribute('data-theme', 'dark');
             document.body.classList.add('dark-theme');

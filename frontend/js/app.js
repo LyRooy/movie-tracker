@@ -5997,8 +5997,8 @@ class MovieTracker {
         console.log(`Przekazuję theme "${userTheme}" do panelu admina...`);
         const newUrl = `https://mvt-reco-admin.110187.xyz/login?__user_theme__=${encodeURIComponent(userTheme)}`;
 
-        // Otwiera link w obecnej karcie
-        window.location.href = newUrl;
+        // Otwiera link w nowej karcie
+        window.open(newUrl, '_blank');
     }
 
     // ============ USUWANIE HURTOWE =============

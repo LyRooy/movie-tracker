@@ -5988,7 +5988,7 @@ class MovieTracker {
         }
     }
 
-    // ============================= PASS THEME TO ADMIN PANEL =============================
+    // ============================= PRZEKIEROWANIE MOTYWU DO MVT GO ADMIN PANEL =============================
     
     // Funkcja: Przekazanie theme użytkownika do panelu admina
     passThemeToAdmin() {

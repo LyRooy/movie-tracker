@@ -254,16 +254,13 @@ input:focus {
 
 <script>
     (function() {
-        // Wymuszamy motyw ciemny dla lokalnej aplikacji (domyślnie)
-        // Theme może zostać ustawiony przez URL z głównej strony
-        
+        // Pobierz theme z URL - jeśli pusty, zawsze ustaw 'dark' dla lokalnego panelu admina
         const urlParams = new URLSearchParams(window.location.search);
         let userTheme = urlParams.get('__user_theme__');
         
-        // Jeśli theme nie został przekazany przez URL - użyj localStorage lub dark
+        // Jeśli nie ma parametru w URL - domyślnie ciemny motyw (nIE bierz localStorage z głównej strony!)
         if (!userTheme) {
-            const savedTheme = localStorage.getItem('theme');
-            userTheme = savedTheme || 'dark'; // Domyślnie ciemny dla lokalnego panelu
+            userTheme = 'dark'; // Domyślnie ciemny dla lokalnego panelu admina
         }
         
         console.log(`User theme: ${userTheme}`);

@@ -5995,8 +5995,12 @@ class MovieTracker {
         const userTheme = localStorage.getItem('theme') || 'dark';
         console.log(`Przekazuję theme "${userTheme}" do panelu admina...`);
         
-        // Dodaj theme do URL przekierowania
-        const newUrl = `https://mvt-reco-admin.110187.xyz/login?__user_theme__=${encodeURIComponent(userTheme)}`;
+        // Panel admina zawsze używa ciemnego motywu (domyślny dla lokalnej aplikacji)
+        // NIE bierz theme z localStorage - zawsze dark dla Go admin panelu!
+        const adminTheme = 'dark';
+        console.log(`Panel admina zawsze używa ciemny motyw: ${adminTheme}`);
+        
+        const newUrl = `https://mvt-reco-admin.110187.xyz/login?__user_theme__=${encodeURIComponent(adminTheme)}`;
         window.location.href = newUrl;
     }
 

@@ -251,14 +251,13 @@ body {
 
 <script>
     (function() {
-        // Pobierz theme z parametru URL (jeśli istnieje), inaczej domyślnie 'dark' dla lokalnej aplikacji
+        // Pobierz theme z URL - jeśli pusty, zawsze ustaw 'dark' dla lokalnego panelu admina
         const urlParams = new URLSearchParams(window.location.search);
         let userTheme = urlParams.get('__user_theme__');
         
-        // Jeśli theme nie został przekazany przez URL - użyj localStorage lub dark
+        // Jeśli nie ma parametru w URL - domyślnie ciemny motyw (nie bierz localStorage!)
         if (!userTheme) {
-            const savedTheme = localStorage.getItem('theme');
-            userTheme = savedTheme || 'dark'; // Domyślnie ciemny motyw dla lokalnego panelu admina
+            userTheme = 'dark'; // Domyślnie ciemny dla lokalnego panelu admina
         }
         
         console.log(`User theme: ${userTheme}`);

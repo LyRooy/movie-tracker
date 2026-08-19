@@ -11,7 +11,7 @@
 
 - [O Projekcie](#o-projekcie)
 - [Główne Funkcje](#główne-funkcje)
-- [Architektura Hybrydowa i Rekomendacje (Wersja Magisterska)](#architektura-hybrydowa-i-rekomendacje-wersja-magisterska)
+- [Architektura](#architektura-hybrydowa-i-rekomendacje-wersja-magisterska)
 - [Baza Danych](#baza-danych)
 - [Technologie](#technologie)
 

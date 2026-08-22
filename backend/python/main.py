@@ -25,7 +25,7 @@ API_KEY_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 # Funkcja weryfikująca poprawność klucza
-async def verify_api_key(header_value: str = Depends(api_key_header)):
+async def verify_api_key(header_value: str = Security(api_key_header)):
     if header_value == MVT_API_KEY:
         return header_value
     raise HTTPException(

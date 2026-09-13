@@ -2,6 +2,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security.api_key import APIKeyHeader
 from surprise import Dataset, Reader
+from sklearn.metrics.pairwise import cosine_similarity
 
 from services.model_manager import RecommendationModelManager
 from database.db_manager import DatabaseManager
@@ -35,14 +36,13 @@ async def get_recommendations(user_id: int):
         "content_based": {"source": "database_cache", "data": []}
     }
     
-    # 1. Pobranie ocen (wspólne dla obu modeli)
     user_ratings = db.fetch_user_ratings(user_id)
     if user_ratings is None or user_ratings.empty:
         return {"status": "error", "message": "Brak ocen użytkownika"}
         
     rated_movie_ids = set(user_ratings['movie_id'].tolist())
     
-    # 2. COLLABORATIVE FILTERING (Surprise KNN)
+    # --- COLLABORATIVE FILTERING ---
     cf_cached = db.get_cached_recommendations(user_id, REC_TYPE_CF)
     if cf_cached:
         results["collaborative"]["data"] = cf_cached
@@ -59,8 +59,6 @@ async def get_recommendations(user_id: int):
             model_manager.build_collaborative_filtering_model(trainset)
             
         movies_df = db.fetch_movies_metadata()
-        
-        # DODANA WERYFIKACJA MODELU
         if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
             cf_recs = []
             for m_id in movies_df['id'].tolist():
@@ -75,9 +73,9 @@ async def get_recommendations(user_id: int):
             db.save_cached_recommendations(user_id, cf_recs[:10], CACHE_MINUTES, REC_TYPE_CF)
             results["collaborative"]["data"] = cf_recs[:10]
         else:
-            results["collaborative"]["message"] = "Nie udało się zbudować modelu matematycznego lub brak lokalnej bazy filmów."
+            results["collaborative"]["message"] = "Brak modelu CF lub lokalnej bazy."
 
-    # 3. CONTENT-BASED FILTERING (Scikit-Learn TF-IDF)
+    # --- CONTENT-BASED FILTERING ---
     cb_cached = db.get_cached_recommendations(user_id, REC_TYPE_CB)
     if cb_cached:
         results["content_based"]["data"] = cb_cached
@@ -88,21 +86,24 @@ async def get_recommendations(user_id: int):
         if not good_movies:
             results["content_based"]["message"] = "Brak pozytywnych ocen do profilowania CB"
         else:
-            if model_manager.cb_similarity_matrix is None:
+            if model_manager.tfidf_matrix is None:
                 movies_features_df = db.fetch_movies_features()
                 if movies_features_df is not None and not movies_features_df.empty:
                     model_manager.build_content_based_model(movies_features_df)
             
-            movies_features_df = db.fetch_movies_features()
-            if movies_features_df is not None and model_manager.cb_similarity_matrix is not None:
+            if model_manager.tfidf_matrix is not None and model_manager.movie_id_map is not None and model_manager.movie_indices is not None:
                 similar_scores = {}
                 for m_id in good_movies:
                     if m_id in model_manager.movie_indices:
                         idx = model_manager.movie_indices[m_id]
-                        for sim_idx, score in enumerate(model_manager.cb_similarity_matrix[idx]):
-                            sim_movie_id = int(movies_features_df.iloc[sim_idx]['id'])
-                            if sim_movie_id not in rated_movie_ids:
-                                similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
+                        # Obliczamy podobieństwo wektorów w locie tylko względem tego jednego filmu
+                        cosine_sim = cosine_similarity(model_manager.tfidf_matrix[idx], model_manager.tfidf_matrix).flatten()
+                        
+                        for sim_idx, score in enumerate(cosine_sim):
+                            if score > 0.01: # Pomijamy filmy zupełnie niepodobne (optymalizacja)
+                                sim_movie_id = int(model_manager.movie_id_map[sim_idx])
+                                if sim_movie_id not in rated_movie_ids:
+                                    similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
                                 
                 if similar_scores:
                     sorted_sims = sorted(similar_scores.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -131,27 +132,22 @@ async def force_recalculate(user_id: int):
         "content_based": {"source": "forced-recalculation", "data": []}
     }
     
-    # 1. Pobranie ocen użytkownika
     user_ratings = db.fetch_user_ratings(user_id)
     if user_ratings is None or user_ratings.empty:
         return {"status": "error", "message": "Brak ocen użytkownika"}
         
     rated_movie_ids = set(user_ratings['movie_id'].tolist())
     
-    # 2. Wymuszone przeliczenie COLLABORATIVE FILTERING
+    # --- COLLABORATIVE FILTERING ---
     df_cf = user_ratings.copy()
     df_cf['user_id'] = user_id
     df_cf = df_cf[['user_id', 'movie_id', 'rating']]
     
     reader = Reader(rating_scale=(1, 5))
     trainset = Dataset.load_from_df(df_cf, reader).build_full_trainset()
-    
-    # Ignorujemy stary model i budujemy KNN od nowa
     model_manager.build_collaborative_filtering_model(trainset)
         
     movies_df = db.fetch_movies_metadata()
-    
-    # DODANA WERYFIKACJA MODELU
     if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
         cf_recs = []
         for m_id in movies_df['id'].tolist():
@@ -164,14 +160,12 @@ async def force_recalculate(user_id: int):
                 })
         cf_recs.sort(key=lambda x: x["rating"], reverse=True)
         top_cf_recs = cf_recs[:10]
-        
-        # Zapis i nadpisanie chmury
         db.save_cached_recommendations(user_id, top_cf_recs, CACHE_MINUTES, REC_TYPE_CF)
         results["collaborative"]["data"] = top_cf_recs
     else:
-        results["collaborative"]["message"] = "Nie udało się zbudować modelu matematycznego lub brak lokalnej bazy filmów."
+        results["collaborative"]["message"] = "Brak modelu CF lub lokalnej bazy."
 
-    # 3. Wymuszone przeliczenie CONTENT-BASED FILTERING
+    # --- CONTENT-BASED FILTERING ---
     good_movies = user_ratings[user_ratings['rating'] >= 4]['movie_id'].tolist()
     
     if not good_movies:
@@ -179,18 +173,21 @@ async def force_recalculate(user_id: int):
     else:
         movies_features_df = db.fetch_movies_features()
         if movies_features_df is not None and not movies_features_df.empty:
-            # Ignorujemy starą macierz i generujemy nową wektoryzację TF-IDF
             model_manager.build_content_based_model(movies_features_df)
             
+        if model_manager.tfidf_matrix is not None and model_manager.movie_id_map is not None and model_manager.movie_indices is not None:
             similar_scores = {}
             for m_id in good_movies:
                 if m_id in model_manager.movie_indices:
                     idx = model_manager.movie_indices[m_id]
-                    for sim_idx, score in enumerate(model_manager.cb_similarity_matrix[idx]):
-                        sim_movie_id = int(movies_features_df.iloc[sim_idx]['id'])
-                        if sim_movie_id not in rated_movie_ids:
-                            similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
-                            
+                    cosine_sim = cosine_similarity(model_manager.tfidf_matrix[idx], model_manager.tfidf_matrix).flatten()
+                    
+                    for sim_idx, score in enumerate(cosine_sim):
+                        if score > 0.01:
+                            sim_movie_id = int(model_manager.movie_id_map[sim_idx])
+                            if sim_movie_id not in rated_movie_ids:
+                                similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
+                                
             if similar_scores:
                 sorted_sims = sorted(similar_scores.items(), key=lambda x: x[1], reverse=True)[:10]
                 max_score = sorted_sims[0][1] if sorted_sims else 1
@@ -204,7 +201,6 @@ async def force_recalculate(user_id: int):
                         "confidence_interval": [0.0, 0.0]
                     })
                     
-                # Zapis i nadpisanie chmury
                 db.save_cached_recommendations(user_id, cb_recs, CACHE_MINUTES, REC_TYPE_CB)
                 results["content_based"]["data"] = cb_recs
 

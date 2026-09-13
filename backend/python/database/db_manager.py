@@ -9,15 +9,23 @@ class DatabaseManager:
         self.account_id = os.getenv("ACCOUNT_ID")
         self.database_id = os.getenv("DATABASE_ID")
         self.api_token = os.getenv("API_TOKEN")
-        self.endpoint = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/databases/{self.database_id}/query"
+        
+        # POPRAWKA 1: Prawidłowy adres API dla Cloudflare D1
+        self.endpoint = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/d1/database/{self.database_id}/query"
         self.headers = {"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json"}
         
-        # Ścieżka do lokalnej bazy w kontenerze
-        self.local_db_path = "/app/local_movies.sqlite"
+        self.local_db_path = "/app/movies.db"
 
     def fetch_user_ratings(self, user_id: int):
-        query = "SELECT rating, movie_id FROM reviews WHERE user_id = ? ORDER BY created_at DESC"
-        res = requests.post(self.endpoint, json={"query": query, "params": [user_id]}, headers=self.headers)
+        sql_query = "SELECT rating, movie_id FROM reviews WHERE user_id = ? ORDER BY created_at DESC"
+        # POPRAWKA 2: D1 wymaga klucza "sql", a nie "query"
+        payload = {"sql": sql_query, "params": [user_id]}
+        
+        res = requests.post(self.endpoint, json=payload, headers=self.headers)
+        
+        # Debug, abyśmy widzieli co Cloudflare faktycznie odpowiada
+        print(f"DEBUG FETCH D1 Status: {res.status_code} | Body: {res.text}")
+        
         if res.status_code == 200:
             data = res.json().get("result", [])
             rows = data[0].get('results', []) if data and 'results' in data[0] else data
@@ -25,8 +33,10 @@ class DatabaseManager:
         return None
 
     def get_cached_recommendations(self, user_id: int, rec_type: str):
-        query = "SELECT movie_id, predicted_rating, confidence_lower, confidence_upper FROM recommendations WHERE user_id = ? AND recommendation_type = ? AND expires_at > ? ORDER BY predicted_rating DESC"
-        res = requests.post(self.endpoint, json={"query": query, "params": [user_id, rec_type, str(int(time.time()))]}, headers=self.headers)
+        sql_query = "SELECT movie_id, predicted_rating, confidence_lower, confidence_upper FROM recommendations WHERE user_id = ? AND recommendation_type = ? AND expires_at > ? ORDER BY predicted_rating DESC"
+        payload = {"sql": sql_query, "params": [user_id, rec_type, str(int(time.time()))]}
+        
+        res = requests.post(self.endpoint, json=payload, headers=self.headers)
         if res.status_code == 200:
             data = res.json().get("result", [])
             rows = data[0].get('results', []) if data else []
@@ -39,7 +49,11 @@ class DatabaseManager:
         expires_at = str(int(time.time()) + (minutes * 60))
         base_query = "INSERT OR REPLACE INTO recommendations (user_id, movie_id, predicted_rating, confidence_lower, confidence_upper, recommendation_type, expires_at) VALUES "
         values = [f"({user_id}, {r['movie_id']}, {r['rating']}, {r['confidence_interval'][0]}, {r['confidence_interval'][1]}, '{rec_type}', '{expires_at}')" for r in recs]
-        requests.post(self.endpoint, json={"query": base_query + ",\n".join(values) + ";"}, headers=self.headers)
+        
+        payload = {"sql": base_query + ",\n".join(values) + ";"}
+        res = requests.post(self.endpoint, json=payload, headers=self.headers)
+        
+        print(f"DEBUG SAVE D1 Status: {res.status_code} | Body: {res.text}")
 
     def fetch_movies_metadata(self):
         if not os.path.exists(self.local_db_path):
@@ -47,7 +61,7 @@ class DatabaseManager:
             return None
         try:
             conn = sqlite3.connect(self.local_db_path)
-            df = pd.read_sql_query("SELECT id, title, genre, overview, cast FROM movies", conn)
+            df = pd.read_sql_query("SELECT id, title, genre, overview, \"cast\" FROM movies", conn)
             conn.close()
             return df
         except Exception as e:

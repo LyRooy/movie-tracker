@@ -33,7 +33,7 @@ class DatabaseManager:
         return None
 
     def get_cached_recommendations(self, user_id: int, rec_type: str):
-        sql_query = "SELECT movie_id, predicted_rating, confidence_lower, confidence_upper FROM recommendations WHERE user_id = ? AND recommendation_type = ? AND expires_at > ? ORDER BY predicted_rating DESC"
+        sql_query = "SELECT movie_id, predicted_rating, confidence_lower, confidence_upper FROM user_recommendations WHERE user_id = ? AND recommendation_type = ? AND expires_at > ? ORDER BY predicted_rating DESC"
         payload = {"sql": sql_query, "params": [user_id, rec_type, str(int(time.time()))]}
         
         res = requests.post(self.endpoint, json=payload, headers=self.headers)
@@ -47,7 +47,7 @@ class DatabaseManager:
         if not recs:
             return
         expires_at = str(int(time.time()) + (minutes * 60))
-        base_query = "INSERT OR REPLACE INTO recommendations (user_id, movie_id, predicted_rating, confidence_lower, confidence_upper, recommendation_type, expires_at) VALUES "
+        base_query = "INSERT OR REPLACE INTO user_recommendations (user_id, movie_id, predicted_rating, confidence_lower, confidence_upper, recommendation_type, expires_at) VALUES "
         values = [f"({user_id}, {r['movie_id']}, {r['rating']}, {r['confidence_interval'][0]}, {r['confidence_interval'][1]}, '{rec_type}', '{expires_at}')" for r in recs]
         
         payload = {"sql": base_query + ",\n".join(values) + ";"}

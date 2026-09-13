@@ -12,7 +12,8 @@ db = DatabaseManager()
 
 API_KEY = os.getenv("MVT_API_KEY")
 CACHE_MINUTES = 30
-REC_TYPE = "collaborative_filtering"
+REC_TYPE_CF = "collaborative_filtering"
+REC_TYPE_CB = "content_based"
 
 async def verify_api_key(header: str = Security(APIKeyHeader(name="X-API-Key", auto_error=False))):
     if not header:
@@ -27,93 +28,184 @@ async def verify_api_key(header: str = Security(APIKeyHeader(name="X-API-Key", a
 
 @router.get("/{user_id}/recommendations", dependencies=[Depends(verify_api_key)])
 async def get_recommendations(user_id: int):
-    cached = db.get_cached_recommendations(user_id, REC_TYPE)
-    if cached: 
-        return {"status": "success", "source": "database_cache", "user_id": user_id, "recommendations": cached}
+    results = {
+        "status": "success",
+        "user_id": user_id,
+        "collaborative": {"source": "database_cache", "data": []},
+        "content_based": {"source": "database_cache", "data": []}
+    }
     
-    df = db.fetch_user_ratings(user_id)
-    if df is None or df.empty: 
-        return {"status": "error", "message": "Brak ocen"}
-    
-    # Przygotowanie danych dla Surprise
-    df['user_id'] = user_id
-    df = df[['user_id', 'movie_id', 'rating']]
-    
-    reader = Reader(rating_scale=(1, 5))
-    dataset = Dataset.load_from_df(df, reader)
-    
-    # Używamy build_full_trainset, bo nie potrzebujemy testować modelu w locie, tylko wygenerować predykcje
-    trainset = dataset.build_full_trainset()
-    
-    if not model_manager.cf_model: 
-        model_manager.build_collaborative_filtering_model(trainset)
+    # 1. Pobranie ocen (wspólne dla obu modeli)
+    user_ratings = db.fetch_user_ratings(user_id)
+    if user_ratings is None or user_ratings.empty:
+        return {"status": "error", "message": "Brak ocen użytkownika"}
         
-    # Pobieramy wszystkie filmy z lokalnej bazy SQLite
-    movies_df = db.fetch_movies_metadata()
-    if movies_df is None or movies_df.empty:
-        return {"status": "error", "message": "Brak lokalnej bazy filmów do wygenerowania rekomendacji"}
-        
-    all_movie_ids = movies_df['id'].tolist()
-    rated_movie_ids = set(df['movie_id'].tolist())
+    rated_movie_ids = set(user_ratings['movie_id'].tolist())
     
-    recs = []
-    if model_manager.cf_model:
-        for m_id in all_movie_ids:
-            # Przewidujemy oceny tylko dla filmów, których użytkownik jeszcze nie ocenił
-            if m_id not in rated_movie_ids:
-                pred = model_manager.cf_model.predict(user_id, m_id)
-                recs.append({
-                    "movie_id": m_id, 
-                    "rating": round(pred.est, 2), # .est zamiast .estimation
-                    "confidence_interval": [0.0, 0.0] # Surprise nie wylicza confidence interval
-                })
+    # 2. COLLABORATIVE FILTERING (Surprise KNN)
+    cf_cached = db.get_cached_recommendations(user_id, REC_TYPE_CF)
+    if cf_cached:
+        results["collaborative"]["data"] = cf_cached
+    else:
+        results["collaborative"]["source"] = "computed"
+        df_cf = user_ratings.copy()
+        df_cf['user_id'] = user_id
+        df_cf = df_cf[['user_id', 'movie_id', 'rating']]
         
-        # Sortujemy od najwyższej przewidywanej oceny
-        recs.sort(key=lambda x: x["rating"], reverse=True)
-        top_recs = recs[:10]
+        reader = Reader(rating_scale=(1, 5))
+        trainset = Dataset.load_from_df(df_cf, reader).build_full_trainset()
         
-        # Zapisujemy do chmury D1
-        db.save_cached_recommendations(user_id, top_recs, CACHE_MINUTES, REC_TYPE)
+        if not model_manager.cf_model: 
+            model_manager.build_collaborative_filtering_model(trainset)
+            
+        movies_df = db.fetch_movies_metadata()
         
-    return {"status": "success", "source": "computed", "user_id": user_id, "recommendations": top_recs}
+        # DODANA WERYFIKACJA MODELU
+        if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
+            cf_recs = []
+            for m_id in movies_df['id'].tolist():
+                if m_id not in rated_movie_ids:
+                    pred = model_manager.cf_model.predict(user_id, m_id)
+                    cf_recs.append({
+                        "movie_id": m_id, 
+                        "rating": round(pred.est, 2),
+                        "confidence_interval": [0.0, 0.0]
+                    })
+            cf_recs.sort(key=lambda x: x["rating"], reverse=True)
+            db.save_cached_recommendations(user_id, cf_recs[:10], CACHE_MINUTES, REC_TYPE_CF)
+            results["collaborative"]["data"] = cf_recs[:10]
+        else:
+            results["collaborative"]["message"] = "Nie udało się zbudować modelu matematycznego lub brak lokalnej bazy filmów."
+
+    # 3. CONTENT-BASED FILTERING (Scikit-Learn TF-IDF)
+    cb_cached = db.get_cached_recommendations(user_id, REC_TYPE_CB)
+    if cb_cached:
+        results["content_based"]["data"] = cb_cached
+    else:
+        results["content_based"]["source"] = "computed"
+        good_movies = user_ratings[user_ratings['rating'] >= 4]['movie_id'].tolist()
+        
+        if not good_movies:
+            results["content_based"]["message"] = "Brak pozytywnych ocen do profilowania CB"
+        else:
+            if model_manager.cb_similarity_matrix is None:
+                movies_features_df = db.fetch_movies_features()
+                if movies_features_df is not None and not movies_features_df.empty:
+                    model_manager.build_content_based_model(movies_features_df)
+            
+            movies_features_df = db.fetch_movies_features()
+            if movies_features_df is not None and model_manager.cb_similarity_matrix is not None:
+                similar_scores = {}
+                for m_id in good_movies:
+                    if m_id in model_manager.movie_indices:
+                        idx = model_manager.movie_indices[m_id]
+                        for sim_idx, score in enumerate(model_manager.cb_similarity_matrix[idx]):
+                            sim_movie_id = int(movies_features_df.iloc[sim_idx]['id'])
+                            if sim_movie_id not in rated_movie_ids:
+                                similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
+                                
+                if similar_scores:
+                    sorted_sims = sorted(similar_scores.items(), key=lambda x: x[1], reverse=True)[:10]
+                    max_score = sorted_sims[0][1] if sorted_sims else 1
+                    cb_recs = []
+                    
+                    for m_id, score in sorted_sims:
+                        normalized_rating = 3.5 + (score / max_score) * 1.5
+                        cb_recs.append({
+                            "movie_id": m_id,
+                            "rating": round(normalized_rating, 2),
+                            "confidence_interval": [0.0, 0.0]
+                        })
+                        
+                    db.save_cached_recommendations(user_id, cb_recs, CACHE_MINUTES, REC_TYPE_CB)
+                    results["content_based"]["data"] = cb_recs
+
+    return results
 
 @router.get("/{user_id}/recommendations/force-recalculate", dependencies=[Depends(verify_api_key)])
 async def force_recalculate(user_id: int):
-    df = db.fetch_user_ratings(user_id)
-    if df is None or df.empty: 
-        return {"status": "error", "message": "Brak ocen"}
+    results = {
+        "status": "success",
+        "user_id": user_id,
+        "collaborative": {"source": "forced-recalculation", "data": []},
+        "content_based": {"source": "forced-recalculation", "data": []}
+    }
     
-    df['user_id'] = user_id
-    df = df[['user_id', 'movie_id', 'rating']]
+    # 1. Pobranie ocen użytkownika
+    user_ratings = db.fetch_user_ratings(user_id)
+    if user_ratings is None or user_ratings.empty:
+        return {"status": "error", "message": "Brak ocen użytkownika"}
+        
+    rated_movie_ids = set(user_ratings['movie_id'].tolist())
+    
+    # 2. Wymuszone przeliczenie COLLABORATIVE FILTERING
+    df_cf = user_ratings.copy()
+    df_cf['user_id'] = user_id
+    df_cf = df_cf[['user_id', 'movie_id', 'rating']]
     
     reader = Reader(rating_scale=(1, 5))
-    dataset = Dataset.load_from_df(df, reader)
-    trainset = dataset.build_full_trainset()
+    trainset = Dataset.load_from_df(df_cf, reader).build_full_trainset()
     
-    # Trenujemy od zera (nadpisując ewentualny stary model w RAM)
+    # Ignorujemy stary model i budujemy KNN od nowa
     model_manager.build_collaborative_filtering_model(trainset)
-    
-    movies_df = db.fetch_movies_metadata()
-    if movies_df is None or movies_df.empty:
-        return {"status": "error", "message": "Brak lokalnej bazy filmów do wygenerowania rekomendacji"}
         
-    all_movie_ids = movies_df['id'].tolist()
-    rated_movie_ids = set(df['movie_id'].tolist())
+    movies_df = db.fetch_movies_metadata()
     
-    recs = []
-    if model_manager.cf_model:
-        for m_id in all_movie_ids:
+    # DODANA WERYFIKACJA MODELU
+    if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
+        cf_recs = []
+        for m_id in movies_df['id'].tolist():
             if m_id not in rated_movie_ids:
                 pred = model_manager.cf_model.predict(user_id, m_id)
-                recs.append({
+                cf_recs.append({
                     "movie_id": m_id, 
-                    "rating": round(pred.est, 2), 
+                    "rating": round(pred.est, 2),
                     "confidence_interval": [0.0, 0.0]
                 })
+        cf_recs.sort(key=lambda x: x["rating"], reverse=True)
+        top_cf_recs = cf_recs[:10]
         
-        recs.sort(key=lambda x: x["rating"], reverse=True)
-        top_recs = recs[:10]
-        
-        db.save_cached_recommendations(user_id, top_recs, CACHE_MINUTES, REC_TYPE)
-        
-    return {"status": "success", "source": "forced-recalculation", "user_id": user_id, "recommendations": top_recs}
+        # Zapis i nadpisanie chmury
+        db.save_cached_recommendations(user_id, top_cf_recs, CACHE_MINUTES, REC_TYPE_CF)
+        results["collaborative"]["data"] = top_cf_recs
+    else:
+        results["collaborative"]["message"] = "Nie udało się zbudować modelu matematycznego lub brak lokalnej bazy filmów."
+
+    # 3. Wymuszone przeliczenie CONTENT-BASED FILTERING
+    good_movies = user_ratings[user_ratings['rating'] >= 4]['movie_id'].tolist()
+    
+    if not good_movies:
+        results["content_based"]["message"] = "Brak pozytywnych ocen do profilowania CB"
+    else:
+        movies_features_df = db.fetch_movies_features()
+        if movies_features_df is not None and not movies_features_df.empty:
+            # Ignorujemy starą macierz i generujemy nową wektoryzację TF-IDF
+            model_manager.build_content_based_model(movies_features_df)
+            
+            similar_scores = {}
+            for m_id in good_movies:
+                if m_id in model_manager.movie_indices:
+                    idx = model_manager.movie_indices[m_id]
+                    for sim_idx, score in enumerate(model_manager.cb_similarity_matrix[idx]):
+                        sim_movie_id = int(movies_features_df.iloc[sim_idx]['id'])
+                        if sim_movie_id not in rated_movie_ids:
+                            similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
+                            
+            if similar_scores:
+                sorted_sims = sorted(similar_scores.items(), key=lambda x: x[1], reverse=True)[:10]
+                max_score = sorted_sims[0][1] if sorted_sims else 1
+                cb_recs = []
+                
+                for m_id, score in sorted_sims:
+                    normalized_rating = 3.5 + (score / max_score) * 1.5
+                    cb_recs.append({
+                        "movie_id": m_id,
+                        "rating": round(normalized_rating, 2),
+                        "confidence_interval": [0.0, 0.0]
+                    })
+                    
+                # Zapis i nadpisanie chmury
+                db.save_cached_recommendations(user_id, cb_recs, CACHE_MINUTES, REC_TYPE_CB)
+                results["content_based"]["data"] = cb_recs
+
+    return results

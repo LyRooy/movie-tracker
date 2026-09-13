@@ -67,3 +67,22 @@ class DatabaseManager:
         except Exception as e:
             print(f"Błąd odczytu z lokalnej bazy: {e}")
             return None
+        
+    def fetch_movies_features(self):
+        try:
+            conn = sqlite3.connect(self.local_db_path)
+            # Pobieramy cechy; funkcja IFNULL zabezpiecza przed pustymi polami (NaN)
+            query = """
+            SELECT id, 
+                   IFNULL(genres, '') AS genres, 
+                   IFNULL("cast", '') AS cast_members, 
+                   IFNULL(director, '') AS director, 
+                   IFNULL(overview, '') AS overview 
+            FROM movies
+            """
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            return df
+        except Exception as e:
+            print(f"Błąd odczytu cech: {e}")
+            return None

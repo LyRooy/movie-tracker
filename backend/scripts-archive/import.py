@@ -1,4 +1,5 @@
-# KOD IMPORTERA DO BAZY D1 Z PLIKU CSV ZBIORU DANYCH Z KAGGLE
+# Ten plik został użyty do importu danych z pliku CSV do bazy D1. Nie jest częścią aplikacji FastAPI i nie powinien być uruchamiany w środowisku produkcyjnym.
+# KOD IMPORTERA DO BAZY D1 Z PLIKU CSV ZBIORU DANYCH Z KAGGLE (WERSJA OCENZUROWANA)
 import csv
 import json
 import re

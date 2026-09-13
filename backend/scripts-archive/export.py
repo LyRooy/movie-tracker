@@ -1,3 +1,4 @@
+# Ten plik został użyty do eksportu danych z bazy D1 do pliku SQL. Nie jest częścią aplikacji FastAPI i nie powinien być uruchamiany w środowisku produkcyjnym.
 # KOD EXPORTERA Z BAZY D1 Z PLIKU DO PLIKU movies.db (LOKALNEJ KOPII BAZY FILMÓW) 
 import sqlite3
 

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from model_manager import tracker
+from services.model_manager import tracker
 
 app = FastAPI(title="MVT Admin Panel")
 

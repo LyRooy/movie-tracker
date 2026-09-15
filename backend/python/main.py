@@ -15,9 +15,10 @@ app = FastAPI(title="MVT Recommendation API")
 
 # Podpinamy endpointy z innych plików
 app.include_router(recommendations_router)
-# Endpointy panelu admina (status/postep modeli) wystawiamy pod /admin.
-# Używamy APIRouter (nie mount/SubApp), żeby nie przykrywać Swagger (/docs, /redoc).
-app.include_router(admin_router, prefix="/admin")
+# Endpointy panelu admina (status/postep modeli).
+# Go admin dzwoni zawsze pod /admin/* (np. /admin/status, /admin/ws), a router w admin.py
+# ma prefix="/admin", wiec nie dodajemy tu ponownego prefixa (to by dalo /admin/admin/*).
+app.include_router(admin_router)
 
 @app.get("/health")
 async def health_check():

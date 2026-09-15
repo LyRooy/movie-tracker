@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from services.model_manager import tracker
 
-router = APIRouter(tags=["Admin Panel"])
+router = APIRouter(prefix="/admin", tags=["Admin Panel"])
 
 
 @router.get("/status")

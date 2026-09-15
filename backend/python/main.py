@@ -1,5 +1,6 @@
 import os
 import sys
+import fastapi
 from fastapi import FastAPI
 from api.recommendations import router as recommendations_router
 from services.admin import app as admin_app
@@ -15,7 +16,9 @@ app = FastAPI(title="MVT Recommendation API")
 
 # Podpinamy endpointy z innych plików
 app.include_router(recommendations_router)
-app.mount("/", admin_app)
+# Endpointy panelu admina (status/postep modeli) wystawiamy pod /admin.
+# Nie mountujemy na "/", bo to przykrywa Swagger (/docs, /redoc, /openapi.json).
+admin_app.mount("/admin", fastapi.SubApp(admin_app, strips_prefix=True))
 
 @app.get("/health")
 async def health_check():

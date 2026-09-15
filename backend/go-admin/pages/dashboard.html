@@ -453,8 +453,11 @@ body {
     }
 
     // Rozwiązanie: dane sa zagniezdzone w events[]/logs[], nie na poziomie top.
+    // Pokazuje logi tylko dla wybranego modelu (filtrowane przez currentModel).
     function applyModels(data) {
+        if (!data) return;
         for (const key in data) {
+            if (key !== currentModel) continue;
             const model = data[key];
             for (const entry of model.events || []) {
                 if (entry.event === 'building' || entry.event === 'built') handleEvent(entry);
@@ -494,14 +497,28 @@ body {
     }
     ws.onclose = reconnect;
 
-    // Kliknięcie chipu modelu
+    // Kliknięcie chipu modelu — filtruje logi w panelu do wybranego modelu
     document.querySelectorAll('.model-chip').forEach(chip => {
         chip.addEventListener('click', () => {
-            currentModel = chip.getAttribute('data-model');
+            const model = chip.getAttribute('data-model');
+            currentModel = model;
             document.querySelectorAll('.model-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
+            renderLogs(model);
         });
     });
+
+    // Renderuje logi dla wybranego modelu (filtr)
+    function renderLogs(model) {
+        const panel = document.getElementById('log-panel');
+        if (!panel) return;
+        while (panel.firstChild) panel.removeChild(panel.firstChild);
+        for (const key in modelsStatus) {
+            if (key !== model) continue;
+            modelsStatus[key] = 'not_started';
+        }
+        addLogEntry({ts: Date.now(), level: 'info', model: model, event: 'filter', message: `Pokaż logi dla modelu: ${model.toUpperCase()}`});
+    }
 </script>
 
 </body>

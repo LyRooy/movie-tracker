@@ -476,26 +476,40 @@ body {
         })
         .catch(() => {});
 
-    // Live push (Go jako relay)
-    const ws = new WebSocket("ws://" + window.location.host + "/admin/ws");
-    ws.onmessage = function(event) {
-        let data;
-        try { data = JSON.parse(event.data); } catch (e) { return; }
-        if (data) applyModels(data);
-    };
-    function reconnect() {
-        const ws2 = new WebSocket("ws://" + window.location.host + "/admin/ws");
-        ws2.onmessage = ws.onmessage;
-        ws2.onclose = function() {
-            console.warn("Live push rozłączony — próba ponownego połączenia...");
+    // Live push (Go jako relay).
+    // Uzywamy wss:// gdy strona jest na HTTPS (zeby uniknac mixed-content block),
+    // a ws:// gdy strona jest na HTTP (lokalne testy).
+    const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
+    let ws;
+
+    function connectWS() {
+        ws = new WebSocket(wsProto + "://" + window.location.host + "/admin/ws");
+
+        ws.onmessage = function(event) {
+            let data;
+            try { data = JSON.parse(event.data); } catch (e) { return; }
+            if (data) applyModels(data);
+        };
+
+        ws.onclose = function() {
+            console.warn("Live push rozłączony, próba ponownego połączenia...");
             fetch('/admin/progress')
                 .then(r => r.json())
                 .then(data => { if (data) applyModels(data); })
                 .catch(() => {});
-            setTimeout(reconnect, 2000);
+            setTimeout(connectWS, 2000);
         };
     }
-    ws.onclose = reconnect;
+
+    // Uruchomienie połączenia
+    connectWS();
+
+    // WYSYŁANIE PINGA CO 30 SEKUND (zapobiega rozłączaniu przez Cloudflare)
+    setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+        }
+    }, 30000);
 
     // Kliknięcie chipu modelu — filtruje logi w panelu do wybranego modelu
     document.querySelectorAll('.model-chip').forEach(chip => {

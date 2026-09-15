@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,37 +60,60 @@ func registerProgressRoutes(r chi.Router, baseURL string) {
 			return
 		}
 		defer conn.Close()
-		log.Printf("Panel admin polaczony przez WebSocket")
 
-		// Laczy sie z Pythonem (most relacyjny)
-		pyConn, perr, _ := websocket.DefaultDialer.Dial(baseURL+"/admin/ws", nil)
+		// 1. ZAMIANA SCHEMATU: Dialer WebSocket wymaga "ws://" zamiast "http://"
+		wsURL := strings.Replace(baseURL, "http://", "ws://", 1)
+		wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
+
+		pyConn, perr, _ := websocket.DefaultDialer.Dial(wsURL+"/admin/ws", nil)
 		if perr != nil {
-			log.Printf("Nie udalo sie polaczyc z Pythonem (/admin/ws): %v", perr)
-			// Kontynuuj sluchanie, zeby utrzymac polaczanie z dashboardem
+			log.Printf("Nie udalo sie polaczyc z Pythonem: %v", perr)
+			// Jeśli nie ma Pythona, kończymy. Frontend spróbuje ponownie za 2 sekundy.
+			return
+		}
+		if pyConn == nil {
+			log.Printf("Nie udalo sie polaczyc z Pythonem (nil conn)")
+			return
 		}
 		defer pyConn.Close()
 
+		// 2. WSPÓŁBIEŻNOŚĆ: Rozdzielamy odbieranie na dwa osobne kanały (goroutines)
+
+		// Wątek A: Odbieranie od Pythona -> wysyłanie do Dashboardu
+		go func() {
+			for {
+				if conn == nil || pyConn == nil {
+					break
+				}
+				pyMsgType, pyMsg, pyErr := pyConn.ReadMessage()
+				if pyErr != nil {
+					// Python zerwał połączenie. Zamykamy sesję przeglądarki, by wymusić reconnect.
+					conn.Close()
+					break
+				}
+				if err := conn.WriteMessage(pyMsgType, pyMsg); err != nil {
+					break
+				}
+			}
+		}()
+
+		// Wątek B (główny): Odbieranie od Dashboardu -> wysyłanie do Pythona
 		for {
-			// 1. Przekazuj zdarzenia z Pythona -> dashboard
-			pyMsgType, pyMsg, pyErr := pyConn.ReadMessage()
-			if pyErr != nil {
-				log.Printf("Rozlaczenie relacyjnego WebSocket (Python -> admin): %v", pyErr)
+			if conn == nil {
+				log.Printf("Nie udalo sie pobrac wiadomosci z dashboardu (nil conn)")
 				break
 			}
-			// Uzywamy pyMsgType zamiast na sztywno websocket.TextMessage
-			if err := conn.WriteMessage(pyMsgType, pyMsg); err != nil {
-				log.Printf("Blad przekazania wiadomosci do dashboardu: %v", err)
+			dashMsgType, dashMsg, dashErr := conn.ReadMessage()
+			if dashErr != nil {
 				break
 			}
 
-			// 2. Przekazuj wiadomosci z dashboardu -> Python (np. pings)
-			dashMsgType, dashMsg, dashErr := conn.ReadMessage()
-			if dashErr != nil {
-				log.Printf("Rozlaczenie relacyjnego WebSocket (admin -> Python): %v", dashErr)
-				break
+			// Ignoruj pingi podtrzymujące tunel Cloudflare
+			if string(dashMsg) == `{"type":"ping"}` {
+				continue
 			}
+
 			if err := pyConn.WriteMessage(dashMsgType, dashMsg); err != nil {
-				log.Printf("Blad przekazania wiadomosci do Pythona: %v", err)
 				break
 			}
 		}
@@ -253,18 +277,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// URL głównej strony do pobierania theme z Cloudflare Workers API (do przyszłej implementacji)
+	// URL głównej strony do pobierania theme z Cloudflare Workers API (do ewentualnej przyszłej implementacji)
 	mainSiteURL := os.Getenv("MAIN_SITE_URL")
 	if mainSiteURL == "" {
 		fmt.Println("Ostrzeżenie: MAIN_SITE_URL nie ustawione - theme z głównej strony niedostępne")
 		mainSiteURL = "https://movie-tracker-mstr.110187.xyz/"
 	}
 
-	// URL Pythona (FastAPI) na sieci wewnętrznej Docker.
-	// Z kontenera Go admin Python jest dostepny pod nazwa kontenera "python".
+	// URL Pythona (FastAPI). Domyślne: adres IP TrueNAS SCALE, port 8000.
 	pythonURL := os.Getenv("ADMIN_PYTHON_URL")
 	if pythonURL == "" {
-		pythonURL = "http://python:8000"
+		pythonURL = "http://192.168.0.109:8000"
 	}
 	fmt.Printf("Panel admin bedzie pobieral progres z Pythona: %s\n", pythonURL)
 

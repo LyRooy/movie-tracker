@@ -3,11 +3,14 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/sessions"
@@ -20,7 +23,186 @@ var (
 	}
 	// Magazyn naszych sesji
 	store *sessions.CookieStore
+
+	// === Stan live postępu modeli (przekazywany z Pythona) ===
+	// mu chroni dane przed równoczesnym dostępem z wielu połączeń WebSocket
+	stateMu sync.RWMutex
+	// models: klucz "cf"/"cb" -> aktualny stan (status, events, logs)
+	models map[string]ModelState
 )
+
+// initProgressState inicjalizuje magazyn stanów i rejestruje endpointy
+// связанные z live postepem modeli (trzeba wywolac przed uruchomieniem routera).
+func initProgressState(baseURL string) {
+	if models == nil {
+		models = map[string]ModelState{
+			"cf": {Status: "not_started", Events: []ModelStatus{}, Logs: []ModelStatus{}},
+			"cb": {Status: "not_started", Events: []ModelStatus{}, Logs: []ModelStatus{}},
+		}
+	}
+}
+
+// registerProgressRoutes rejestruje endpointy progressu na podanym routerze.
+func registerProgressRoutes(r chi.Router, baseURL string) {
+	// Endpoint pushowy dla dashboardu — zwraca aktualny stan wszystkich modeli.
+	r.Get("/admin/progress", func(w http.ResponseWriter, r *http.Request) {
+		mergePythonState(baseURL)
+		broadcastPush(w)
+	})
+
+	// Endpoint WebSocket (relay): laczy sie z Pythonem (/admin/ws) i przekazuje
+	// zdarzenia dalej do panelu dashboardu (dwukierunkowy most).
+	r.Get("/admin/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("Blad upgrade na WebSocket (admin): %v", err)
+			return
+		}
+		defer conn.Close()
+		log.Printf("Panel admin polaczony przez WebSocket")
+
+		// Laczy sie z Pythonem (most relacyjny)
+		pyConn, perr, _ := websocket.DefaultDialer.Dial(baseURL+"/admin/ws", nil)
+		if perr != nil {
+			log.Printf("Nie udalo sie polaczyc z Pythonem (/admin/ws): %v", perr)
+			// Kontynuuj sluchanie, zeby utrzymac polaczanie z dashboardem
+		}
+		defer pyConn.Close()
+
+		for {
+			// 1. Przekazuj zdarzenia z Pythona -> dashboard
+			pyMsgType, pyMsg, pyErr := pyConn.ReadMessage()
+			if pyErr != nil {
+				log.Printf("Rozlaczenie relacyjnego WebSocket (Python -> admin): %v", pyErr)
+				break
+			}
+			// Uzywamy pyMsgType zamiast na sztywno websocket.TextMessage
+			if err := conn.WriteMessage(pyMsgType, pyMsg); err != nil {
+				log.Printf("Blad przekazania wiadomosci do dashboardu: %v", err)
+				break
+			}
+
+			// 2. Przekazuj wiadomosci z dashboardu -> Python (np. pings)
+			dashMsgType, dashMsg, dashErr := conn.ReadMessage()
+			if dashErr != nil {
+				log.Printf("Rozlaczenie relacyjnego WebSocket (admin -> Python): %v", dashErr)
+				break
+			}
+			if err := pyConn.WriteMessage(dashMsgType, dashMsg); err != nil {
+				log.Printf("Blad przekazania wiadomosci do Pythona: %v", err)
+				break
+			}
+		}
+	})
+}
+
+// ModelStatus to pojedyncze zdarzenie postępu (building/built) lub log.
+// Pola pasuja do formatu wysyłanego przez Pythona (model_manager.py).
+type ModelStatus struct {
+	T       int64  `json:"t"`     // timestamp (ms)
+	Level   string `json:"level"` // info / building / built / error
+	Model   string `json:"model"` // "cf" lub "cb"
+	Event   string `json:"event"` // building / built
+	Name    string `json:"name"`
+	OK      bool   `json:"ok"` // dla eventów "built"
+	Message string `json:"message"`
+	Status  string `json:"status"` // dla eventów: not_started/running/ready/error
+}
+
+// ModelState to kompletny stan danego modelu.
+type ModelState struct {
+	Status string        `json:"status"` // not_started/running/ready/error
+	Events []ModelStatus `json:"events"`
+	Logs   []ModelStatus `json:"logs"`
+}
+
+// modelHasData zwraca true, jeśli ModelState ma jakies dane (status ustawiony lub events/logs).
+func modelHasData(m ModelState) bool {
+	return m.Status != "" || len(m.Events) > 0 || len(m.Logs) > 0
+}
+
+// fetchPythonProgress pobiera aktualny stan modeli z Pythona (REST).
+// Powraca false, jeśli Python nie jest dostępny (jeszcze nie uruchomiony).
+func fetchPythonProgress(baseURL string) (map[string]ModelState, bool) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	resp, err := client.Get(baseURL + "/admin/status")
+	if err != nil {
+		log.Printf("Nie udalo sie pobrac statusu z Pythona: %v", err)
+		return nil, false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Nie udalo sie pobrac statusu (HTTP %d)", resp.StatusCode)
+		return nil, false
+	}
+
+	var status struct {
+		CF ModelState `json:"cf"`
+		CB ModelState `json:"cb"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		log.Printf("Nie udalo sie zdeserialize statusu Pythona: %v", err)
+		return nil, false
+	}
+
+	out := make(map[string]ModelState, 2)
+	// ModelState zawiera slice, wiec nie mozna go porownac z wartoscia domyslna (!=).
+	// Zamiast tego sprawdzamy, czy model ma jakies dane.
+	if modelHasData(status.CF) {
+		out["cf"] = status.CF
+	}
+	if modelHasData(status.CB) {
+		out["cb"] = status.CB
+	}
+	return out, true
+}
+
+// mergePythonState polaczy nowy stan z Pythona z naszym lokalnym magazynem.
+func mergePythonState(baseURL string) {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+
+	if fetched, ok := fetchPythonProgress(baseURL); ok {
+		for key, fetchedState := range fetched {
+			cur, exists := models[key]
+			if !exists {
+				models[key] = fetchedState
+				continue
+			}
+			// Zdarzenia i logi sa idempotentne (duplikaty po event/message)
+			cur.Events = append(cur.Events, fetchedState.Events...)
+			cur.Logs = append(cur.Logs, fetchedState.Logs...)
+			if fetchedState.Status == "running" || fetchedState.Status == "ready" || fetchedState.Status == "error" {
+				cur.Status = fetchedState.Status
+			}
+			models[key] = cur
+		}
+	}
+}
+
+// broadcastPush wysyla aktualne stany do wszystkich podlaczonych WebSocket.
+func broadcastPush(w http.ResponseWriter) {
+	stateMu.RLock()
+	defer stateMu.RUnlock()
+
+	payload := make([]byte, 0, 4096)
+	for key, state := range models {
+		b, err := json.Marshal(state)
+		if err != nil {
+			log.Printf("Blad marshal JSON stanu modelu %s: %v", key, err)
+			continue
+		}
+		payload = append(payload, b...)
+		payload = append(payload, ',')
+	}
+	if len(payload) > 0 {
+		payload = payload[:len(payload)-1]
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(payload)
+}
 
 // renderTemplate wczytuje szablon z folderu pages/ i renderuje go do odpowiedzi HTTP.
 func renderTemplate(w http.ResponseWriter, name string, data any) {
@@ -77,6 +259,18 @@ func main() {
 		fmt.Println("Ostrzeżenie: MAIN_SITE_URL nie ustawione - theme z głównej strony niedostępne")
 		mainSiteURL = "https://movie-tracker-mstr.110187.xyz/"
 	}
+
+	// URL Pythona (FastAPI) na sieci wewnętrznej Docker.
+	// Z kontenera Go admin Python jest dostepny pod nazwa kontenera "python".
+	pythonURL := os.Getenv("ADMIN_PYTHON_URL")
+	if pythonURL == "" {
+		pythonURL = "http://python:8000"
+	}
+	fmt.Printf("Panel admin bedzie pobieral progres z Pythona: %s\n", pythonURL)
+
+	// Inicjalizuj magazyn stanów i zarejestruj endpointy progressu.
+	initProgressState(pythonURL)
+	registerProgressRoutes(r, pythonURL)
 
 	// === ENDPOINTY PUBLICZNE ===
 

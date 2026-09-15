@@ -204,6 +204,72 @@ body {
 
 .loss-label { color: var(--text-secondary); font-size: 0.9rem; }
 .loss-value { font-size: 1.1rem; font-weight: 700; color: var(--secondary-color); }
+
+/* Model selector */
+.model-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.model-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.9rem;
+    background: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: var(--transition);
+    user-select: none;
+}
+
+.model-chip:hover { border-color: var(--secondary-color); }
+.model-chip.active { border-color: var(--secondary-color); background: var(--surface-color); box-shadow: var(--shadow); }
+
+.model-chip-name { font-weight: 700; font-size: 0.9rem; }
+.model-chip-desc { font-size: 0.75rem; color: var(--text-secondary); }
+
+.model-chip .status-dot { width: 9px; height: 9px; }
+.model-chip .status-dot.not_started { background: #95a5a6; }
+.model-chip .status-dot.running { background: #f39c12; animation: pulse 1s infinite; }
+.model-chip .status-dot.ready { background: #2ecc71; }
+.model-chip .status-dot.error { background: #e74c3c; }
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(243, 156, 18, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0); }
+}
+
+/* Log panel */
+.log-panel { max-height: 480px; overflow-y: auto; }
+.log-entry {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.82rem;
+    padding: 0.4rem 0.7rem;
+    border-left: 3px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+.log-entry.info { border-left-color: var(--secondary-color); }
+.log-entry.building { border-left-color: #f39c12; }
+.log-entry.built { border-left-color: #2ecc71; }
+.log-entry.error { border-left-color: #e74c3c; }
+.log-entry .log-time { color: var(--text-secondary); font-size: 0.72rem; margin-right: 0.5rem; }
+.log-entry .log-model { color: var(--secondary-color); font-weight: 700; margin-right: 0.5rem; }
+.log-entry .log-level { font-weight: 700; margin-right: 0.4rem; }
+.log-entry.info .log-level { color: var(--secondary-color); }
+.log-entry.building .log-level { color: #f39c12; }
+.log-entry.built .log-level { color: #2ecc71; }
+.log-entry.error .log-level { color: #e74c3c; }
+
+/* Result summary */
+.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 640px) { .result-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -232,17 +298,57 @@ body {
         </div>
 
         <div class="card">
-            <div class="card-header">Postęp trenowania modelu</div>
-            <div class="progress-label">
-                <span>Ukończono</span>
-                <span id="progress-pct">0%</span>
+            <div class="card-header">Model &mdash; wybierz do podglądu</div>
+            <div class="model-selector">
+                <div class="model-chip active" data-model="cf">
+                    <span class="status-dot not_started" id="chip-dot-cf"></span>
+                    <span class="model-chip-name">CF</span>
+                    <span class="model-chip-desc">Collaborative Filtering (KNN)</span>
+                </div>
+                <div class="model-chip" data-model="cb">
+                    <span class="status-dot not_started" id="chip-dot-cb"></span>
+                    <span class="model-chip-name">CB</span>
+                    <span class="model-chip-desc">Content-Based (TF-IDF)</span>
+                </div>
             </div>
-            <div class="progress-track">
-                <div id="progress" class="progress-fill"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Co robi model &mdash; live logi</div>
+            <div class="log-panel" id="log-panel">
+                <div class="log-entry info"><span class="log-time">--:--:--</span><span class="log-model">&mdash;</span><span class="log-level">INFO</span><span class="log-msg">Czekanie na start budowania modeli...</span></div>
             </div>
-            <div class="loss-row">
-                <span class="loss-label">Strata (Loss):</span>
-                <span id="loss-val" class="loss-value">---</span>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Wyniki wysłane do bazy danych</div>
+            <div class="result-grid">
+                <div>
+                    <div class="progress-label">
+                        <span>Collaborative Filtering</span>
+                        <span id="cf-status" class="status-value">oczekuje</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="cf-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="loss-row">
+                        <span class="loss-label">Rekomendacje:</span>
+                        <span id="cf-count" class="loss-value">0</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="progress-label">
+                        <span>Content-Based</span>
+                        <span id="cb-status" class="status-value">oczekuje</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="cb-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="loss-row">
+                        <span class="loss-label">Rekomendacje:</span>
+                        <span id="cb-count" class="loss-value">0</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -279,17 +385,123 @@ body {
 
 
 <script>
-    const ws = new WebSocket("wss://" + window.location.host + "/ws/progress");
+    // Formatowanie czasu (ms) na lokałny HH:MM:SS
+    function fmtTime(ms) {
+        const d = new Date(ms);
+        if (isNaN(d)) return '---';
+        const p = n => String(n).padStart(2, '0');
+        return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+
+    function setStatus(model, status, count) {
+        const map = {
+            not_started: {text: 'oczekuje', cls: 'oczekuje'},
+            running: {text: 'budowanie...', cls: 'running'},
+            ready: {text: 'gotowy', cls: 'ready'},
+            error: {text: 'błąd', cls: 'error'},
+        };
+        const info = map[status] || map.not_started;
+        const prefix = model === 'cf' ? 'cf-' : 'cb-';
+        const statusEl = document.getElementById(prefix + '-status');
+        if (statusEl) statusEl.textContent = info.text;
+        statusEl.className = 'status-value ' + info.cls;
+        const fillEl = document.getElementById(prefix + '-fill');
+        if (fillEl) fillEl.style.width = (status === 'ready' ? '100%' : status === 'running' ? '50%' : '0%');
+        const countEl = document.getElementById(prefix + '-count');
+        if (countEl && count !== undefined) countEl.textContent = count;
+    }
+
+    let currentModel = 'cf';
+
+    function addLogEntry(entry) {
+        const panel = document.getElementById('log-panel');
+        if (!panel) return;
+        const el = document.createElement('div');
+        el.className = 'log-entry ' + entry.level;
+        el.innerHTML =
+            '<span class="log-time">' + fmtTime(entry.ts) + '</span>' +
+            '<span class="log-model">' + (entry.model || '—') + '</span>' +
+            '<span class="log-level">' + entry.event || entry.level.toUpperCase() + '</span>' +
+            '<span class="log-msg">' + (entry.message || '') + '</span>';
+        panel.appendChild(el);
+        panel.scrollTop = panel.scrollHeight;
+    }
+
+    function updateChip(model) {
+        const dot = document.getElementById('chip-dot-' + model);
+        if (!dot) return;
+        dot.className = 'status-dot ' + modelsStatus[model];
+        const chip = dot.closest('.model-chip');
+        if (chip) chip.classList.toggle('active', model === currentModel);
+    }
+
+    // Sklejkane stany (z Go /admin/progress). Aktualizowane przez WebSocket.
+    let modelsStatus = { cf: 'not_started', cb: 'not_started' };
+
+    // Event building/built
+    function handleEvent(entry) {
+        const modelKey = entry.model;
+        addLogEntry({level: entry.level, ts: entry.t, model: modelKey, event: entry.event, message: entry.message});
+        modelsStatus[modelKey] = entry.event === 'built' ? (entry.ok ? 'ready' : 'error') : 'running';
+        updateChip(modelKey);
+        if (entry.event === 'built') setStatus(modelKey, entry.ok ? 'ready' : 'error');
+    }
+
+    // Log (tekstowy)
+    function handleLog(entry) {
+        addLogEntry({level: entry.level, ts: entry.t, model: entry.model, event: entry.level, message: entry.message});
+    }
+
+    // Rozwiązanie: dane sa zagniezdzone w events[]/logs[], nie na poziomie top.
+    function applyModels(data) {
+        for (const key in data) {
+            const model = data[key];
+            for (const entry of model.events || []) {
+                if (entry.event === 'building' || entry.event === 'built') handleEvent(entry);
+            }
+            for (const entry of model.logs || []) {
+                handleLog(entry);
+            }
+        }
+    }
+
+    // Pull aktualnego stanu (na wypadek opóźnionego połączenia)
+    fetch('/admin/progress')
+        .then(r => r.json())
+        .then(data => {
+            if (data) applyModels(data);
+        })
+        .catch(() => {});
+
+    // Live push (Go jako relay)
+    const ws = new WebSocket("ws://" + window.location.host + "/admin/ws");
     ws.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        const pct = data.percent + "%";
-        document.getElementById("progress").style.width = pct;
-        document.getElementById("progress-pct").innerText = pct;
-        document.getElementById("loss-val").innerText = data.loss;
+        let data;
+        try { data = JSON.parse(event.data); } catch (e) { return; }
+        if (data) applyModels(data);
     };
-    ws.onclose = function() {
-        console.warn("WebSocket rozłączony.");
-    };
+    function reconnect() {
+        const ws2 = new WebSocket("ws://" + window.location.host + "/admin/ws");
+        ws2.onmessage = ws.onmessage;
+        ws2.onclose = function() {
+            console.warn("Live push rozłączony — próba ponownego połączenia...");
+            fetch('/admin/progress')
+                .then(r => r.json())
+                .then(data => { if (data) applyModels(data); })
+                .catch(() => {});
+            setTimeout(reconnect, 2000);
+        };
+    }
+    ws.onclose = reconnect;
+
+    // Kliknięcie chipu modelu
+    document.querySelectorAll('.model-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            currentModel = chip.getAttribute('data-model');
+            document.querySelectorAll('.model-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+        });
+    });
 </script>
 
 </body>

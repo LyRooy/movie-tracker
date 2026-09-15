@@ -2,6 +2,7 @@ import os
 import sys
 from fastapi import FastAPI
 from api.recommendations import router as recommendations_router
+from services.admin import app as admin_app
 
 # 1. Pobranie klucza z pamięci RAM kontenera
 MVT_API_KEY = os.getenv("MVT_API_KEY")
@@ -14,6 +15,7 @@ app = FastAPI(title="MVT Recommendation API")
 
 # Podpinamy endpointy z innych plików
 app.include_router(recommendations_router)
+app.mount("/", admin_app)
 
 @app.get("/health")
 async def health_check():

@@ -1,29 +1,29 @@
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from services.model_manager import tracker
 
-app = FastAPI(title="MVT Admin Panel")
+router = APIRouter(tags=["Admin Panel"])
 
 
-@app.get("/admin/status")
+@router.get("/status")
 async def status():
-    """Return a snapshot of the status of every recommendation model."""
+    """Zwraca aktualny status obu modeli (cf, cb)."""
     models = {}
     for key in ("cf", "cb"):
         models[key] = tracker.snapshot(key)
     return models
 
 
-@app.get("/admin/model/{model}")
+@router.get("/model/{model}")
 async def model(model: str):
-    """Return the status of a single model by key (`cf` or `cb`)."""
+    """Zwraca stan pojedynczego modelu (cf lub cb)."""
     if model not in ("cf", "cb"):
         raise HTTPException(status_code=400, detail=f"Nieznany model: {model}")
     return tracker.snapshot(model)
 
 
-@app.websocket("/admin/ws")
+@router.websocket("/ws")
 async def admin_ws(websocket: WebSocket):
-    """Bidirectional live stream of model events and logs to the admin panel."""
+    """WebSocket do live streamowania postępu modeli."""
     await websocket.accept()
     try:
         while True:

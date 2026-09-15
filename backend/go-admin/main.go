@@ -148,7 +148,8 @@ func modelHasData(m ModelState) bool {
 // fetchPythonProgress pobiera aktualny stan modeli z Pythona (REST).
 // Powraca false, jeśli Python nie jest dostępny (jeszcze nie uruchomiony).
 func fetchPythonProgress(baseURL string) (map[string]ModelState, bool) {
-	client := &http.Client{Timeout: 5 * time.Second}
+	// Timeout powyzszeny (30s) — Python /admin/status czyta z bazy i moze byc powolny.
+	client := &http.Client{Timeout: 30 * time.Second}
 
 	resp, err := client.Get(baseURL + "/admin/status")
 	if err != nil {
@@ -287,7 +288,7 @@ func main() {
 	// URL Pythona (FastAPI). Domyślne: adres IP TrueNAS SCALE, port 8000.
 	pythonURL := os.Getenv("ADMIN_PYTHON_URL")
 	if pythonURL == "" {
-		pythonURL = "http://192.168.0.109:8000"
+		pythonURL = "http://python:8000"
 	}
 	fmt.Printf("Panel admin bedzie pobieral progres z Pythona: %s\n", pythonURL)
 

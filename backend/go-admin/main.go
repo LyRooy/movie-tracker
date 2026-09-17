@@ -66,7 +66,11 @@ func registerProgressRoutes(r chi.Router, baseURL string) {
 		wsURL := strings.Replace(baseURL, "http://", "ws://", 1)
 		wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
 
-		pyConn, perr, _ := websocket.DefaultDialer.Dial(wsURL+"/admin/ws", nil)
+		// DIAL ZWRACA (conn, response, error). response zawiera "101 Switching Protocols"
+		// po udanym handshake, wiec NIE moze byc przypisany do perr (wtedy kazde
+		// pojeczenie dzialajace wygladalo by jak bled). Ignorujemy response, perr bierze
+		// trzecie miejsce.
+		pyConn, _, perr := websocket.DefaultDialer.Dial(wsURL+"/admin/ws", nil)
 		if perr != nil {
 			log.Printf("Nie udalo sie polaczyc z Pythonem: %v", perr)
 			// Jeśli nie ma Pythona, kończymy. Frontend spróbuje ponownie za 2 sekundy.
@@ -86,6 +90,9 @@ func registerProgressRoutes(r chi.Router, baseURL string) {
 				if conn == nil || pyConn == nil {
 					break
 				}
+				// Deadline na odczyt: USUNIĘTO dla testów (Python wysyła piny co sekundę,
+				// wiec nigdy nie ma 15s ciszy). Jeśli w przyszłości Python zacznie milczeć,
+				// przywrócić ten deadline, żeby rozróżnić "Python spoczywa" od "Python umarł".
 				pyMsgType, pyMsg, pyErr := pyConn.ReadMessage()
 				if pyErr != nil {
 					// Python zerwał połączenie. Zamykamy sesję przeglądarki, by wymusić reconnect.
@@ -271,6 +278,8 @@ func main() {
 	initSessionStore()
 
 	r := chi.NewRouter()
+	fileServer := http.FileServer(http.Dir("static"))
+	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	adminUser := os.Getenv("ADMIN_USER")
 	adminPass := os.Getenv("ADMIN_PASSWORD")

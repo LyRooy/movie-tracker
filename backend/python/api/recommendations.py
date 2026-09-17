@@ -4,7 +4,7 @@ from fastapi.security.api_key import APIKeyHeader
 from surprise import Dataset, Reader
 from sklearn.metrics.pairwise import cosine_similarity
 
-from services.model_manager import RecommendationModelManager
+from services.model_manager import RecommendationModelManager, tracker
 from database.db_manager import DatabaseManager
 
 router = APIRouter(prefix="/movies/user", tags=["Recommendations"])
@@ -27,7 +27,7 @@ async def verify_api_key(header: str = Security(APIKeyHeader(name="X-API-Key", a
         return header
     raise HTTPException(status_code=403, detail="Niepoprawny klucz API")
 
-async def compute_recommendations(user_id: int) -> dict:
+def compute_recommendations(user_id: int) -> dict:
     """Jądro obliczania rekomendacji dla jednego użytkownika.
 
     Zwraca obiekt JSON z rekomendacjami CF/CB. Zapisuje wyniki do bazy
@@ -76,7 +76,7 @@ async def compute_recommendations(user_id: int) -> dict:
                     })
             cf_recs.sort(key=lambda x: x["rating"], reverse=True)
             db.save_cached_recommendations(user_id, cf_recs[:10], CACHE_MINUTES, REC_TYPE_CF)
-            model_manager.record_count("cf", len(cf_recs[:10]))
+            tracker.record_count("cf", len(cf_recs[:10]))
         else:
             results["collaborative"]["message"] = "Brak modelu CF lub lokalnej bazy."
 
@@ -130,11 +130,11 @@ async def compute_recommendations(user_id: int) -> dict:
 
 
 @router.get("/{user_id}/recommendations", dependencies=[Depends(verify_api_key)])
-async def get_recommendations(user_id: int):
-    return await compute_recommendations(user_id)
+def get_recommendations(user_id: int):
+    return compute_recommendations(user_id)
 
 @router.get("/{user_id}/recommendations/force-recalculate", dependencies=[Depends(verify_api_key)])
-async def force_recalculate(user_id: int):
+def force_recalculate(user_id: int):
     results = {
         "status": "success",
         "user_id": user_id,
@@ -212,7 +212,7 @@ async def force_recalculate(user_id: int):
                     })
                     
                 db.save_cached_recommendations(user_id, cb_recs, CACHE_MINUTES, REC_TYPE_CB)
-                model_manager.record_count("cb", len(cb_recs))
+                tracker.record_count("cb", len(cb_recs))
                 results["content_based"]["data"] = cb_recs
 
     return results

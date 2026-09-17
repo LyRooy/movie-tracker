@@ -401,13 +401,15 @@ body {
             error: {text: 'błąd', cls: 'error'},
         };
         const info = map[status] || map.not_started;
-        const prefix = model === 'cf' ? 'cf-' : 'cb-';
-        const statusEl = document.getElementById(prefix + '-status');
-        if (statusEl) statusEl.textContent = info.text;
-        statusEl.className = 'status-value ' + info.cls;
-        const fillEl = document.getElementById(prefix + '-fill');
+        const base = model === 'cf' ? 'cf' : 'cb';
+        const statusEl = document.getElementById(base + '-status');
+        if (statusEl) {
+            statusEl.textContent = info.text;
+            statusEl.className = 'status-value ' + info.cls;
+        }
+        const fillEl = document.getElementById(base + '-fill');
         if (fillEl) fillEl.style.width = (status === 'ready' ? '100%' : status === 'running' ? '50%' : '0%');
-        const countEl = document.getElementById(prefix + '-count');
+        const countEl = document.getElementById(base + '-count');
         if (countEl && count !== undefined) countEl.textContent = count;
     }
 
@@ -444,7 +446,7 @@ body {
         addLogEntry({level: entry.level, ts: entry.t, model: modelKey, event: entry.event, message: entry.message});
         modelsStatus[modelKey] = entry.event === 'built' ? (entry.ok ? 'ready' : 'error') : 'running';
         updateChip(modelKey);
-        if (entry.event === 'built') setStatus(modelKey, entry.ok ? 'ready' : 'error');
+        if (entry.event === 'built') setStatus(modelKey, entry.ok ? 'ready' : 'error', entry.count);
     }
 
     // Log (tekstowy)

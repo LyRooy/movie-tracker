@@ -55,6 +55,21 @@ class DatabaseManager:
         
         print(f"DEBUG SAVE D1 Status: {res.status_code} | Body: {res.text}")
 
+    def fetch_users(self):
+        """Zwraca listę użytkowników (id, nickname) z bazy.
+
+        Używane przez scheduler rekomendacji, żeby w logach postępu i wynikach
+        pokazywać dla jakiego użytkownika wyliczane są rekomendacje.
+        """
+        sql_query = "SELECT id, nickname FROM users ORDER BY id"
+        payload = {"sql": sql_query}
+        res = requests.post(self.endpoint, json=payload, headers=self.headers)
+        if res.status_code == 200:
+            data = res.json().get("result", [])
+            rows = data[0].get('results', []) if data else []
+            return [{"user_id": r["id"], "nickname": r["nickname"]} for r in rows] if rows else []
+        return []
+
     def fetch_movies_metadata(self):
         if not os.path.exists(self.local_db_path):
             print("BŁĄD: Brak pliku lokalnej bazy danych!")

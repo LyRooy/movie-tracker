@@ -33,7 +33,8 @@ var (
 )
 
 // initProgressState inicjalizuje magazyn stanów i rejestruje endpointy
-// связанные z live postepem modeli (trzeba wywolac przed uruchomieniem routera).
+//
+//	live postępy modeli (trzeba wywolac przed uruchomieniem routera).
 func initProgressState(baseURL string) {
 	if models == nil {
 		models = map[string]ModelState{
@@ -138,6 +139,8 @@ type ModelState struct {
 	Status string        `json:"status"` // not_started/running/ready/error
 	Events []ModelStatus `json:"events"`
 	Logs   []ModelStatus `json:"logs"`
+	// Count to liczba zapisanych rekomendacji (dla eventów "built").
+	Count *int `json:"count"`
 }
 
 // modelHasData zwraca true, jeśli ModelState ma jakies dane (status ustawiony lub events/logs).
@@ -192,17 +195,19 @@ func mergePythonState(baseURL string) {
 	if fetched, ok := fetchPythonProgress(baseURL); ok {
 		for key, fetchedState := range fetched {
 			cur, exists := models[key]
-			if !exists {
-				models[key] = fetchedState
-				continue
-			}
-			// Zdarzenia i logi sa idempotentne (duplikaty po event/message)
-			cur.Events = append(cur.Events, fetchedState.Events...)
-			cur.Logs = append(cur.Logs, fetchedState.Logs...)
-			if fetchedState.Status == "running" || fetchedState.Status == "ready" || fetchedState.Status == "error" {
+			// Python (tracker) zwraca kompletna, rosna liste events/logs, wiec
+			// NADPISUJEMY lokalny stan zamiast doklejac (append). Append bez
+			// deduplikacji powodowal "duchy" — stare logi ponowny render w DOM
+			// przy kazdym odpytaniu /admin/progress (WS onclose + pierwszy load).
+			if exists {
 				cur.Status = fetchedState.Status
+				if fetchedState.Count != nil {
+					cur.Count = fetchedState.Count
+				}
+				models[key] = cur
+			} else {
+				models[key] = fetchedState
 			}
-			models[key] = cur
 		}
 	}
 }

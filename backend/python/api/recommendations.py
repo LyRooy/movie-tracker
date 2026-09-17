@@ -27,8 +27,13 @@ async def verify_api_key(header: str = Security(APIKeyHeader(name="X-API-Key", a
         return header
     raise HTTPException(status_code=403, detail="Niepoprawny klucz API")
 
-@router.get("/{user_id}/recommendations", dependencies=[Depends(verify_api_key)])
-async def get_recommendations(user_id: int):
+async def compute_recommendations(user_id: int) -> dict:
+    """Jądro obliczania rekomendacji dla jednego użytkownika.
+
+    Zwraca obiekt JSON z rekomendacjami CF/CB. Zapisuje wyniki do bazy
+    (cloudflare D1) raz na 30 minut (CACHE_MINUTES). Używane zarówno przez
+    endpointy publiczne jak i przez scheduler w tle (generowany przez admina).
+    """
     results = {
         "status": "success",
         "user_id": user_id,
@@ -56,7 +61,7 @@ async def get_recommendations(user_id: int):
         trainset = Dataset.load_from_df(df_cf, reader).build_full_trainset()
         
         if not model_manager.cf_model: 
-            model_manager.build_collaborative_filtering_model(trainset)
+            model_manager.build_collaborative_filtering_model(trainset, user_id)
             
         movies_df = db.fetch_movies_metadata()
         if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
@@ -71,7 +76,7 @@ async def get_recommendations(user_id: int):
                     })
             cf_recs.sort(key=lambda x: x["rating"], reverse=True)
             db.save_cached_recommendations(user_id, cf_recs[:10], CACHE_MINUTES, REC_TYPE_CF)
-            results["collaborative"]["data"] = cf_recs[:10]
+            model_manager.record_count("cf", len(cf_recs[:10]))
         else:
             results["collaborative"]["message"] = "Brak modelu CF lub lokalnej bazy."
 
@@ -89,22 +94,22 @@ async def get_recommendations(user_id: int):
             if model_manager.tfidf_matrix is None:
                 movies_features_df = db.fetch_movies_features()
                 if movies_features_df is not None and not movies_features_df.empty:
-                    model_manager.build_content_based_model(movies_features_df)
+                    model_manager.build_content_based_model(movies_features_df, user_id)
             
             if model_manager.tfidf_matrix is not None and model_manager.movie_id_map is not None and model_manager.movie_indices is not None:
                 similar_scores = {}
                 for m_id in good_movies:
                     if m_id in model_manager.movie_indices:
                         idx = model_manager.movie_indices[m_id]
-                        # Obliczamy podobieństwo wektorów w locie tylko względem tego jednego filmu
+                        # Obliczanie podobieństwa kosinusowego między filmem ocenionym pozytywnie a wszystkimi innymi filmami
                         cosine_sim = cosine_similarity(model_manager.tfidf_matrix[idx], model_manager.tfidf_matrix).flatten()
                         
                         for sim_idx, score in enumerate(cosine_sim):
-                            if score > 0.01: # Pomijamy filmy zupełnie niepodobne (optymalizacja)
+                            if score > 0.01: # tylko znaczące podobieństwa
                                 sim_movie_id = int(model_manager.movie_id_map[sim_idx])
                                 if sim_movie_id not in rated_movie_ids:
                                     similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
-                                
+                    
                 if similar_scores:
                     sorted_sims = sorted(similar_scores.items(), key=lambda x: x[1], reverse=True)[:10]
                     max_score = sorted_sims[0][1] if sorted_sims else 1
@@ -122,6 +127,11 @@ async def get_recommendations(user_id: int):
                     results["content_based"]["data"] = cb_recs
 
     return results
+
+
+@router.get("/{user_id}/recommendations", dependencies=[Depends(verify_api_key)])
+async def get_recommendations(user_id: int):
+    return await compute_recommendations(user_id)
 
 @router.get("/{user_id}/recommendations/force-recalculate", dependencies=[Depends(verify_api_key)])
 async def force_recalculate(user_id: int):
@@ -145,7 +155,7 @@ async def force_recalculate(user_id: int):
     
     reader = Reader(rating_scale=(1, 5))
     trainset = Dataset.load_from_df(df_cf, reader).build_full_trainset()
-    model_manager.build_collaborative_filtering_model(trainset)
+    model_manager.build_collaborative_filtering_model(trainset, user_id)
         
     movies_df = db.fetch_movies_metadata()
     if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
@@ -173,7 +183,7 @@ async def force_recalculate(user_id: int):
     else:
         movies_features_df = db.fetch_movies_features()
         if movies_features_df is not None and not movies_features_df.empty:
-            model_manager.build_content_based_model(movies_features_df)
+            model_manager.build_content_based_model(movies_features_df, user_id)
             
         if model_manager.tfidf_matrix is not None and model_manager.movie_id_map is not None and model_manager.movie_indices is not None:
             similar_scores = {}
@@ -202,6 +212,7 @@ async def force_recalculate(user_id: int):
                     })
                     
                 db.save_cached_recommendations(user_id, cb_recs, CACHE_MINUTES, REC_TYPE_CB)
+                model_manager.record_count("cb", len(cb_recs))
                 results["content_based"]["data"] = cb_recs
 
     return results

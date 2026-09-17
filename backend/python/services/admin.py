@@ -38,7 +38,13 @@ async def admin_ws(websocket: WebSocket):
             for model_key in ("cf", "cb"):
                 snap = tracker.snapshot(model_key)
                 new_events = snap["events"][sent_events[model_key]:]
-                for event in new_events:
+                # Liczba zapisanych rekomendacji (z /admin/status) dołączana do
+                # eventu "built", żeby licznik na dashboardzie się zaktualizował.
+                events_with_count = [
+                    {**event, "count": snap["count"]} if event["event"] == "built" else event
+                    for event in new_events
+                ]
+                for event in events_with_count:
                     await websocket.send_json({"type": "event", "model": model_key, **event})
                 sent_events[model_key] = len(snap["events"])
 

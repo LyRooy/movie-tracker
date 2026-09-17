@@ -12,12 +12,17 @@ class ProgressTracker:
     """
     def __init__(self):
         self._lock = threading.Lock()
-        # klucze: "cf" / "cb" — inicjalizowane od razu, zeby /admin/ws nie
-        # rzucal KeyError zanim jakikolwiek model zacznie sie budowac.
+        # klucze: "cf" / "cb" — inicjalizowane od razu, żeby /admin/ws nie
+        # rzucał KeyError zanim jakikolwiek model zacznie sie budować.
         self.models = {
-            "cf": {"status": "not_started", "events": [], "logs": []},
-            "cb": {"status": "not_started", "events": [], "logs": []},
+            "cf": {"status": "not_started", "events": [], "logs": [], "count": None},
+            "cb": {"status": "not_started", "events": [], "logs": [], "count": None},
         }
+
+    def record_count(self, key, count):
+        """Zapisz liczbę zapisanych rekomendacji dla modelu (pokazana w liczniku)."""
+        with self._lock:
+            self.models[key]["count"] = count
 
     def _model(self, key):
         if key not in self.models:
@@ -54,6 +59,7 @@ class ProgressTracker:
                 "status": self._model(key)["status"],
                 "events": list(self._model(key)["events"]),
                 "logs": list(self._model(key)["logs"]),
+                "count": self._model(key).get("count"),
             }
 
 
@@ -68,25 +74,25 @@ class RecommendationModelManager:
         self.movie_indices = None
         self.movie_id_map = None # Błyskawiczne mapowanie ID bez odpytywania bazy
 
-    def build_collaborative_filtering_model(self, trainset):
-        tracker.start("cf", "CF", "Budowanie modelu Collaborative Filtering")
+    def build_collaborative_filtering_model(self, trainset, user_id=None):
+        tracker.start("cf", "CF", f"Budowanie modelu Collaborative Filtering (user_id={user_id})")
         try:
             knn = KNNBasic(k=40, min_k=20, random_state=42)
             knn.fit(trainset)
             self.cf_model = knn
-            tracker.log("cf", "CF", "KNNBasic(k=40, min_k=20, random_state=42)")
-            tracker.finish("cf", "CF", ok=True, message="Model CF gotowy")
+            tracker.log("cf", "CF", f"KNNBasic(k=40, min_k=20, random_state=42) | user_id={user_id}")
+            tracker.finish("cf", "CF", ok=True, message=f"Model CF gotowy (user_id={user_id})")
             print("Model CF (KNNBasic) zbudowany poprawnie.")
         except Exception as e:
-            tracker.log("cf", "CF", f"Błąd: {e}", level="error")
-            tracker.finish("cf", "CF", ok=False, message=str(e))
+            tracker.log("cf", "CF", f"Błąd: {e} | user_id={user_id}", level="error")
+            tracker.finish("cf", "CF", ok=False, message=f"Błąd budowania modelu CF (user_id={user_id})")
             print(f"Błąd budowania modelu CF: {e}")
 
-    def build_content_based_model(self, movies_df):
-        tracker.start("cb", "CB", "Budowanie modelu Content-Based")
+    def build_content_based_model(self, movies_df, user_id=None):
+        tracker.start("cb", "CB", f"Budowanie modelu Content-Based (user_id={user_id})")
         try:
             print("Budowanie macierzy rzadkiej TF-IDF dla Content-Based...")
-            tracker.log("cb", "CB", "Łączenie cech: genres, director, cast, overview")
+            tracker.log("cb", "CB", f"Łączenie cech: genres, director, cast, overview | user_id={user_id}")
             
             movies_df['combined_features'] = (
                 movies_df['genres'] + " " + 
@@ -99,15 +105,15 @@ class RecommendationModelManager:
             
             tfidf = TfidfVectorizer(stop_words='english')
             self.tfidf_matrix = tfidf.fit_transform(movies_df['combined_features'])
-            tracker.log("cb", "CB", f"Macierz TF-IDF: {self.tfidf_matrix.shape[0]} filmów x {self.tfidf_matrix.shape[1]} wymiarów")
+            tracker.log("cb", "CB", f"Macierz TF-IDF: {self.tfidf_matrix.shape[0]} filmów x {self.tfidf_matrix.shape[1]} wymiarów | user_id={user_id}")
             
             self.movie_indices = pd.Series(movies_df.index, index=movies_df['id']).drop_duplicates()
             self.movie_id_map = movies_df['id'].values
-            tracker.log("cb", "CB", f"Zmapowano {len(self.movie_id_map)} filmów")
-            tracker.finish("cb", "CB", ok=True, message="Model CB gotowy")
+            tracker.log("cb", "CB", f"Zmapowano {len(self.movie_id_map)} filmów | user_id={user_id}")
+            tracker.finish("cb", "CB", ok=True, message=f"Model CB gotowy (user_id={user_id})")
             print("Model CB (TF-IDF) zbudowany poprawnie.")
             
         except Exception as e:
-            tracker.log("cb", "CB", f"Błąd: {e}", level="error")
-            tracker.finish("cb", "CB", ok=False, message=str(e))
+            tracker.log("cb", "CB", f"Błąd: {e} | user_id={user_id}", level="error")
+            tracker.finish("cb", "CB", ok=False, message=f"Błąd budowania modelu CB (user_id={user_id})")
             print(f"Błąd budowania modelu CB: {e}")

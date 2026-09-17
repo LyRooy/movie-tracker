@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MVT Reco Admin — Dashboard</title>
-    
-    <link rel="stylesheet" href="/static/css/dashboard.css?v=4">
-    <script src="/static/js/theme.js?v=5"></script>
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=12">
+    <script src="/static/js/theme.js?v=8"></script>
 </head>
 <body>
 
@@ -23,51 +22,101 @@
 </nav>
 
 <main class="main">
-    <div class="container">
+    <div class="container-grid">
 
-        <div class="card">
-            <div class="card-header">Status połączenia z silnikiem rekomendacji</div>
-            <div class="status-row">
-                <span class="status-dot online"></span>
-                <span>Python FastAPI &mdash; <strong>Online</strong></span>
+        <!-- KOLUMNA 1: LOGI I POSTĘP -->
+        <div class="grid-col col-left">
+            <div class="card">
+                <div class="card-header">Status połączenia z silnikiem rekomendacji</div>
+                <div class="status-row">
+                    <span class="status-dot online"></span>
+                    <span>Python FastAPI: <strong>Online</strong></span>
+                </div>
             </div>
-        </div>
 
-        <div class="card terminal-card">
-            <div class="card-header">Terminal Logów (Live)</div>
-            <div class="log-panel" id="log-panel">
-                <div class="log-entry info"><span class="log-time">--:--:--</span><span class="log-model">[SYS]</span><span class="log-level">INFO</span><span class="log-msg">Czekanie na zdarzenia AI...</span></div>
+            <div class="card terminal-card" style="flex-grow: 1;">
+                <div class="card-header">Terminal Logów (Live)</div>
+                <div class="log-panel" id="log-panel">
+                    <div class="log-entry info"><span class="log-time">--:--:--</span><span class="log-model">[SYS]</span><span class="log-level">INFO</span><span class="log-msg">Czekanie na zdarzenia AI...</span></div>
+                </div>
             </div>
-        </div>
 
-        <div class="card">
-            <div class="card-header">Wyniki wysłane do bazy danych</div>
-            <div class="result-grid">
-                <div>
-                    <div class="progress-label">
-                        <span>Collaborative Filtering</span>
-                        <span id="cf-status" class="status-value">oczekuje</span>
+            <div class="card">
+                <div class="card-header">Wyniki wysłane do bazy danych</div>
+                <div class="result-grid">
+                    <!-- CF -->
+                    <div>
+                        <div class="progress-label">
+                            <span>Collaborative Filtering</span>
+                            <span id="cf-status" class="status-value">oczekuje</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="cf-fill" class="progress-fill"></div>
+                        </div>
+                        <div class="loss-row">
+                            <span class="loss-label">Rekomendacje:</span>
+                            <span id="cf-count" class="loss-value">0</span>
+                        </div>
                     </div>
-                    <div class="progress-track">
-                        <div id="cf-fill" class="progress-fill"></div>
+                    <!-- CB -->
+                    <div>
+                        <div class="progress-label">
+                            <span>Content-Based</span>
+                            <span id="cb-status" class="status-value">oczekuje</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="cb-fill" class="progress-fill"></div>
+                        </div>
+                        <div class="loss-row">
+                            <span class="loss-label">Rekomendacje:</span>
+                            <span id="cb-count" class="loss-value">0</span>
+                        </div>
                     </div>
-                    <div class="loss-row">
-                        <span class="loss-label">Rekomendacje:</span>
-                        <span id="cf-count" class="loss-value">0</span>
+                    <!-- LLM -->
+                    <div>
+                        <div class="progress-label">
+                            <span>LLM (vLLM / Ollama)</span>
+                            <span id="llm-status" class="status-value">oczekuje</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="llm-fill" class="progress-fill"></div>
+                        </div>
+                        <div class="loss-row">
+                            <span class="loss-label">Wygenerowane z RAG:</span>
+                            <span id="llm-count" class="loss-value">0</span>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <div class="progress-label">
-                        <span>Content-Based</span>
-                        <span id="cb-status" class="status-value">oczekuje</span>
+            </div>
+        </div>
+
+        <!-- KOLUMNA 2: SWAGGER UI -->
+        <div class="grid-col col-mid">
+            <div class="card swagger-card">
+                <div class="card-header" style="margin: 1rem 1rem 0;">Dokumentacja API (Swagger UI)</div>
+                <!-- Ramka na port 8000, gdzie działa FastAPI -->
+                <iframe src="https://mvt-api.110187.xyz/docs" class="swagger-frame" title="Swagger UI"></iframe>
+            </div>
+        </div>
+
+        <!-- KOLUMNA 3: CHAT LLM SZKIELET -->
+        <div class="grid-col col-right">
+            <div class="card chat-card">
+                <div class="card-header">Asystent LLM (Wkrótce)</div>
+                
+                <div class="chat-messages">
+                    <div class="chat-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <p>Moduł interfejsu konwersacyjnego LLM nie jest jeszcze połączony z API.</p>
+                        <span style="font-size: 0.75rem; opacity: 0.7;">(Czeka na wdrożenie 3. modelu)</span>
                     </div>
-                    <div class="progress-track">
-                        <div id="cb-fill" class="progress-fill"></div>
-                    </div>
-                    <div class="loss-row">
-                        <span class="loss-label">Rekomendacje:</span>
-                        <span id="cb-count" class="loss-value">0</span>
-                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <input type="text" placeholder="Zapytaj asystenta AI..." disabled>
+                    <button disabled>Wyślij</button>
                 </div>
             </div>
         </div>
@@ -75,7 +124,6 @@
     </div>
 </main>
 
-<script src="/static/js/dashboard.js?v=5"></script>
-
+<script src="/static/js/dashboard.js?v=8"></script>
 </body>
 </html>

@@ -45,6 +45,7 @@ def compute_recommendations(user_id: int) -> dict:
     cf_cached = db.get_cached_recommendations(user_id, REC_TYPE_CF)
     if cf_cached:
         results["collaborative"]["data"] = cf_cached
+        tracker.log("cf", "CF", f"Pobrano {len(cf_cached)} rekomendacji z pamięci podręcznej D1 dla user_id={user_id}.")
     else:
         results["collaborative"]["source"] = "computed"
         df_cf = user_ratings.copy()
@@ -80,6 +81,7 @@ def compute_recommendations(user_id: int) -> dict:
     cb_cached = db.get_cached_recommendations(user_id, REC_TYPE_CB)
     if cb_cached:
         results["content_based"]["data"] = cb_cached
+        tracker.log("cb", "CB", f"Pobrano {len(cb_cached)} rekomendacji z pamięci podręcznej D1 dla user_id={user_id}.")
     else:
         results["content_based"]["source"] = "computed"
         good_movies = user_ratings[user_ratings['rating'] >= 4]['movie_id'].tolist()

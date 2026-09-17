@@ -33,6 +33,7 @@ class ProgressTracker:
         """Zaznaczenie rozpoczęcia budowania modelu."""
         with self._lock:
             m = self._model(key)
+            m["count"] = 0
             if m["status"] != "running":
                 m["status"] = "running"
                 m["events"].append({"t": round(time.time()*1000), "level": "info", "event": "building", "model": key, "name": name, "message": desc})

@@ -9,13 +9,15 @@ function fmtTime(ms) {
 
 function setStatus(model, status, count) {
     const map = {
-        not_started: {text: 'oczekuje', cls: 'oczekuje'},
-        running: {text: 'budowanie...', cls: 'running'},
-        ready: {text: 'gotowy', cls: 'ready'},
-        error: {text: 'błąd', cls: 'error'},
+        not_started: {text: 'oczekuje', cls: 'oczekuje', w: '0%'},
+        running: {text: 'budowanie...', cls: 'running', w: '15%'},
+        ready: {text: 'gotowy', cls: 'ready', w: '100%'},
+        error: {text: 'błąd', cls: 'error', w: '100%'},
     };
     const info = map[status] || map.not_started;
-    const base = model === 'cf' ? 'cf' : 'cb';
+    
+    // Dodana logika łapiąca klucz 'llm' dla trzeciego paska
+    const base = model === 'cf' ? 'cf' : (model === 'cb' ? 'cb' : 'llm');
     
     const statusEl = document.getElementById(base + '-status');
     if (statusEl) {
@@ -25,12 +27,16 @@ function setStatus(model, status, count) {
     
     const fillEl = document.getElementById(base + '-fill');
     if (fillEl) {
-        fillEl.style.width = (status === 'ready' ? '100%' : status === 'running' ? '50%' : '0%');
+        fillEl.style.width = info.w;
     }
     
     const countEl = document.getElementById(base + '-count');
-    if (countEl && count !== undefined && count !== null) {
-        countEl.textContent = count;
+    if (countEl) {
+        if (status === 'running') {
+            countEl.textContent = '0';
+        } else if (count !== undefined && count !== null) {
+            countEl.textContent = count;
+        }
     }
 }
 
@@ -38,7 +44,6 @@ function addLogEntry(entry) {
     const panel = document.getElementById('log-panel');
     if (!panel) return;
     
-    // POPRAWKA KRYTYCZNA: Używamy firstElementChild, żeby zignorować puste entery w HTML
     const firstElement = panel.firstElementChild;
     if (panel.children.length === 1 && firstElement && firstElement.classList.contains('info') && firstElement.innerText.includes('Czekanie')) {
         panel.innerHTML = '';
@@ -53,7 +58,6 @@ function addLogEntry(entry) {
         '<span class="log-msg">' + (entry.message || '') + '</span>';
     panel.appendChild(el);
     
-    // Ucinanie logów do najnowszych 30 linijek
     while (panel.children.length > MAX_LOGS) {
         panel.removeChild(panel.firstElementChild);
     }
@@ -76,7 +80,6 @@ function handleLog(entry) {
     addLogEntry({level: entry.level, ts: entry.t, model: entry.model, event: entry.level, message: entry.message});
 }
 
-// Składa stany podczas wejścia na stronę / twardego odświeżenia
 function applyModels(data) {
     if (!data) return;
     
@@ -99,7 +102,6 @@ function applyModels(data) {
         }
     }
     
-    // Posortuj logi od najstarszych do najnowszych i przytnij do 30
     allLogs.sort((a, b) => a.ts - b.ts);
     const lastLogs = allLogs.slice(-MAX_LOGS);
     
@@ -108,13 +110,12 @@ function applyModels(data) {
     lastLogs.forEach(log => addLogEntry(log));
 }
 
-// 1. Pierwsze załadowanie
+// Odświeżanie "no-store" omijające cache
 fetch('/admin/progress', { cache: 'no-store' })
     .then(r => r.json())
     .then(data => { if (data) applyModels(data); })
     .catch(() => {});
 
-// 2. Ciche synchronizowanie samych pasków i cyferek z szybkiej pamięci Go (omija błąd opóźnienia w Pythonie)
 setInterval(() => {
     fetch('/admin/progress', { cache: 'no-store' })
         .then(r => r.json())
@@ -129,7 +130,6 @@ setInterval(() => {
         .catch(() => {});
 }, 2000);
 
-// 3. Nasłuch na żywe zdarzenia z WebSocketa
 const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
 let ws;
 

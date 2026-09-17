@@ -12,8 +12,12 @@ class ProgressTracker:
     """
     def __init__(self):
         self._lock = threading.Lock()
-        # klucze: "cf" / "cb"
-        self.models = {}
+        # klucze: "cf" / "cb" — inicjalizowane od razu, zeby /admin/ws nie
+        # rzucal KeyError zanim jakikolwiek model zacznie sie budowac.
+        self.models = {
+            "cf": {"status": "not_started", "events": [], "logs": []},
+            "cb": {"status": "not_started", "events": [], "logs": []},
+        }
 
     def _model(self, key):
         if key not in self.models:

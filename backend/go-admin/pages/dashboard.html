@@ -488,7 +488,13 @@ body {
         ws.onmessage = function(event) {
             let data;
             try { data = JSON.parse(event.data); } catch (e) { return; }
-            if (data) applyModels(data);
+            if (!data || data.model !== currentModel) return;
+            // Go tylko przekazuje surowe wiadomosci z Pythona (plaskie obiekty
+            // {"type":"event"/"log","model":"cf",...}), nie zagniezdzony
+            // format {"cf":{...},"cb":{...}} jak /admin/progress.
+            if (data.type === 'event') handleEvent(data);
+            else if (data.type === 'log') handleLog(data);
+            // "ping" ignorujemy.
         };
 
         ws.onclose = function() {

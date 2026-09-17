@@ -208,22 +208,19 @@ func mergePythonState(baseURL string) {
 }
 
 // broadcastPush wysyla aktualne stany do wszystkich podlaczonych WebSocket.
+// Zwraca poprawny obiekt JSON postaci {"cf": {...}, "cb": {...}} — wczesniej
+// sklejano zserializowane obiekty przecinkiem bez otaczajacych klamer, co
+// dawalo niepoprawny JSON i r.json() w przegladarce rzucalo wyjatek (cicho
+// łapany przez .catch(() => {})).
 func broadcastPush(w http.ResponseWriter) {
 	stateMu.RLock()
 	defer stateMu.RUnlock()
 
-	payload := make([]byte, 0, 4096)
-	for key, state := range models {
-		b, err := json.Marshal(state)
-		if err != nil {
-			log.Printf("Blad marshal JSON stanu modelu %s: %v", key, err)
-			continue
-		}
-		payload = append(payload, b...)
-		payload = append(payload, ',')
-	}
-	if len(payload) > 0 {
-		payload = payload[:len(payload)-1]
+	payload, err := json.Marshal(models)
+	if err != nil {
+		log.Printf("Blad marshal JSON stanu modeli: %v", err)
+		http.Error(w, "Blad serializacji stanu modeli", http.StatusInternalServerError)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(payload)

@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from services.model_manager import tracker
 
@@ -23,16 +24,30 @@ async def model(model: str):
 
 @router.websocket("/ws")
 async def admin_ws(websocket: WebSocket):
-    """WebSocket do live streamowania postępu modeli."""
+    """WebSocket do live streamowania postępu modeli.
+
+    Wysyła tylko nowe zdarzenia/logi (od ostatnio wysłanego indeksu), zamiast
+    całej historii w kółko — inaczej strumień rósł w nieskończoność i zalewał
+    połączenie duplikatami przy każdej iteracji pętli.
+    """
     await websocket.accept()
+    sent_events = {"cf": 0, "cb": 0}
+    sent_logs = {"cf": 0, "cb": 0}
     try:
         while True:
             for model_key in ("cf", "cb"):
-                for event in tracker.models[model_key]["events"]:
+                snap = tracker.snapshot(model_key)
+                new_events = snap["events"][sent_events[model_key]:]
+                for event in new_events:
                     await websocket.send_json({"type": "event", "model": model_key, **event})
-                for log in tracker.models[model_key]["logs"]:
+                sent_events[model_key] = len(snap["events"])
+
+                new_logs = snap["logs"][sent_logs[model_key]:]
+                for log in new_logs:
                     await websocket.send_json({"type": "log", "model": model_key, **log})
+                sent_logs[model_key] = len(snap["logs"])
             await websocket.send_json({"type": "ping"})
+            await asyncio.sleep(1)
     except WebSocketDisconnect:
         print("Połączenie WebSocket panelu admina rozłączone.")
     except Exception as e:

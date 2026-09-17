@@ -36,5 +36,7 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Ignoruj pliki txt
+# Ignoruj pliki txt i synchroonizowane do serwera
 *.txt
+*.syncthing
+.syncthing*

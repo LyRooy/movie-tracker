@@ -28,12 +28,6 @@ async def verify_api_key(header: str = Security(APIKeyHeader(name="X-API-Key", a
     raise HTTPException(status_code=403, detail="Niepoprawny klucz API")
 
 def compute_recommendations(user_id: int) -> dict:
-    """Jądro obliczania rekomendacji dla jednego użytkownika.
-
-    Zwraca obiekt JSON z rekomendacjami CF/CB. Zapisuje wyniki do bazy
-    (cloudflare D1) raz na 30 minut (CACHE_MINUTES). Używane zarówno przez
-    endpointy publiczne jak i przez scheduler w tle (generowany przez admina).
-    """
     results = {
         "status": "success",
         "user_id": user_id,
@@ -75,8 +69,10 @@ def compute_recommendations(user_id: int) -> dict:
                         "confidence_interval": [0.0, 0.0]
                     })
             cf_recs.sort(key=lambda x: x["rating"], reverse=True)
-            db.save_cached_recommendations(user_id, cf_recs[:10], CACHE_MINUTES, REC_TYPE_CF)
-            tracker.record_count("cf", len(cf_recs[:10]))
+            top_cf = cf_recs[:10]
+            db.save_cached_recommendations(user_id, top_cf, CACHE_MINUTES, REC_TYPE_CF)
+            tracker.record_count("cf", len(top_cf))
+            tracker.log("cf", "CF", f"Wygenerowano {len(top_cf)} rekomendacji dla user_id={user_id}. Top ID: {[r['movie_id'] for r in top_cf[:3]]}")
         else:
             results["collaborative"]["message"] = "Brak modelu CF lub lokalnej bazy."
 
@@ -101,11 +97,10 @@ def compute_recommendations(user_id: int) -> dict:
                 for m_id in good_movies:
                     if m_id in model_manager.movie_indices:
                         idx = model_manager.movie_indices[m_id]
-                        # Obliczanie podobieństwa kosinusowego między filmem ocenionym pozytywnie a wszystkimi innymi filmami
                         cosine_sim = cosine_similarity(model_manager.tfidf_matrix[idx], model_manager.tfidf_matrix).flatten()
                         
                         for sim_idx, score in enumerate(cosine_sim):
-                            if score > 0.01: # tylko znaczące podobieństwa
+                            if score > 0.01:
                                 sim_movie_id = int(model_manager.movie_id_map[sim_idx])
                                 if sim_movie_id not in rated_movie_ids:
                                     similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
@@ -124,10 +119,11 @@ def compute_recommendations(user_id: int) -> dict:
                         })
                         
                     db.save_cached_recommendations(user_id, cb_recs, CACHE_MINUTES, REC_TYPE_CB)
+                    tracker.record_count("cb", len(cb_recs))
+                    tracker.log("cb", "CB", f"Wygenerowano {len(cb_recs)} rekomendacji dla user_id={user_id}. Top ID: {[r['movie_id'] for r in cb_recs[:3]]}")
                     results["content_based"]["data"] = cb_recs
 
     return results
-
 
 @router.get("/{user_id}/recommendations", dependencies=[Depends(verify_api_key)])
 def get_recommendations(user_id: int):
@@ -171,6 +167,8 @@ def force_recalculate(user_id: int):
         cf_recs.sort(key=lambda x: x["rating"], reverse=True)
         top_cf_recs = cf_recs[:10]
         db.save_cached_recommendations(user_id, top_cf_recs, CACHE_MINUTES, REC_TYPE_CF)
+        tracker.record_count("cf", len(top_cf_recs))
+        tracker.log("cf", "CF", f"Wymuszono przeliczenie. Zapisano {len(top_cf_recs)} rec (CF) dla user_id={user_id}.")
         results["collaborative"]["data"] = top_cf_recs
     else:
         results["collaborative"]["message"] = "Brak modelu CF lub lokalnej bazy."
@@ -213,6 +211,7 @@ def force_recalculate(user_id: int):
                     
                 db.save_cached_recommendations(user_id, cb_recs, CACHE_MINUTES, REC_TYPE_CB)
                 tracker.record_count("cb", len(cb_recs))
+                tracker.log("cb", "CB", f"Wymuszono przeliczenie. Zapisano {len(cb_recs)} rec (CB) dla user_id={user_id}.")
                 results["content_based"]["data"] = cb_recs
 
     return results

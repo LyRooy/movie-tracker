@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MVT Reco Admin — Dashboard</title>
     
-    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=4">
+    <script src="/static/js/theme.js?v=5"></script>
 </head>
 <body>
 
@@ -32,26 +33,10 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header">Wybierz do podglądu</div>
-            <div class="model-selector">
-                <div class="model-chip active" data-model="cf">
-                    <span class="status-dot not_started" id="chip-dot-cf"></span>
-                    <span class="model-chip-name">CF</span>
-                    <span class="model-chip-desc">Collaborative Filtering (KNN)</span>
-                </div>
-                <div class="model-chip" data-model="cb">
-                    <span class="status-dot not_started" id="chip-dot-cb"></span>
-                    <span class="model-chip-name">CB</span>
-                    <span class="model-chip-desc">Content-Based (TF-IDF)</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">live logi</div>
+        <div class="card terminal-card">
+            <div class="card-header">Terminal Logów (Live)</div>
             <div class="log-panel" id="log-panel">
-                <div class="log-entry info"><span class="log-time">--:--:--</span><span class="log-model">&mdash;</span><span class="log-level">INFO</span><span class="log-msg">Czekanie na start budowania modeli...</span></div>
+                <div class="log-entry info"><span class="log-time">--:--:--</span><span class="log-model">[SYS]</span><span class="log-level">INFO</span><span class="log-msg">Czekanie na zdarzenia AI...</span></div>
             </div>
         </div>
 
@@ -90,8 +75,7 @@
     </div>
 </main>
 
-<script src="/static/js/theme.js?v=3"></script>
-<script src="/static/js/dashboard.js"></script>
-</body>
+<script src="/static/js/dashboard.js?v=5"></script>
 
+</body>
 </html>

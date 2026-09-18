@@ -260,7 +260,7 @@ body {
 .dashboard-layout {
     display: grid;
     grid-template-columns: 220px 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
     align-items: start;
 }
 
@@ -268,7 +268,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding-top: 3.5rem;
 }
 
 /* W prawej kolumnie: "Dla ciebie" NAD "Top filmy" (obie w kolumnie 2, ułożone pionowo)

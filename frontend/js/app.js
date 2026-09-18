@@ -2689,6 +2689,7 @@ async triggerFastApiRecalculation() {
             const card = document.createElement('div');
             card.className = 'for-you-card';
             card.dataset.movieId = m.id;
+            const poster = this.getPosterUrl(m);
 
             const cfLabel = m.recType === 'content_based'
                 ? `<span class="for-you-card-cf">CB</span>`
@@ -2703,7 +2704,7 @@ async triggerFastApiRecalculation() {
 
             card.innerHTML = `
                 ${cfLabel}
-                <img src="${this.escapeHtml(m.poster_url || m.poster_path)}" alt="${this.escapeHtml(m.title || '')}" loading="lazy">
+                <img src="${poster}" alt="${this.escapeHtml(m.title || '')}" loading="lazy">
                 <div class="for-you-card-body">
                     <div class="for-you-card-title">${this.escapeHtml(m.title || '')}</div>
                     <div class="for-you-card-meta">
@@ -2778,7 +2779,7 @@ async triggerFastApiRecalculation() {
                 // Cofamy scrolla, by nie było zacięcia
                 track.scrollLeft -= scrollAmount;
                 this._isScrolling = false;
-            }, 400);
+            }, 250);
         }
     }
 

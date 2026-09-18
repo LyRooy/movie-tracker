@@ -515,13 +515,12 @@ body {
     pointer-events: none; 
 }
 
-/* Przyklejenie strzałek do boków kontenera */
 .for-you-arrow.for-you-prev {
-    left: -15px; 
+    left: -20px; 
 }
 
 .for-you-arrow.for-you-next {
-    right: -15px; 
+    right: -20px; 
 }
 
 .for-you-card {
@@ -639,8 +638,8 @@ body {
     align-items: center;
     gap: 0.5rem;
     width: 100%;
-    /* Zabezpieczenie przed rozpychaniem */
     min-width: 0; 
+    padding: 0 1rem;
 }
 
 .for-you-track {
@@ -648,10 +647,11 @@ body {
     display: flex;
     gap: 0.75rem;
     overflow-x: hidden; 
-    scroll-snap-type: x mandatory;
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding-bottom: 0.5rem;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%);
 }
 
 .for-you-track::-webkit-scrollbar {

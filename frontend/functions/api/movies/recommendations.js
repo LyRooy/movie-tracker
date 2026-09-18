@@ -72,10 +72,17 @@ const rows = await env.db.prepare(`
 
     // Przekształć w pełne obiekty filmów z typem rekomendacji
     const recommendations = rows.results.map(r => {
-      const poster = r.poster_path
-        ? `https://image.tmdb.org/t/p/w200${r.poster_path}`
-        : 'https://placehold.co/200x300/cccccc/666666/png?text=?';
-
+      let poster = r.poster_path || r.poster_url;
+      if (poster) {
+          // Jeśli nie jest pełnym adresem, doklej TMDb
+          if (!poster.startsWith('http')) {
+              poster = `https://image.tmdb.org/t/p/w200${poster}`;
+          }
+      } else {
+          // Zielony placeholder z wkodowanym tytułem filmu
+          poster = `https://placehold.co/200x300/4CAF50/white/png?text=${encodeURIComponent(r.title || '?')}`;
+      }
+      
       return {
         id: r.movie_id,
         title: r.title,

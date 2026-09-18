@@ -420,6 +420,198 @@ body {
     border-radius: 4px;
 }
 
+/* Pasek rekomendacji "Dla ciebie" */
+.for-you-carousel-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.for-you-carousel-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.for-you-carousel-header h2 {
+    margin: 0;
+}
+
+.for-you-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.for-you-track {
+    display: -webkit-box;
+    -webkit-box-orient: horizontal;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    overflow: hidden;
+    cursor: grab;
+    scroll-snap-type: x proximity;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.for-you-track::-webkit-scrollbar {
+    display: none;
+}
+
+.for-you-track.is-loading {
+    cursor: default;
+}
+
+.for-you-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--surface-color);
+    color: var(--text-color);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.for-you-arrow:hover {
+    background: var(--secondary-color);
+    color: #fff;
+    border-color: var(--secondary-color);
+}
+
+.for-you-arrow i {
+    font-size: 0.9rem;
+}
+
+.for-you-arrow:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.for-you-card {
+    position: relative;
+    scroll-snap-align: start;
+    background: var(--surface-color);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.for-you-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+
+.for-you-card img {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    display: block;
+}
+
+.for-you-card-body {
+    padding: 0.5rem;
+}
+
+.for-you-card-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-color);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    margin-bottom: 0.25rem;
+}
+
+.for-you-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.for-you-card-recommended {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: var(--secondary-color);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+}
+
+.for-you-card-imdb {
+    color: var(--secondary-color);
+    font-weight: 700;
+}
+
+.for-you-card-genres {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+}
+
+.for-you-card-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.for-you-card-empty i {
+    font-size: 2.5rem;
+    color: var(--border-color);
+    margin-bottom: 0.5rem;
+}
+
+.for-you-card-cf {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Responsywność paska rekomendacji */
+@media (max-width: 768px) {
+    .for-you-arrow {
+        width: 2rem;
+        height: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .for-you-track {
+        gap: 0.6rem;
+    }
+    .for-you-card {
+        width: 130px;
+    }
+    .for-you-subtitle {
+        display: none;
+    }
+}
+
 
 .theme-toggle {
     background: none;

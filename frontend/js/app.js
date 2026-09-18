@@ -11,6 +11,12 @@ class MovieTracker {
         this.currentListStatus = 'all'; // Śledź aktualnie wybrany status w Mojej Liście
         this.tokenCheckInterval = null; // Sprawdzacz wygaśnięcia tokenu
         
+        // Stan paska rekomendacji "Dla ciebie"
+        this._recCount = 0;       // ile kart na tracku
+        this._recOffset = 0;      // aktualny offset scrollowania (karty)
+        this._recLoading = false; // flaga ładowania (blokuje przyciski)
+        this._recLoaded = false;  // czy dane już zostały przeładowane
+        
         // Właściwości kalendarza
         const now = new Date();
         this.calendarMonth = now.getMonth();
@@ -2524,6 +2530,227 @@ class MovieTracker {
         }
     }
 
+    // ============= PASEK REKOMENDACJI "DLA CIEBIE" =============
+    // Działa per-user: Worker (/api/movies/recommendations) czyta rekomendacje
+    // bezpośrednio z bazy D1 (env.db) a nie z backendu FastAPI.
+    // Dzięki temu strona działa nawet gdy serwer Python jest wyłączony.
+
+    // Wymusza przeładowanie rekomendacji (tylko po upływie cooldownu).
+    // Zwraca true jeśli przeładowanie odbyło się.
+    // Planuj pokazanie rekomendacji "Dla ciebie" w tle.
+    // Cooldown = 5 minut, żeby silnik zdążył policzyć rekomendacje.
+    // Po upływie 5 minut odświeża TYLKO sekcję "Dla ciebie" (nie całą stronę).
+    scheduleForYouRefresh() {
+        try {
+            const pendingKey = 'for-you-pending';
+            const pending = localStorage.getItem(pendingKey);
+            if (pending !== '1') {
+                localStorage.setItem(pendingKey, '1');
+                setTimeout(() => {
+                    localStorage.removeItem(pendingKey);
+                }, 5 * 60 * 1000); // 5 minut — czas na policzenie rekomendacji
+                // Odśwież TYLKO sekcję rekomendacji (nie całą stronę)
+                if (this.currentSection === 'dashboard') {
+                    this.loadRecommendations();
+                }
+            }
+        } catch {}
+    }
+
+    async loadRecommendations() {
+        // Przechowaj czy już przeładowałem — pozwala na ponowne kliknięcie
+        this._recLoaded = false;
+        this._recOffset = 0;
+        this._recCount = 20;
+
+        const container = document.getElementById('for-you-track');
+        if (!container) return;
+
+        // Pokaż placeholder "ładowanie"
+        container.classList.add('is-loading');
+        container.innerHTML = '';
+        const loader = document.createElement('div');
+        loader.className = 'for-you-card for-you-card-empty';
+        loader.innerHTML = `<i class="fas fa-spinner fa-spin"></i><p>Przygotowuję rekomendacje...</p>`;
+        container.appendChild(loader);
+
+        let data = [];
+        let status = 'loading';
+
+        try {
+            const res = await fetch('/api/movies/recommendations?limit=20', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (res.ok) {
+                data = await res.json();
+                status = data.results ? 'ok' : 'empty';
+            } else {
+                // Backend offline / błąd Worker → traktuj jako "brak rekomendacji"
+                status = 'empty';
+            }
+        } catch (e) {
+            // Degradacja łagodna — nigdy nie pokazuj surowego błędu użytkownikowi
+            console.error('loadRecommendations error', e);
+            status = 'empty';
+        }
+
+        this._recLoaded = true;
+        this.renderForYou(data.results || [], status);
+    }
+
+    renderForYou(movies, status) {
+        const track = document.getElementById('for-you-track');
+        if (!track) return;
+
+        track.classList.remove('is-loading');
+
+        track.innerHTML = '';
+
+        if (status === 'empty') {
+            const empty = document.createElement('div');
+            empty.className = 'for-you-card for-you-card-empty';
+            empty.innerHTML = `
+                <i class="fas fa-magic"></i>
+                <p>Wróć i obejrzyj kilka tytułów — dopasowuję rekomendacje do twojego gustu.</p>
+                <small>Po prostu oceniaj filmy, a "Dla ciebie" pojawi się tutaj.</small>`;
+            track.appendChild(empty);
+            this._recCount = 0;
+            return;
+        }
+
+        if (!movies || movies.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'for-you-card for-you-card-empty';
+            empty.innerHTML = `
+                <i class="fas fa-star"></i>
+                <p>Brak rekomendacji na razie. Oceń kilka filmów, a dopasujemy je do ciebie.</p>`;
+            track.appendChild(empty);
+            this._recCount = 0;
+            return;
+        }
+
+        const cardWrap = document.createElement('div');
+        cardWrap.className = 'for-you-card-inner';
+        cardWrap.style.width = `${this._recCount * 100}%`;
+        this._recCount = movies.length;
+
+        movies.forEach((m, i) => {
+            const card = document.createElement('div');
+            card.className = 'for-you-card';
+            card.dataset.movieId = m.id;
+
+            const cfLabel = m.recType === 'content_based'
+                ? `<span class="for-you-card-cf">CB</span>`
+                : `<span class="for-you-card-cf">CF</span>`;
+
+            const imdb = m.imdb_rating != null
+                ? `<span class="for-you-card-imdb">⭐ ${parseFloat(m.imdb_rating).toFixed(1)}</span>`
+                : '';
+            const genres = m.genre
+                ? `<span class="for-you-card-genres">${this.escapeHtml(m.genre)}</span>`
+                : '';
+
+            card.innerHTML = `
+                ${cfLabel}
+                <img src="${this.escapeHtml(m.poster_url || m.poster_path)}" alt="${this.escapeHtml(m.title || '')}" loading="lazy">
+                <div class="for-you-card-body">
+                    <div class="for-you-card-title">${this.escapeHtml(m.title || '')}</div>
+                    <div class="for-you-card-meta">
+                        <span class="for-you-card-recommended">
+                            <i class="fas fa-wand-magic-sparkles"></i>
+                            ${parseFloat(m.recommended_rating).toFixed(1)}
+                        </span>
+                        ${imdb}
+                    </div>
+                    ${genres}
+                </div>
+            `;
+
+            card.addEventListener('click', () => {
+                const watched = this.watchedMovies.find(w => w.id === m.id || w.movie_id === m.id);
+                if (watched) {
+                    this.openMovieModal(watched, false);
+                } else {
+                    this.openMovieModal(m, false);
+                }
+            });
+
+            cardWrap.appendChild(card);
+        });
+
+        track.appendChild(cardWrap);
+
+        this._recOffset = 0;
+        this._syncForYouScroll();
+        this._bindForYouControls();
+    }
+
+    // Scroll tracka do danego offsetu (karty).
+    _scrollForYouTo(offset) {
+        const track = document.getElementById('for-you-track');
+        if (!track) return;
+        const card = track.querySelectorAll('.for-you-card')[offset];
+        if (card) {
+            track.scrollTo({ left: 0, behavior: 'smooth' });
+            card.scrollIntoView({ inline: 'start', behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    _bindForYouControls() {
+        const prev = document.getElementById('for-you-prev');
+        const next = document.getElementById('for-you-next');
+        if (!prev || !next) return;
+
+        prev.onclick = () => this._scrollForYouTo(this._recOffset - 1);
+        next.onclick = () => this._scrollForYouTo(this._recOffset + 1);
+
+        // Uchwyt do dotyku/scrolla — poruszanie palcem porusza paskiem.
+        let startX = 0;
+        let panning = false;
+        const track = document.getElementById('for-you-track');
+        if (track) {
+            track.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                panning = true;
+            }, { passive: true });
+
+            track.addEventListener('touchmove', (e) => {
+                if (!panning) return;
+                const dx = e.touches[0].clientX - startX;
+                if (Math.abs(dx) > 40) {
+                    this._scrollForYouTo(this._recOffset + (dx < 0 ? 1 : -1));
+                    startX = e.touches[0].clientX;
+                    panning = false;
+                }
+            }, { passive: true });
+
+            track.addEventListener('touchend', () => { panning = false; }, { passive: true });
+        }
+    }
+
+    _syncForYouScroll() {
+        // Odblokuj przyciski i podświetl aktywny
+        const prev = document.getElementById('for-you-prev');
+        const next = document.getElementById('for-you-next');
+        if (prev) prev.disabled = this._recOffset <= 0;
+        if (next) next.disabled = this._recOffset >= Math.max(0, this._recCount - 1);
+    }
+
+    // Obsługa klawiszy strzałek dla paska rekomendacji
+    bindArrowKeysForForYou() {
+        document.addEventListener('keydown', (e) => {
+            if (this.currentSection !== 'dashboard') return;
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                this._scrollForYouTo(Math.max(0, this._recOffset - 1));
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                this._scrollForYouTo(Math.min(Math.max(0, this._recCount - 1), this._recOffset + 1));
+            }
+        });
+    }
+
     displayRecentActivity() {
         const recentList = document.getElementById('recent-list');
         recentList.innerHTML = '';
@@ -3197,6 +3424,9 @@ class MovieTracker {
         const reviewText = document.getElementById('review-text').value;
         const statusSelect = document.getElementById('movie-status');
         const selectedStatus = statusSelect ? statusSelect.value : 'watched';
+
+        // Zaplanuj pokazanie rekomendacji "Dla ciebie" po 5 minutach (silnik w tle)
+        this.scheduleForYouRefresh();
 
         const movieData = {
             ...movie,
@@ -4588,6 +4818,9 @@ class MovieTracker {
                     // Synchronizuj motyw z preferencji użytkownika
                     const userTheme = data.user && data.user.theme_preference ? data.user.theme_preference : 'light';
                     localStorage.setItem('theme', userTheme);
+                    
+                    // Logowanie to aktywność -> uruchom silnik rekomendacji w tle
+                    this.scheduleForYouRefresh();
                     
                     // Przeładuj stronę z nowym stanem zalogowania
                     location.reload();

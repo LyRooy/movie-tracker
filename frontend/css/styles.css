@@ -374,8 +374,14 @@ body {
 
 .top-movies-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    /* WYMUSZAMY DOKŁADNIE 8 KOLUMN (zamiast auto-fill) */
+    grid-template-columns: repeat(8, 1fr); 
     gap: 0.75rem;
+    
+    /* Ukrywamy wszystko poniżej 4 wierszy (~4 x 260px wysokości) */
+    max-height: 1050px; 
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out;
 }
 
 .top-movie-card {
@@ -532,8 +538,9 @@ body {
 
 .for-you-card {
     position: relative;
-    width: 140px; /* Stała szerokość karty (podobnie jak w Top filmy) */
-    flex-shrink: 0; /* Karta się nie będzie kurczyć */
+    /* 100% szerokości tracka minus 7 przerw (gap 0.75rem), podzielone na 8 kart */
+    width: calc((100% - 7 * 0.75rem) / 8); 
+    flex-shrink: 0; /* Zabraniamy kartom się kurczyć - muszą trzymać szerokość */
     scroll-snap-align: start;
     background: var(--surface-color);
     border-radius: 8px;
@@ -4658,3 +4665,28 @@ body.transitions-enabled * {
     }
 }
 
+/* --- RESPONSYWNOŚĆ DLA 8 KOLUMN --- */
+@media (max-width: 1400px) {
+    .top-movies-grid { grid-template-columns: repeat(6, 1fr); }
+    .for-you-card { width: calc((100% - 5 * 0.75rem) / 6); }
+}
+
+@media (max-width: 1100px) {
+    .top-movies-grid { grid-template-columns: repeat(5, 1fr); }
+    .for-you-card { width: calc((100% - 4 * 0.75rem) / 5); }
+}
+
+@media (max-width: 860px) {
+    .top-movies-grid { grid-template-columns: repeat(4, 1fr); }
+    .for-you-card { width: calc((100% - 3 * 0.75rem) / 4); }
+}
+
+@media (max-width: 600px) {
+    .top-movies-grid { grid-template-columns: repeat(3, 1fr); }
+    .for-you-card { width: calc((100% - 2 * 0.75rem) / 3); }
+}
+
+@media (max-width: 480px) {
+    .top-movies-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .for-you-card { width: calc((100% - 1 * 0.6rem) / 2); }
+}

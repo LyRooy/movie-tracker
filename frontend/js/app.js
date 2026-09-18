@@ -2734,14 +2734,37 @@ async triggerFastApiRecalculation() {
     }
 
     // Scroll tracka do danego offsetu (karty).
-    _scrollForYouTo(direction) { // direction = 1 (w prawo) lub -1 (w lewo)
+    _scrollForYouTo(direction) {
         const track = document.getElementById('for-you-track');
-        if (!track) return;
-        
-        // Obliczamy przesunięcie o np. 70% szerokości całego paska
-        const scrollAmount = track.clientWidth * 0.7;
-        
-        track.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+        if (!track || track.children.length === 0 || this._isScrolling) return;
+
+        this._isScrolling = true; // Blokada przed spam-klikaniem
+
+        // Obliczamy dokładną szerokość przeskoku (karta + odstęp)
+        const firstCard = track.querySelector('.for-you-card');
+        const gap = parseFloat(getComputedStyle(track).gap || 12);
+        const scrollAmount = firstCard.offsetWidth + gap;
+
+        if (direction === -1) {
+            // W LEWO: Przenosimy ostatni element na początek
+            track.prepend(track.lastElementChild);
+            // Korygujemy scroll, żeby uniknąć wizualnego skoku
+            track.scrollLeft += scrollAmount;
+            // Odpalamy płynną animację dojazdu do nowej karty
+            track.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            
+            setTimeout(() => { this._isScrolling = false; }, 400);
+        } else {
+            // W PRAWO: Płynnie przesuwamy do kolejnej karty
+            track.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            
+            // Jak animacja się skończy, przenosimy pierwszy element na koniec
+            setTimeout(() => {
+                track.appendChild(track.firstElementChild);
+                track.scrollLeft -= scrollAmount;
+                this._isScrolling = false;
+            }, 400);
+        }
     }
 
     _bindForYouControls() {
@@ -2750,23 +2773,19 @@ async triggerFastApiRecalculation() {
         const track = document.getElementById('for-you-track');
         if (!track) return;
 
-        // Strzałki używają teraz kierunku (-1 / 1)
-        if (prev) prev.onclick = () => this._scrollForYouTo(-1);
-        if (next) next.onclick = () => this._scrollForYouTo(1);
+        // Strzałki są ZAWSZE włączone, bo pętla jest nieskończona
+        if (prev) {
+            prev.disabled = false;
+            prev.style.opacity = '0.9'; // Zabezpieczenie przed starym ukrywaniem
+            prev.onclick = () => this._scrollForYouTo(-1);
+        }
+        if (next) {
+            next.disabled = false;
+            next.style.opacity = '0.9';
+            next.onclick = () => this._scrollForYouTo(1);
+        }
 
-        // Funkcja do aktualizowania widoczności strzałek podczas natywnego scrollowania
-        const updateArrows = () => {
-            if (prev) prev.disabled = track.scrollLeft <= 10; // Ukryj lewą jeśli na początku
-            if (next) next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 10; // Ukryj prawą jeśli na końcu
-        };
-
-        // Podpinamy nasłuchiwanie na scroll
-        track.addEventListener('scroll', updateArrows, { passive: true });
-        
-        // Odpal raz na start, by sprawdzić czy wyłączyć lewą strzałkę
-        setTimeout(updateArrows, 100);
-
-        // Uchwyt do dotyku/scrolla — poruszanie palcem porusza paskiem.
+        // Obsługa gestu przeciągnięcia na telefonach (również w nieskończoność)
         let startX = 0;
         let panning = false;
         track.addEventListener('touchstart', (e) => {
@@ -2777,7 +2796,7 @@ async triggerFastApiRecalculation() {
         track.addEventListener('touchmove', (e) => {
             if (!panning) return;
             const dx = e.touches[0].clientX - startX;
-            if (Math.abs(dx) > 40) {
+            if (Math.abs(dx) > 40) { // Czułość przesunięcia palcem
                 this._scrollForYouTo(dx < 0 ? 1 : -1);
                 startX = e.touches[0].clientX;
                 panning = false;

@@ -439,6 +439,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    min-width: 0; 
+    max-width: 100%;
 }
 
 .for-you-carousel-header {
@@ -457,10 +459,10 @@ body {
 }
 
 .for-you-track {
+    flex: 1;
     display: flex;
     gap: 0.75rem;
-    overflow-x: auto; /* Zezwala na przewijanie poziome */
-    scroll-snap-type: x mandatory;
+    overflow-x: auto; 
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding-bottom: 0.5rem;
@@ -532,7 +534,6 @@ body {
     position: relative;
     width: 140px; 
     flex-shrink: 0;
-    scroll-snap-align: start;
     background: var(--surface-color);
     border-radius: 8px;
     overflow: hidden;
@@ -631,12 +632,15 @@ body {
     letter-spacing: 0.03em;
 }
 
-/* Nowy kontener układający strzałki na bokach */
+/* Kontener układający strzałki na bokach */
 .for-you-slider-container {
-    position: relative; /* Pozwala strzałkom na 'lewitację' nad plakatami */
+    position: relative; 
     display: flex;
     align-items: center;
+    gap: 0.5rem;
     width: 100%;
+    /* Zabezpieczenie przed rozpychaniem */
+    min-width: 0; 
 }
 
 .for-you-track {

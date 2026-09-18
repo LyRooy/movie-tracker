@@ -131,7 +131,7 @@ def compute_recommendations(user_id: int) -> dict:
 def get_recommendations(user_id: int):
     return compute_recommendations(user_id)
 
-@router.get("/{user_id}/recommendations/force-recalculate", dependencies=[Depends(verify_api_key)])
+@router.post("/{user_id}/recommendations/force-recalculate", dependencies=[Depends(verify_api_key)])
 def force_recalculate(user_id: int):
     results = {
         "status": "success",

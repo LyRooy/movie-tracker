@@ -2542,15 +2542,15 @@ class MovieTracker {
     // Cooldown = 5 minut, żeby silnik zdążył policzyć rekomendacje.
     // Po upływie 5 minut odświeża TYLKO sekcję "Dla ciebie" (nie całą stronę).
     // Nowa metoda do wywołania przeliczenia na FastAPI
-    async triggerFastApiRecalculation() {
+async triggerFastApiRecalculation() {
         if (!this.currentUser) return;
         try {
-            console.log("Wysyłam sygnał do FastAPI o przeliczenie rekomendacji...");
-            // Wywołanie endpointu (zmienić na GET jeśli backend tego wymaga, założyłem POST)
-            fetch(`https://mvt-api.110187.xyz/movies/user/${this.currentUser.id}/recommendations/force-recalculate`, {
+            console.log("Wysyłam sygnał do Workera o przeliczenie rekomendacji...");
+            // Wywołanie bezpiecznego Workera, który ma dostęp do kluczy
+            fetch('/api/movies/recalculate', {
                 method: 'POST',
                 headers: this.getAuthHeaders()
-            }).catch(e => console.warn('Błąd wywołania FastAPI:', e));
+            }).catch(e => console.warn('Błąd wywołania Workera:', e));
         } catch (e) {
             console.warn(e);
         }
@@ -2589,8 +2589,8 @@ class MovieTracker {
         // Pokaż placeholder ładowania
         container.classList.add('is-loading');
         container.innerHTML = `<div class="for-you-card-empty" style="width:100%; text-align:center;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 2.5rem; color: var(--secondary-color);"></i>
-            <p>Sprawdzam rekomendacje...</p>
+            <i class="fas fa-spinner fa-spin" style="font-size: 2.5rem; color: var(--secondary-color); margin-bottom: 1rem;"></i>
+            <p style="font-size: 1.1rem; font-weight: 600; color: var(--text-color);">Sprawdzam rekomendacje...</p>
         </div>`;
 
         let data = [];
@@ -2611,13 +2611,12 @@ class MovieTracker {
                 } else {
                     status = 'empty';
                     
-                    // 2. BRAK DANYCH W D1 -> Uderzamy w zwykły endpoint FastAPI żeby zaczął liczyć (zimny start)
+                    // 2. BRAK DANYCH W D1 -> Zimny start. 
+                    // Wywołujemy naszą bezpieczną metodę, która przez Workera 
+                    // uderzy do FastAPI (POST /force-recalculate).
                     if (this.currentUser) {
-                        console.log("D1 jest puste, szturcham FastAPI żeby przeliczyło rekomendacje...");
-                        fetch(`https://mvt-api.110187.xyz/movies/user/${this.currentUser.id}/recommendations`, {
-                            method: 'GET', // lub POST, zależnie jak masz to w FastAPI
-                            headers: this.getAuthHeaders()
-                        }).catch(e => console.warn('Błąd wywołania FastAPI:', e));
+                        console.log("D1 jest puste, szturcham Workera żeby wymusił przeliczenie w FastAPI...");
+                        this.triggerFastApiRecalculation();
                     }
                 }
             } else {
@@ -2629,46 +2628,63 @@ class MovieTracker {
         }
 
         this._recLoaded = true;
+        
+        // renderForYou zajmie się wyświetleniem odpowiedniego placeholdera 
+        // (czy "Czekam na Twój ruch", czy "Przeliczam...") na podstawie liczby ocen.
         this.renderForYou(data.results || [], status);
     }
 
     renderForYou(movies, status) {
         const track = document.getElementById('for-you-track');
+        const prev = document.getElementById('for-you-prev');
+        const next = document.getElementById('for-you-next');
         if (!track) return;
 
         track.classList.remove('is-loading');
-
         track.innerHTML = '';
 
         if (status === 'empty' || !movies || movies.length === 0) {
+            // Ukryj strzałki, gdy nie ma rekomendacji
+            if (prev) prev.style.display = 'none';
+            if (next) next.style.display = 'none';
+
+            // Sprawdzamy, ile filmów/seriali ocenił użytkownik
+            const ratedCount = this.watchedMovies ? this.watchedMovies.length : 0;
+            
+            let icon = 'fa-film';
+            let title = '';
+            let subtitle = '';
+
+            // DYNAMICZNY PLACEHOLDER
+            if (ratedCount < 3) {
+                title = 'Czekam na Twój ruch...';
+                subtitle = `Oceniłeś ${ratedCount} z minimum 3 filmów. Dodaj więcej ocen, aby nasze algorytmy mogły dopasować pierwsze propozycje.`;
+            } else {
+                icon = 'fa-cogs';
+                title = 'Przeliczam rekomendacje...';
+                subtitle = 'Nasze modele analizują Twój gust. Może to potrwać kilka minut. Odśwież stronę za chwilę!';
+            }
+
             const empty = document.createElement('div');
-            empty.className = 'for-you-card-empty'; // Zdejmujemy sztywną klasę .for-you-card by tekst ładnie się rozlał
+            empty.className = 'for-you-card-empty'; 
             empty.style.width = '100%';
             empty.style.textAlign = 'center';
             empty.innerHTML = `
-                <i class="fas fa-magic" style="font-size: 2.5rem; color: var(--secondary-color); margin-bottom: 1rem;"></i>
-                <p style="font-size: 1.1rem; font-weight: 600; color: var(--text-color);">Czekam na Twój ruch...</p>
-                <p style="font-size: 0.9rem;">Dodaj i oceń co najmniej 3 filmy, aby sztuczna inteligencja mogła wygenerować dla Ciebie pierwsze rekomendacje.</p>`;
+                <i class="fas ${icon}" style="font-size: 2.5rem; color: var(--secondary-color); margin-bottom: 1rem;"></i>
+                <p style="font-size: 1.1rem; font-weight: 600; color: var(--text-color);">${title}</p>
+                <p style="font-size: 0.9rem; color: var(--text-secondary);">${subtitle}</p>`;
             track.appendChild(empty);
             this._recCount = 0;
             return;
         }
 
-        if (!movies || movies.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'for-you-card for-you-card-empty';
-            empty.innerHTML = `
-                <i class="fas fa-star"></i>
-                <p>Brak rekomendacji na razie. Oceń kilka filmów, a dopasujemy je do ciebie.</p>`;
-            track.appendChild(empty);
-            this._recCount = 0;
-            return;
-        }
+        // Pokaż strzałki, gdy są karty do pokazania
+        if (prev) prev.style.display = 'flex';
+        if (next) next.style.display = 'flex';
 
-        const cardWrap = document.createElement('div');
-        cardWrap.className = 'for-you-card-inner';
         this._recCount = movies.length;
 
+        // Renderowanie właściwych kart (bez zmian do poprzedniego kroku)
         movies.forEach((m, i) => {
             const card = document.createElement('div');
             card.className = 'for-you-card';
@@ -2692,7 +2708,7 @@ class MovieTracker {
                     <div class="for-you-card-title">${this.escapeHtml(m.title || '')}</div>
                     <div class="for-you-card-meta">
                         <span class="for-you-card-recommended">
-                            <i class="fas fa-wand-magic-sparkles"></i>
+                            <i class="fas fa-magic"></i>
                             ${parseFloat(m.recommended_rating).toFixed(1)}
                         </span>
                         ${imdb}

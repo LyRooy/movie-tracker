@@ -2189,6 +2189,7 @@ class MovieTracker {
         this.updateStats();
         this.displayRecentActivity();
         this.displayMyList(this.currentListStatus);
+        this.loadRecommendations();
         // Wypełnij filtry gatunków na podstawie załadowanych filmów
         try { this.populateGenreFilterFromList(this.watchedMovies); } catch (e) { /* ignore */ }
         // Odśwież globalne gatunki również (obsługuje aktualizacje/nowe wpisy administratora)
@@ -2708,11 +2709,8 @@ class MovieTracker {
                     this.openMovieModal(m, false);
                 }
             });
-
-            cardWrap.appendChild(card);
+            track.appendChild(card);
         });
-
-        track.appendChild(cardWrap);
 
         this._recOffset = 0;
         this._syncForYouScroll();

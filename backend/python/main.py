@@ -1,6 +1,7 @@
 import os
 import sys
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from api.recommendations import router as recommendations_router
 from services.admin import router as admin_router
 
@@ -12,6 +13,13 @@ if not MVT_API_KEY:
     sys.exit(1)
 
 app = FastAPI(title="MVT Recommendation API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Podpinamy endpointy z innych plików
 app.include_router(recommendations_router)

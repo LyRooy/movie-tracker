@@ -2749,6 +2749,10 @@ h3 {
         grid-template-columns: 1fr;
     }
 
+    .nav-logo {
+        justify-content: flex-start;
+    }
+
     .nav-username-text {
         display: none;
     }
@@ -2809,6 +2813,15 @@ h3 {
     .results-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 1rem;
+    }
+    
+    .nav-logo {
+        font-size: 1.25rem;
+    }
+    
+    .nav-logo i {
+        font-size: 1.5rem;
+        margin-right: 0.35rem;
     }
     
     .movie-card img {

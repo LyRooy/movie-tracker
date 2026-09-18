@@ -475,23 +475,35 @@ body {
 }
 
 .for-you-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%); /* Idealne centrowanie w pionie */
+    z-index: 10; /* Strzałki ZAWSZE nad plakatami */
+    
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2.2rem;
-    height: 2.2rem;
+    width: 2.6rem;
+    height: 2.6rem;
     border-radius: 50%;
-    border: 1px solid var(--border-color);
+    border: none;
     background: var(--surface-color);
     color: var(--text-color);
     cursor: pointer;
     transition: var(--transition);
+    
+    /* Poświata dająca efekt oderwania od tła */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    opacity: 0.9;
 }
 
 .for-you-arrow:hover {
     background: var(--secondary-color);
     color: #fff;
-    border-color: var(--secondary-color);
+    opacity: 1;
+    /* Delikatne powiększenie i neonowa poświata przy najechaniu */
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 4px 20px rgba(52, 152, 219, 0.6);
 }
 
 .for-you-arrow i {
@@ -499,8 +511,17 @@ body {
 }
 
 .for-you-arrow:disabled {
-    opacity: 0.4;
-    cursor: default;
+    opacity: 0; /* Całkowicie ukrywamy strzałkę, gdy dojedziemy do końca */
+    pointer-events: none; /* Blokuje możliwość kliknięcia niewidocznej strzałki */
+}
+
+/* Przyklejenie strzałek do boków kontenera */
+.for-you-arrow.for-you-prev {
+    left: -15px;
+}
+
+.for-you-arrow.for-you-next {
+    right: -15px;
 }
 
 .for-you-card-inner {
@@ -614,6 +635,7 @@ body {
 
 /* Nowy kontener układający strzałki na bokach */
 .for-you-slider-container {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -630,6 +652,8 @@ body {
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding-bottom: 0.5rem;
+    padding-left: 0.5rem; 
+    padding-right: 0.5rem;
 }
 
 .for-you-track::-webkit-scrollbar {
@@ -642,6 +666,8 @@ body {
         width: 2rem;
         height: 2rem;
     }
+    .for-you-arrow.for-you-prev { left: 5px; }
+    .for-you-arrow.for-you-next { right: 5px; }
 }
 
 @media (max-width: 480px) {

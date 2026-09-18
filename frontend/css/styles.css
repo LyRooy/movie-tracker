@@ -374,14 +374,8 @@ body {
 
 .top-movies-grid {
     display: grid;
-    /* WYMUSZAMY DOKŁADNIE 8 KOLUMN (zamiast auto-fill) */
-    grid-template-columns: repeat(8, 1fr); 
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 0.75rem;
-    
-    /* Ukrywamy wszystko poniżej 4 wierszy (~4 x 260px wysokości) */
-    max-height: 1050px; 
-    overflow: hidden;
-    transition: max-height 0.4s ease-in-out;
 }
 
 .top-movie-card {
@@ -480,12 +474,12 @@ body {
     cursor: default;
 }
 
+/* Przywracamy strzałkom pozycję absolutną, by nachodziły na plakaty */
 .for-you-arrow {
     position: absolute;
     top: 50%;
-    transform: translateY(-50%); /* Idealne centrowanie w pionie */
-    z-index: 10; /* Strzałki ZAWSZE nad plakatami */
-    
+    transform: translateY(-50%);
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -497,9 +491,8 @@ body {
     color: var(--text-color);
     cursor: pointer;
     transition: var(--transition);
-    
-    /* Poświata dająca efekt oderwania od tła */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    /* Mocna poświata dla odcięcia od plakatów */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
     opacity: 0.9;
 }
 
@@ -507,7 +500,6 @@ body {
     background: var(--secondary-color);
     color: #fff;
     opacity: 1;
-    /* Delikatne powiększenie i neonowa poświata przy najechaniu */
     transform: translateY(-50%) scale(1.1);
     box-shadow: 0 4px 20px rgba(52, 152, 219, 0.6);
 }
@@ -517,17 +509,17 @@ body {
 }
 
 .for-you-arrow:disabled {
-    opacity: 0; /* Całkowicie ukrywamy strzałkę, gdy dojedziemy do końca */
-    pointer-events: none; /* Blokuje możliwość kliknięcia niewidocznej strzałki */
+    opacity: 0; 
+    pointer-events: none; 
 }
 
 /* Przyklejenie strzałek do boków kontenera */
 .for-you-arrow.for-you-prev {
-    left: -15px;
+    left: -15px; 
 }
 
 .for-you-arrow.for-you-next {
-    right: -15px;
+    right: -15px; 
 }
 
 .for-you-card-inner {
@@ -538,9 +530,8 @@ body {
 
 .for-you-card {
     position: relative;
-    /* 100% szerokości tracka minus 7 przerw (gap 0.75rem), podzielone na 8 kart */
-    width: calc((100% - 7 * 0.75rem) / 8); 
-    flex-shrink: 0; /* Zabraniamy kartom się kurczyć - muszą trzymać szerokość */
+    width: 140px; 
+    flex-shrink: 0;
     scroll-snap-align: start;
     background: var(--surface-color);
     border-radius: 8px;
@@ -642,16 +633,14 @@ body {
 
 /* Nowy kontener układający strzałki na bokach */
 .for-you-slider-container {
-    position: relative;
+    position: relative; /* Pozwala strzałkom na 'lewitację' nad plakatami */
     display: flex;
     align-items: center;
-    gap: 0.5rem;
     width: 100%;
 }
 
-/* Aktualizacja istniejącego tracka, by współpracował z wrapperem */
 .for-you-track {
-    flex: 1; /* Zajmuje całą wolną przestrzeń między strzałkami */
+    flex: 1;
     display: flex;
     gap: 0.75rem;
     overflow-x: auto; 
@@ -659,8 +648,6 @@ body {
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding-bottom: 0.5rem;
-    padding-left: 0.5rem; 
-    padding-right: 0.5rem;
 }
 
 .for-you-track::-webkit-scrollbar {
@@ -4663,30 +4650,4 @@ body.transitions-enabled * {
     .review-rating {
         align-self: flex-start;
     }
-}
-
-/* --- RESPONSYWNOŚĆ DLA 8 KOLUMN --- */
-@media (max-width: 1400px) {
-    .top-movies-grid { grid-template-columns: repeat(6, 1fr); }
-    .for-you-card { width: calc((100% - 5 * 0.75rem) / 6); }
-}
-
-@media (max-width: 1100px) {
-    .top-movies-grid { grid-template-columns: repeat(5, 1fr); }
-    .for-you-card { width: calc((100% - 4 * 0.75rem) / 5); }
-}
-
-@media (max-width: 860px) {
-    .top-movies-grid { grid-template-columns: repeat(4, 1fr); }
-    .for-you-card { width: calc((100% - 3 * 0.75rem) / 4); }
-}
-
-@media (max-width: 600px) {
-    .top-movies-grid { grid-template-columns: repeat(3, 1fr); }
-    .for-you-card { width: calc((100% - 2 * 0.75rem) / 3); }
-}
-
-@media (max-width: 480px) {
-    .top-movies-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-    .for-you-card { width: calc((100% - 1 * 0.6rem) / 2); }
 }

@@ -2734,54 +2734,57 @@ async triggerFastApiRecalculation() {
     }
 
     // Scroll tracka do danego offsetu (karty).
-    _scrollForYouTo(offset) {
+    _scrollForYouTo(direction) { // direction = 1 (w prawo) lub -1 (w lewo)
         const track = document.getElementById('for-you-track');
         if (!track) return;
-        const card = track.querySelectorAll('.for-you-card')[offset];
-        if (card) {
-            track.scrollTo({ left: 0, behavior: 'smooth' });
-            card.scrollIntoView({ inline: 'start', behavior: 'smooth', block: 'nearest' });
-        }
+        
+        // Obliczamy przesunięcie o np. 70% szerokości całego paska
+        const scrollAmount = track.clientWidth * 0.7;
+        
+        track.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
     }
 
     _bindForYouControls() {
         const prev = document.getElementById('for-you-prev');
         const next = document.getElementById('for-you-next');
-        if (!prev || !next) return;
+        const track = document.getElementById('for-you-track');
+        if (!track) return;
 
-        prev.onclick = () => this._scrollForYouTo(this._recOffset - 1);
-        next.onclick = () => this._scrollForYouTo(this._recOffset + 1);
+        // Strzałki używają teraz kierunku (-1 / 1)
+        if (prev) prev.onclick = () => this._scrollForYouTo(-1);
+        if (next) next.onclick = () => this._scrollForYouTo(1);
+
+        // Funkcja do aktualizowania widoczności strzałek podczas natywnego scrollowania
+        const updateArrows = () => {
+            if (prev) prev.disabled = track.scrollLeft <= 10; // Ukryj lewą jeśli na początku
+            if (next) next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 10; // Ukryj prawą jeśli na końcu
+        };
+
+        // Podpinamy nasłuchiwanie na scroll
+        track.addEventListener('scroll', updateArrows, { passive: true });
+        
+        // Odpal raz na start, by sprawdzić czy wyłączyć lewą strzałkę
+        setTimeout(updateArrows, 100);
 
         // Uchwyt do dotyku/scrolla — poruszanie palcem porusza paskiem.
         let startX = 0;
         let panning = false;
-        const track = document.getElementById('for-you-track');
-        if (track) {
-            track.addEventListener('touchstart', (e) => {
+        track.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            panning = true;
+        }, { passive: true });
+
+        track.addEventListener('touchmove', (e) => {
+            if (!panning) return;
+            const dx = e.touches[0].clientX - startX;
+            if (Math.abs(dx) > 40) {
+                this._scrollForYouTo(dx < 0 ? 1 : -1);
                 startX = e.touches[0].clientX;
-                panning = true;
-            }, { passive: true });
+                panning = false;
+            }
+        }, { passive: true });
 
-            track.addEventListener('touchmove', (e) => {
-                if (!panning) return;
-                const dx = e.touches[0].clientX - startX;
-                if (Math.abs(dx) > 40) {
-                    this._scrollForYouTo(this._recOffset + (dx < 0 ? 1 : -1));
-                    startX = e.touches[0].clientX;
-                    panning = false;
-                }
-            }, { passive: true });
-
-            track.addEventListener('touchend', () => { panning = false; }, { passive: true });
-        }
-    }
-
-    _syncForYouScroll() {
-        // Odblokuj przyciski i podświetl aktywny
-        const prev = document.getElementById('for-you-prev');
-        const next = document.getElementById('for-you-next');
-        if (prev) prev.disabled = this._recOffset <= 0;
-        if (next) next.disabled = this._recOffset >= Math.max(0, this._recCount - 1);
+        track.addEventListener('touchend', () => { panning = false; }, { passive: true });
     }
 
     // Obsługa klawiszy strzałek dla paska rekomendacji

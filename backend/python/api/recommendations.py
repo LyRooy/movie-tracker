@@ -12,7 +12,7 @@ model_manager = RecommendationModelManager()
 db = DatabaseManager()
 
 API_KEY = os.getenv("MVT_API_KEY")
-CACHE_MINUTES = 30
+CACHE_MINUTES = 7 * 24 * 60  # 7 dni w minutach
 REC_TYPE_CF = "collaborative_filtering"
 REC_TYPE_CB = "content_based"
 

@@ -39,7 +39,7 @@ export async function onRequest(context) {
     const limit = parseInt(url.searchParams.get('limit')) || 20;
     const offset = parseInt(url.searchParams.get('offset')) || 0;
 
-    const rows = await env.db.prepare(`
+const rows = await env.db.prepare(`
       SELECT
         r.user_id,
         r.movie_id,
@@ -62,7 +62,10 @@ export async function onRequest(context) {
       FROM user_recommendations r
       JOIN movies m ON m.id = r.movie_id
       WHERE r.user_id = ?
-        AND r.expires_at > strftime('%Y-%m-%d %H:%M:%f', 'now')
+        AND (
+          CAST(r.expires_at AS INTEGER) > unixepoch()
+          OR r.expires_at > strftime('%Y-%m-%d %H:%M:%f', 'now')
+        )
       ORDER BY r.created_at DESC
       LIMIT ? OFFSET ?
     `).bind(userId, limit + 1, offset).all();

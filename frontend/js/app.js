@@ -2540,25 +2540,44 @@ class MovieTracker {
     // Planuj pokazanie rekomendacji "Dla ciebie" w tle.
     // Cooldown = 5 minut, żeby silnik zdążył policzyć rekomendacje.
     // Po upływie 5 minut odświeża TYLKO sekcję "Dla ciebie" (nie całą stronę).
+    // Nowa metoda do wywołania przeliczenia na FastAPI
+    async triggerFastApiRecalculation() {
+        if (!this.currentUser) return;
+        try {
+            console.log("Wysyłam sygnał do FastAPI o przeliczenie rekomendacji...");
+            // Wywołanie endpointu (zmienić na GET jeśli backend tego wymaga, założyłem POST)
+            fetch(`https://mvt-api.110187.xyz/movies/user/${this.currentUser.id}/recommendations/force-recalculate`, {
+                method: 'POST',
+                headers: this.getAuthHeaders()
+            }).catch(e => console.warn('Błąd wywołania FastAPI:', e));
+        } catch (e) {
+            console.warn(e);
+        }
+    }
+
+    // Aktualizacja istniejącej metody
     scheduleForYouRefresh() {
         try {
             const pendingKey = 'for-you-pending';
             const pending = localStorage.getItem(pendingKey);
             if (pending !== '1') {
                 localStorage.setItem(pendingKey, '1');
+                
+                // 1. Natychmiast uderz w FastAPI by zaczęło liczyć
+                this.triggerFastApiRecalculation();
+
+                // 2. Po 5 minutach odpytaj bazę D1 o nowe wyniki
                 setTimeout(() => {
                     localStorage.removeItem(pendingKey);
-                }, 5 * 60 * 1000); // 5 minut — czas na policzenie rekomendacji
-                // Odśwież TYLKO sekcję rekomendacji (nie całą stronę)
-                if (this.currentSection === 'dashboard') {
-                    this.loadRecommendations();
-                }
+                    if (this.currentSection === 'dashboard') {
+                        this.loadRecommendations();
+                    }
+                }, 5 * 60 * 1000); 
             }
         } catch {}
     }
 
     async loadRecommendations() {
-        // Przechowaj czy już przeładowałem — pozwala na ponowne kliknięcie
         this._recLoaded = false;
         this._recOffset = 0;
         this._recCount = 20;
@@ -2566,31 +2585,44 @@ class MovieTracker {
         const container = document.getElementById('for-you-track');
         if (!container) return;
 
-        // Pokaż placeholder "ładowanie"
+        // Pokaż placeholder ładowania
         container.classList.add('is-loading');
-        container.innerHTML = '';
-        const loader = document.createElement('div');
-        loader.className = 'for-you-card for-you-card-empty';
-        loader.innerHTML = `<i class="fas fa-spinner fa-spin"></i><p>Przygotowuję rekomendacje...</p>`;
-        container.appendChild(loader);
+        container.innerHTML = `<div class="for-you-card-empty" style="width:100%; text-align:center;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2.5rem; color: var(--secondary-color);"></i>
+            <p>Sprawdzam rekomendacje...</p>
+        </div>`;
 
         let data = [];
         let status = 'loading';
 
         try {
+            // 1. Zwykłe odpytanie Cloudflare Workera o gotowe dane w D1
             const res = await fetch('/api/movies/recommendations?limit=20', {
                 headers: this.getAuthHeaders()
             });
 
             if (res.ok) {
                 data = await res.json();
-                status = data.results ? 'ok' : 'empty';
+                
+                // Jeśli D1 ma dane, status to 'ok'
+                if (data.results && data.results.length > 0) {
+                    status = 'ok';
+                } else {
+                    status = 'empty';
+                    
+                    // 2. BRAK DANYCH W D1 -> Uderzamy w zwykły endpoint FastAPI żeby zaczął liczyć (zimny start)
+                    if (this.currentUser) {
+                        console.log("D1 jest puste, szturcham FastAPI żeby przeliczyło rekomendacje...");
+                        fetch(`https://mvt-api.110187.xyz/movies/user/${this.currentUser.id}/recommendations`, {
+                            method: 'GET', // lub POST, zależnie jak masz to w FastAPI
+                            headers: this.getAuthHeaders()
+                        }).catch(e => console.warn('Błąd wywołania FastAPI:', e));
+                    }
+                }
             } else {
-                // Backend offline / błąd Worker → traktuj jako "brak rekomendacji"
                 status = 'empty';
             }
         } catch (e) {
-            // Degradacja łagodna — nigdy nie pokazuj surowego błędu użytkownikowi
             console.error('loadRecommendations error', e);
             status = 'empty';
         }
@@ -2607,13 +2639,15 @@ class MovieTracker {
 
         track.innerHTML = '';
 
-        if (status === 'empty') {
+        if (status === 'empty' || !movies || movies.length === 0) {
             const empty = document.createElement('div');
-            empty.className = 'for-you-card for-you-card-empty';
+            empty.className = 'for-you-card-empty'; // Zdejmujemy sztywną klasę .for-you-card by tekst ładnie się rozlał
+            empty.style.width = '100%';
+            empty.style.textAlign = 'center';
             empty.innerHTML = `
-                <i class="fas fa-magic"></i>
-                <p>Wróć i obejrzyj kilka tytułów — dopasowuję rekomendacje do twojego gustu.</p>
-                <small>Po prostu oceniaj filmy, a "Dla ciebie" pojawi się tutaj.</small>`;
+                <i class="fas fa-magic" style="font-size: 2.5rem; color: var(--secondary-color); margin-bottom: 1rem;"></i>
+                <p style="font-size: 1.1rem; font-weight: 600; color: var(--text-color);">Czekam na Twój ruch...</p>
+                <p style="font-size: 0.9rem;">Dodaj i oceń co najmniej 3 filmy, aby sztuczna inteligencja mogła wygenerować dla Ciebie pierwsze rekomendacje.</p>`;
             track.appendChild(empty);
             this._recCount = 0;
             return;

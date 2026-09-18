@@ -612,6 +612,30 @@ body {
     letter-spacing: 0.03em;
 }
 
+/* Nowy kontener układający strzałki na bokach */
+.for-you-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+/* Aktualizacja istniejącego tracka, by współpracował z wrapperem */
+.for-you-track {
+    flex: 1; /* Zajmuje całą wolną przestrzeń między strzałkami */
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto; 
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 0.5rem;
+}
+
+.for-you-track::-webkit-scrollbar {
+    display: none;
+}
+
 /* Responsywność paska rekomendacji */
 @media (max-width: 768px) {
     .for-you-arrow {

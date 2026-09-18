@@ -36,10 +36,13 @@ def compute_recommendations(user_id: int) -> dict:
     }
     
     user_ratings = db.fetch_user_ratings(user_id)
+    watched_movie_ids = db.fetch_watched_movies(user_id)
     if user_ratings is None or user_ratings.empty:
         return {"status": "error", "message": "Brak ocen użytkownika"}
         
     rated_movie_ids = set(user_ratings['movie_id'].tolist())
+
+    known_movie_ids = rated_movie_ids.union(set(watched_movie_ids))
     
     # --- COLLABORATIVE FILTERING ---
     cf_cached = db.get_cached_recommendations(user_id, REC_TYPE_CF)
@@ -62,7 +65,7 @@ def compute_recommendations(user_id: int) -> dict:
         if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
             cf_recs = []
             for m_id in movies_df['id'].tolist():
-                if m_id not in rated_movie_ids:
+                if m_id not in known_movie_ids:
                     pred = model_manager.cf_model.predict(user_id, m_id)
                     cf_recs.append({
                         "movie_id": m_id, 
@@ -104,7 +107,7 @@ def compute_recommendations(user_id: int) -> dict:
                         for sim_idx, score in enumerate(cosine_sim):
                             if score > 0.01:
                                 sim_movie_id = int(model_manager.movie_id_map[sim_idx])
-                                if sim_movie_id not in rated_movie_ids:
+                                if sim_movie_id not in known_movie_ids:
                                     similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
                     
                 if similar_scores:
@@ -141,10 +144,12 @@ def force_recalculate(user_id: int):
     }
     
     user_ratings = db.fetch_user_ratings(user_id)
+    watched_movie_ids = db.fetch_watched_movies(user_id)
     if user_ratings is None or user_ratings.empty:
         return {"status": "error", "message": "Brak ocen użytkownika"}
         
     rated_movie_ids = set(user_ratings['movie_id'].tolist())
+    known_movie_ids = rated_movie_ids.union(set(watched_movie_ids))
     
     # --- COLLABORATIVE FILTERING ---
     df_cf = user_ratings.copy()
@@ -159,7 +164,7 @@ def force_recalculate(user_id: int):
     if model_manager.cf_model is not None and movies_df is not None and not movies_df.empty:
         cf_recs = []
         for m_id in movies_df['id'].tolist():
-            if m_id not in rated_movie_ids:
+            if m_id not in known_movie_ids:
                 pred = model_manager.cf_model.predict(user_id, m_id)
                 cf_recs.append({
                     "movie_id": m_id, 
@@ -195,7 +200,7 @@ def force_recalculate(user_id: int):
                     for sim_idx, score in enumerate(cosine_sim):
                         if score > 0.01:
                             sim_movie_id = int(model_manager.movie_id_map[sim_idx])
-                            if sim_movie_id not in rated_movie_ids:
+                            if sim_movie_id not in known_movie_ids:
                                 similar_scores[sim_movie_id] = similar_scores.get(sim_movie_id, 0) + score
                                 
             if similar_scores:

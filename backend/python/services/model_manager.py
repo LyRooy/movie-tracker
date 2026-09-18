@@ -1,7 +1,7 @@
 import threading
 import time
 import pandas as pd
-from surprise import KNNBasic
+from surprise import SVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 class ProgressTracker:
@@ -78,12 +78,12 @@ class RecommendationModelManager:
     def build_collaborative_filtering_model(self, trainset, user_id=None):
         tracker.start("cf", "CF", f"Budowanie modelu Collaborative Filtering (user_id={user_id})")
         try:
-            knn = KNNBasic(k=40, min_k=20, random_state=42)
-            knn.fit(trainset)
-            self.cf_model = knn
-            tracker.log("cf", "CF", f"KNNBasic(k=40, min_k=20, random_state=42) | user_id={user_id}")
+            svd = SVD(n_factors=100, n_epochs=20, random_state=42)
+            svd.fit(trainset)
+            self.cf_model = svd
+            tracker.log("cf", "CF", f"SVD(n_factors=100, n_epochs=20, random_state=42) | user_id={user_id}")
             tracker.finish("cf", "CF", ok=True, message=f"Model CF gotowy (user_id={user_id})")
-            print("Model CF (KNNBasic) zbudowany poprawnie.")
+            print("Model CF (SVD) zbudowany poprawnie.")
         except Exception as e:
             tracker.log("cf", "CF", f"Błąd: {e} | user_id={user_id}", level="error")
             tracker.finish("cf", "CF", ok=False, message=f"Błąd budowania modelu CF (user_id={user_id})")

@@ -259,7 +259,7 @@ body {
 /* Dashboard layout */
 .dashboard-layout {
     display: grid;
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: 220px 1fr 1fr;
     gap: 1.5rem;
     align-items: start;
 }
@@ -269,6 +269,18 @@ body {
     flex-direction: column;
     gap: 1rem;
     padding-top: 3.5rem;
+}
+
+/* Pasek rekomendacji "Dla ciebie" - prawa kolumna (2), pod Top filmami (kolumna 3)
+   na ekranach desktopowych */
+.dashboard-layout.for-you-right .for-you-carousel-wrap {
+    grid-column: 2;
+    align-self: start;
+}
+
+.dashboard-layout.for-you-right .dashboard-top-movies {
+    grid-column: 3;
+    align-self: start;
 }
 
 /* Kompaktowa lista statystyk w sidebarze */
@@ -321,6 +333,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    /* Zapobiega zawijaniu do nowej kolumny (traktuj jako pojedynczy blok) */
+    grid-column: 3;
 }
 
 .top-movies-header {

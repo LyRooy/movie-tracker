@@ -2729,38 +2729,53 @@ async triggerFastApiRecalculation() {
         });
 
         this._recOffset = 0;
-        this._syncForYouScroll();
         this._bindForYouControls();
     }
 
     // Scroll tracka do danego offsetu (karty).
     _scrollForYouTo(direction) {
         const track = document.getElementById('for-you-track');
-        if (!track || track.children.length === 0 || this._isScrolling) return;
+        // Zabezpieczenie przed spamowaniem przycisku i błędami
+        if (!track || track.children.length <= 1 || this._isScrolling) return;
 
-        this._isScrolling = true; // Blokada przed spam-klikaniem
+        this._isScrolling = true;
 
-        // Obliczamy dokładną szerokość przeskoku (karta + odstęp)
+        // Obliczamy dokładną szerokość przeskoku (szerokość karty + luka)
         const firstCard = track.querySelector('.for-you-card');
         const gap = parseFloat(getComputedStyle(track).gap || 12);
         const scrollAmount = firstCard.offsetWidth + gap;
 
+        // Wyłączamy płynne przewijanie na ułamek sekundy, by niezauważenie manipulować kartami
+        track.style.scrollBehavior = 'auto';
+
         if (direction === -1) {
-            // W LEWO: Przenosimy ostatni element na początek
+            // PRZEWIJANIE W LEWO (Ostatnia karta leci na początek)
             track.prepend(track.lastElementChild);
-            // Korygujemy scroll, żeby uniknąć wizualnego skoku
+            
+            // Rekompensujemy skok, żeby obraz stał w miejscu
             track.scrollLeft += scrollAmount;
-            // Odpalamy płynną animację dojazdu do nowej karty
-            track.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
             
-            setTimeout(() => { this._isScrolling = false; }, 400);
+            // "Zmuszamy" przeglądarkę do załapania zmian przed animacją
+            void track.offsetWidth; 
+            
+            // Włączamy płynność i animujemy "wsunięcie" nowej karty
+            track.style.scrollBehavior = 'smooth';
+            track.scrollLeft -= scrollAmount;
+            
+            setTimeout(() => { 
+                this._isScrolling = false; 
+            }, 400); // Czas trwania animacji
         } else {
-            // W PRAWO: Płynnie przesuwamy do kolejnej karty
-            track.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            // PRZEWIJANIE W PRAWO (Standardowy skok)
+            track.style.scrollBehavior = 'smooth';
+            track.scrollLeft += scrollAmount;
             
-            // Jak animacja się skończy, przenosimy pierwszy element na koniec
             setTimeout(() => {
+                // Po zakończeniu animacji wyłączamy płynność
+                track.style.scrollBehavior = 'auto';
+                // Przerzucamy pierwszą kartę na koniec
                 track.appendChild(track.firstElementChild);
+                // Cofamy scrolla, by nie było zacięcia
                 track.scrollLeft -= scrollAmount;
                 this._isScrolling = false;
             }, 400);
@@ -2773,10 +2788,10 @@ async triggerFastApiRecalculation() {
         const track = document.getElementById('for-you-track');
         if (!track) return;
 
-        // Strzałki są ZAWSZE włączone, bo pętla jest nieskończona
+        // W nieskończonej pętli strzałki są ZAWSZE aktywne
         if (prev) {
             prev.disabled = false;
-            prev.style.opacity = '0.9'; // Zabezpieczenie przed starym ukrywaniem
+            prev.style.opacity = '0.9';
             prev.onclick = () => this._scrollForYouTo(-1);
         }
         if (next) {
@@ -2785,7 +2800,7 @@ async triggerFastApiRecalculation() {
             next.onclick = () => this._scrollForYouTo(1);
         }
 
-        // Obsługa gestu przeciągnięcia na telefonach (również w nieskończoność)
+        // Obsługa machnięcia palcem (swipe) na telefonach
         let startX = 0;
         let panning = false;
         track.addEventListener('touchstart', (e) => {
@@ -2796,7 +2811,8 @@ async triggerFastApiRecalculation() {
         track.addEventListener('touchmove', (e) => {
             if (!panning) return;
             const dx = e.touches[0].clientX - startX;
-            if (Math.abs(dx) > 40) { // Czułość przesunięcia palcem
+            // Reagujemy, gdy palec przesunie się o min. 40px
+            if (Math.abs(dx) > 40) { 
                 this._scrollForYouTo(dx < 0 ? 1 : -1);
                 startX = e.touches[0].clientX;
                 panning = false;

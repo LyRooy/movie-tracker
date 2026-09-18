@@ -374,8 +374,16 @@ body {
 
 .top-movies-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); 
     gap: 0.75rem;
+    
+    max-height: 1050px; 
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out;
+}
+
+.top-movies-grid.expanded {
+    max-height: 10000px; 
 }
 
 .top-movie-card {

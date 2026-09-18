@@ -2632,7 +2632,6 @@ class MovieTracker {
 
         const cardWrap = document.createElement('div');
         cardWrap.className = 'for-you-card-inner';
-        cardWrap.style.width = `${this._recCount * 100}%`;
         this._recCount = movies.length;
 
         movies.forEach((m, i) => {

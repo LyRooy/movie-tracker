@@ -267,7 +267,8 @@ body {
 .dashboard-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 1rem;
+    grid-row: 1 / span 2;
 }
 
 /* W prawej kolumnie: "Dla ciebie" NAD "Top filmy" (obie w kolumnie 2, ułożone pionowo)
@@ -456,15 +457,13 @@ body {
 }
 
 .for-you-track {
-    display: -webkit-box;
-    -webkit-box-orient: horizontal;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-    overflow: hidden;
-    cursor: grab;
-    scroll-snap-type: x proximity;
-    -ms-overflow-style: none;
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto; /* Zezwala na przewijanie poziome */
+    scroll-snap-type: x mandatory;
     scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 0.5rem;
 }
 
 .for-you-track::-webkit-scrollbar {
@@ -504,8 +503,16 @@ body {
     cursor: default;
 }
 
+.for-you-card-inner {
+    display: flex;
+    gap: 0.75rem;
+    width: max-content !important; 
+}
+
 .for-you-card {
     position: relative;
+    width: 140px; /* Stała szerokość karty (podobnie jak w Top filmy) */
+    flex-shrink: 0; /* Karta się nie będzie kurczyć */
     scroll-snap-align: start;
     background: var(--surface-color);
     border-radius: 8px;

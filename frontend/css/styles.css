@@ -4657,3 +4657,45 @@ body.transitions-enabled * {
         align-self: flex-start;
     }
 }
+
+/*Responsywność dla dashboardu*/
+@media (max-width: 768px) {
+    /* Wymuszenie ułożenia pionowego sekcji "Dla ciebie" i "Top filmy" (naprawa usterki) */
+    .dashboard-layout.for-you-right .for-you-carousel-wrap,
+    .dashboard-layout.for-you-right .dashboard-top-movies {
+        grid-column: 1; 
+    }
+    
+    .dashboard-sidebar {
+        grid-row: auto; /* Resetujemy sztywny wiersz bocznego paska */
+    }
+
+    /* 2 filmy na wiersz w sekcji "Top filmy" dla urządzeń mobilnych */
+    .top-movies-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Zmiana stylistyki statystyk w zaokrąglone pigułki (nawiązanie do filtrów) */
+    .sidebar-stats-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+    }
+
+    .sidebar-stat-item {
+        background-color: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 25px; /* Duże zaokrąglenie w stylu przycisków filtrów */
+        padding: 0.5rem 1rem;
+        flex: 1 1 calc(50% - 0.5rem); /* Rozbija na dwa kafelki w wierszu */
+        justify-content: center;
+    }
+
+    /* Przywrócenie dolnej ramki dla ostatniego elementu (oryginalnie usuwanej w CSS) */
+    .sidebar-stat-item:last-child {
+        border-bottom: 1px solid var(--border-color);
+    }
+}

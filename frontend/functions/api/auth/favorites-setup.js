@@ -4,7 +4,7 @@
 //   ALTER TABLE users ADD COLUMN favorites_selected INTEGER DEFAULT 0;
 //   ALTER TABLE users ADD COLUMN favorite_kaggle_ids TEXT DEFAULT NULL;
 //
-//   favorite_kaggle_ids – JSON-owa tablica ID filmów z datasetu Kaggle,
+//   favorite_kaggle_ids - JSON-owa tablica ID filmów z datasetu Kaggle,
 //   np. '[tt1234567, tt7654321]'. Do dodania gdy dataset zostanie
 //   zaimportowany do bazy.
 
@@ -25,7 +25,7 @@ async function getUserIdFromRequest(request) {
 // Do dodania: migracja bazy danych
 // ALTER TABLE users ADD COLUMN favorites_selected INTEGER DEFAULT 0;
 // ALTER TABLE users ADD COLUMN favorite_kaggle_ids TEXT DEFAULT NULL;
-//   favorite_kaggle_ids – JSON array ID filmów z datasetu Kaggle, np. '["tt1234567","tt7654321"]'
+//   favorite_kaggle_ids - JSON array ID filmów z datasetu Kaggle, np. '["tt1234567","tt7654321"]'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,7 +33,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// GET – zwróć listę filmów do wyboru (z datasetu Kaggle)
+// GET - zwróć listę filmów do wyboru (z datasetu Kaggle)
 export async function onRequestGet(context) {
   const { request, env } = context;
 
@@ -66,7 +66,7 @@ export async function onRequestGet(context) {
   });
 }
 
-// POST – zapisz zaznaczone ID filmów z Kaggle i oznacz favorites_selected = 1
+// POST - zapisz zaznaczone ID filmów z Kaggle i oznacz favorites_selected = 1
 export async function onRequestPost(context) {
   const { request, env } = context;
 

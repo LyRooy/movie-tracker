@@ -18,7 +18,7 @@ export async function onRequestGet({ request, env }) {
     let results;
 
     if (sort === 'avg_rating') {
-        // avg_rating wymaga JOIN ze wszystkimi recenzjami — nie da się pre-filtrować
+        // avg_rating wymaga JOIN ze wszystkimi recenzjami - nie da się pre-filtrować
         const rows = await env.db.prepare(`
             SELECT m.id, m.title, m.release_date, m.poster_path, m.popularity,
                    m.imdb_rating, m.genre,
@@ -35,7 +35,7 @@ export async function onRequestGet({ request, env }) {
     } else {
         // popularity / imdb_rating:
         // CTE pobiera tylko top (limit+1) ID z indeksu, potem JOIN tylko tych wierszy.
-        // Zamiast GROUP BY na 250k rekordach — GROUP BY na max 41.
+        // Zamiast GROUP BY na 250k rekordach - GROUP BY na max 41.
         const col = sort === 'imdb_rating' ? 'imdb_rating' : 'popularity';
         const rows = await env.db.prepare(`
             WITH ids AS (

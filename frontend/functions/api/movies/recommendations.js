@@ -1,5 +1,5 @@
 // Endpoint rekomendacji per-user.
-// Czyta bezpośrednio z bazy D1 (env.db) — NIE dzwoni do backendu FastAPI.
+// Czyta bezpośrednio z bazy D1 (env.db) - NIE dzwoni do backendu FastAPI.
 // Dzięki temu działa nawet gdy serwer Python jest wyłączone.
 // Backend (FastAPI) jest odpowiedzialny TYLKO za zapis rekomendacji do tabeli user_recommendations.
 export async function onRequest(context) {
@@ -107,7 +107,7 @@ const rows = await env.db.prepare(`
     const hasMore = recommendations.length > limit;
     if (hasMore) recommendations.pop();
 
-    // Dane są per-user — nie cachujemy na poziomie CDN (każdy użytkownik ma inne rekomendacje).
+    // Dane są per-user - nie cachujemy na poziomie CDN (każdy użytkownik ma inne rekomendacje).
     return new Response(JSON.stringify({
       userId,
       results: recommendations,

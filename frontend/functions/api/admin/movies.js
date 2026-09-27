@@ -174,7 +174,7 @@ async function handleCreateMovie(db, request, corsHeaders) {
     const episodesPerSeason = data.episodesPerSeason || (data.type === 'series' ? 10 : 1);
     const totalEpisodes = data.type === 'series' ? totalSeasons * episodesPerSeason : 1;
 
-    // Buduj INSERT dynamicznie, aby uniknąć dołączania kolumn, które mogą nie istnieć (np. duration) — nie modyfikując schematu DB
+    // Buduj INSERT dynamicznie, aby uniknąć dołączania kolumn, które mogą nie istnieć (np. duration) - nie modyfikując schematu DB
     const insertCols = ['title','media_type','release_date','genre','poster_url','trailer_url','description','total_seasons','total_episodes'];
     const insertPlaceholders = ['?','?','?','?','?','?','?','?','?'];
     const insertValues = [

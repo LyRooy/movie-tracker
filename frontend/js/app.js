@@ -384,7 +384,7 @@ class MovieTracker {
             section.classList.remove('active');
         });
 
-        // Pokaż wybraną sekcję (bezpiecznie — sprawdź istnienie)
+        // Pokaż wybraną sekcję (bezpiecznie - sprawdź istnienie)
         const targetSection = document.getElementById(sectionName);
         if (targetSection) {
             targetSection.classList.add('active');
@@ -1394,7 +1394,7 @@ class MovieTracker {
             if (!response.ok) {
                 // Jeśli brak autoryzacji, pokaż komunikat
                 if (response.status === 401) {
-                    if (resultsContainer) resultsContainer.innerHTML = '<p class="search-error">Wymagana autoryzacja — zaloguj się.</p>';
+                    if (resultsContainer) resultsContainer.innerHTML = '<p class="search-error">Wymagana autoryzacja - zaloguj się.</p>';
                     console.warn('[searchUsers] Unauthorized (401)');
                     return;
                 }
@@ -2441,14 +2441,14 @@ class MovieTracker {
                         this._topPage = page;
                         this._topHasMore = data.hasMore;
                         this.renderTopMovies(data.results, false, page);
-                        return; // dane świeże — nie odpytuj serwera
+                        return; // dane świeże - nie odpytuj serwera
                     }
                 }
             } catch {}
         }
 
         try {
-            // Bez nagłówka Authorization — top filmy są globalne (nie per-user),
+            // Bez nagłówka Authorization - top filmy są globalne (nie per-user),
             // dzięki temu Cloudflare CDN może cachować odpowiedź na poziomie edge.
             const res = await fetch(`/api/movies/top?sort=${sort}&page=${page}`);
             if (!res.ok) return;
@@ -2922,7 +2922,7 @@ async triggerFastApiRecalculation() {
             return;
         }
 
-        // Nowe wyszukiwanie — resetuj paginację
+        // Nowe wyszukiwanie - resetuj paginację
         this._searchState = { query, typeFilter, genreFilter, yearFilter, page: 0 };
 
         try {
@@ -3049,7 +3049,7 @@ async triggerFastApiRecalculation() {
             return;
         }
 
-        // Licznik wyników — tylko przy pierwszej stronie
+        // Licznik wyników - tylko przy pierwszej stronie
         if (!append && this._searchTotal !== undefined) {
             const counter = document.createElement('div');
             counter.className = 'search-count';
@@ -3170,7 +3170,7 @@ async triggerFastApiRecalculation() {
             }
         }
         
-        document.getElementById('modal-year').textContent = displayYear || '—';
+        document.getElementById('modal-year').textContent = displayYear || '-';
         // Normalizuj i wyświetl gatunki
         const genreDisplay = Array.isArray(movie.genre) ? movie.genre.join(', ') : (movie.genre || '');
         document.getElementById('modal-genre').textContent = this.parseGenres(genreDisplay).join(', ');
@@ -4626,7 +4626,7 @@ async triggerFastApiRecalculation() {
             label.className = 'favorites-count-label';
         } else if (selected < 3) {
             const left = 3 - selected;
-            label.textContent = `Zaznaczono: ${selected} — jeszcze ${left} ${left === 1 ? 'film' : 'filmy'}`;
+            label.textContent = `Zaznaczono: ${selected} - jeszcze ${left} ${left === 1 ? 'film' : 'filmy'}`;
             label.className = 'favorites-count-label warn';
         } else {
             label.textContent = `Zaznaczono: ${selected} ✔`;
@@ -4641,7 +4641,7 @@ async triggerFastApiRecalculation() {
         modal.style.display = 'none';
         document.body.style.overflow = '';
 
-        // Gdy użytkownik kliknie "Pomiń" — zapisz favorites_selected=1 żeby nie pytać ponownie.
+        // Gdy użytkownik kliknie "Pomiń" - zapisz favorites_selected=1 żeby nie pytać ponownie.
         // Zachowuje ewentualne poprzednie wybory, nie wymaga zaznaczenia czegokolwiek.
         if (skip && this.currentUser && !this.currentUser.favorites_selected) {
             try {
@@ -4665,10 +4665,10 @@ async triggerFastApiRecalculation() {
         const cards = grid ? grid.querySelectorAll('.favorites-movie-card.selected') : [];
         const movieIds = Array.from(cards).map(c => parseInt(c.dataset.id)).filter(Boolean);
 
-        // Jeśli nic nie zaznaczono — traktuj jak pominięcie
+        // Jeśli nic nie zaznaczono - traktuj jak pominięcie
         if (movieIds.length === 0) {
             await this.closeFavoritesModal(true);
-            this.showNotification('Pominięto wybór — możesz wrócić do ulubionych w ustawieniach.', 'info');
+            this.showNotification('Pominięto wybór - możesz wrócić do ulubionych w ustawieniach.', 'info');
             return;
         }
 
@@ -5243,7 +5243,7 @@ async triggerFastApiRecalculation() {
     }
 
     async _fetchAdminTypeCounts() {
-        // Debounce — nie wysyłaj dwa razy na raz
+        // Debounce - nie wysyłaj dwa razy na raz
         if (this._fetchingTypeCounts) return;
         this._fetchingTypeCounts = true;
         try {
@@ -6675,6 +6675,6 @@ async triggerFastApiRecalculation() {
     
 }
 
-// Inicjalizacja aplikacji — ustaw na `window.app` aby inline onclick mogły go znaleźć
+// Inicjalizacja aplikacji - ustaw na `window.app` aby inline onclick mogły go znaleźć
 const _app = new MovieTracker();
 window.app = _app;

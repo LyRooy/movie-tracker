@@ -46,13 +46,13 @@ func initProgressState(baseURL string) {
 
 // registerProgressRoutes rejestruje endpointy progressu na podanym routerze.
 func registerProgressRoutes(r chi.Router, baseURL string) {
-	// Endpoint pushowy dla dashboardu — zwraca aktualny stan wszystkich modeli.
+	// Endpoint dla dashboardu - zwraca aktualny stan wszystkich modeli.
 	r.Get("/admin/progress", func(w http.ResponseWriter, r *http.Request) {
 		mergePythonState(baseURL)
 		broadcastPush(w)
 	})
 
-	// Endpoint WebSocket (relay): laczy sie z Pythonem (/admin/ws) i przekazuje
+	// Endpoint WebSocket (relay): łaczy sie z Pythonem (/admin/ws) i przekazuje
 	// zdarzenia dalej do panelu dashboardu (dwukierunkowy most).
 	r.Get("/admin/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -62,14 +62,9 @@ func registerProgressRoutes(r chi.Router, baseURL string) {
 		}
 		defer conn.Close()
 
-		// 1. ZAMIANA SCHEMATU: Dialer WebSocket wymaga "ws://" zamiast "http://"
 		wsURL := strings.Replace(baseURL, "http://", "ws://", 1)
 		wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
 
-		// DIAL ZWRACA (conn, response, error). response zawiera "101 Switching Protocols"
-		// po udanym handshake, wiec NIE moze byc przypisany do perr (wtedy kazde
-		// pojeczenie dzialajace wygladalo by jak bled). Ignorujemy response, perr bierze
-		// trzecie miejsce.
 		pyConn, _, perr := websocket.DefaultDialer.Dial(wsURL+"/admin/ws", nil)
 		if perr != nil {
 			log.Printf("Nie udalo sie polaczyc z Pythonem: %v", perr)
@@ -82,20 +77,14 @@ func registerProgressRoutes(r chi.Router, baseURL string) {
 		}
 		defer pyConn.Close()
 
-		// 2. WSPÓŁBIEŻNOŚĆ: Rozdzielamy odbieranie na dwa osobne kanały (goroutines)
-
 		// Wątek A: Odbieranie od Pythona -> wysyłanie do Dashboardu
 		go func() {
 			for {
 				if conn == nil || pyConn == nil {
 					break
 				}
-				// Deadline na odczyt: USUNIĘTO dla testów (Python wysyła piny co sekundę,
-				// wiec nigdy nie ma 15s ciszy). Jeśli w przyszłości Python zacznie milczeć,
-				// przywrócić ten deadline, żeby rozróżnić "Python spoczywa" od "Python umarł".
 				pyMsgType, pyMsg, pyErr := pyConn.ReadMessage()
 				if pyErr != nil {
-					// Python zerwał połączenie. Zamykamy sesję przeglądarki, by wymusić reconnect.
 					conn.Close()
 					break
 				}
@@ -116,7 +105,6 @@ func registerProgressRoutes(r chi.Router, baseURL string) {
 				break
 			}
 
-			// Ignoruj pingi podtrzymujące tunel Cloudflare
 			if string(dashMsg) == `{"type":"ping"}` {
 				continue
 			}
@@ -158,7 +146,6 @@ func modelHasData(m ModelState) bool {
 // fetchPythonProgress pobiera aktualny stan modeli z Pythona (REST).
 // Powraca false, jeśli Python nie jest dostępny (jeszcze nie uruchomiony).
 func fetchPythonProgress(baseURL string) (map[string]ModelState, bool) {
-	// Timeout powyzszeny (30s) — Python /admin/status czyta z bazy i moze byc powolny.
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	resp, err := client.Get(baseURL + "/admin/status")
@@ -183,7 +170,7 @@ func fetchPythonProgress(baseURL string) (map[string]ModelState, bool) {
 	}
 
 	out := make(map[string]ModelState, 2)
-	// ModelState zawiera slice, wiec nie mozna go porownac z wartoscia domyslna (!=).
+	// ModelState zawiera slice, więc nie mozna go porownać z wartoscia domyslna (!=).
 	// Zamiast tego sprawdzamy, czy model ma jakies dane.
 	if modelHasData(status.CF) {
 		out["cf"] = status.CF
@@ -194,7 +181,7 @@ func fetchPythonProgress(baseURL string) (map[string]ModelState, bool) {
 	return out, true
 }
 
-// mergePythonState polaczy nowy stan z Pythona z naszym lokalnym magazynem.
+// mergePythonState połaczy nowy stan z Pythona z naszym lokalnym magazynem.
 func mergePythonState(baseURL string) {
 	stateMu.Lock()
 	defer stateMu.Unlock()
@@ -202,10 +189,6 @@ func mergePythonState(baseURL string) {
 	if fetched, ok := fetchPythonProgress(baseURL); ok {
 		for key, fetchedState := range fetched {
 			cur, exists := models[key]
-			// Python (tracker) zwraca kompletna, rosna liste events/logs, wiec
-			// NADPISUJEMY lokalny stan zamiast doklejac (append). Append bez
-			// deduplikacji powodowal "duchy" — stare logi ponowny render w DOM
-			// przy kazdym odpytaniu /admin/progress (WS onclose + pierwszy load).
 			if exists {
 				cur.Status = fetchedState.Status
 				if fetchedState.Count != nil {
@@ -219,11 +202,6 @@ func mergePythonState(baseURL string) {
 	}
 }
 
-// broadcastPush wysyla aktualne stany do wszystkich podlaczonych WebSocket.
-// Zwraca poprawny obiekt JSON postaci {"cf": {...}, "cb": {...}} — wczesniej
-// sklejano zserializowane obiekty przecinkiem bez otaczajacych klamer, co
-// dawalo niepoprawny JSON i r.json() w przegladarce rzucalo wyjatek (cicho
-// łapany przez .catch(() => {})).
 func broadcastPush(w http.ResponseWriter) {
 	stateMu.RLock()
 	defer stateMu.RUnlock()
@@ -253,8 +231,6 @@ func renderTemplate(w http.ResponseWriter, name string, data any) {
 
 // Funkcja generująca bezpieczny klucz sesji przy starcie serwera
 func initSessionStore() {
-	// Jeśli nie dodasz SESSION_SECRET w Portainerze, Go wygeneruje losowy klucz sam
-	// Oznacza to, że po każdym restarcie kontenera wszyscy zostaną wylogowani (bardzo bezpieczne)
 	secret := os.Getenv("SESSION_SECRET")
 	if secret == "" {
 		bytes := make([]byte, 32)
@@ -264,12 +240,12 @@ func initSessionStore() {
 
 	store = sessions.NewCookieStore([]byte(secret))
 
-	// Konfiguracja ciasteczka: Wygasa po 1 godzinie (3600 sekund)
+	// Konfiguracja ciasteczka: Wygasa po 1 godzinie
 	store.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,
-		Secure:   true, // Działa poprawnie dzięki HTTPS z Cloudflare
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	}
 }
@@ -289,21 +265,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	// URL głównej strony do pobierania theme z Cloudflare Workers API (do ewentualnej przyszłej implementacji)
+	// URL głównej strony do pobierania theme
 	mainSiteURL := os.Getenv("MAIN_SITE_URL")
 	if mainSiteURL == "" {
 		fmt.Println("Ostrzeżenie: MAIN_SITE_URL nie ustawione - theme z głównej strony niedostępne")
 		mainSiteURL = "https://movie-tracker-mstr.110187.xyz/"
 	}
 
-	// URL Pythona (FastAPI). Domyślne: adres IP TrueNAS SCALE, port 8000.
+	// URL Pythona (FastAPI)
 	pythonURL := os.Getenv("ADMIN_PYTHON_URL")
 	if pythonURL == "" {
 		pythonURL = "http://python:8000"
 	}
 	fmt.Printf("Panel admin bedzie pobieral progres z Pythona: %s\n", pythonURL)
 
-	// Inicjalizuj magazyn stanów i zarejestruj endpointy progressu.
+	// Inicjalizuj magazyn stanów i rejestracja endpointu progressu.
 	initProgressState(pythonURL)
 	registerProgressRoutes(r, pythonURL)
 
@@ -325,7 +301,7 @@ func main() {
 		})
 	})
 
-	// Obsługa wysłanego formularza - hard-coded admin (do przyszłej bazy)
+	// Obsługa wysłanego formularza
 	r.Post("/login", func(w http.ResponseWriter, r *http.Request) {
 		session, _ := store.Get(r, "mvt-session")
 
@@ -359,7 +335,7 @@ func main() {
 
 	// === ENDPOINTY ZABEZPIECZONE SESJĄ ===
 
-	// Tworzymy własny Middleware sprawdzający sesję
+	// Middleware sprawdzający sesję
 	authMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			session, _ := store.Get(r, "mvt-session")

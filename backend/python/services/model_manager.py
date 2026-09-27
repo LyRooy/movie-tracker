@@ -5,11 +5,6 @@ from surprise import SVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 class ProgressTracker:
-    """Bezpieczny (lockowany) rejestr postępu budowania modeli.
-    
-    Zbiera zdarzenia (np. 'building', 'built') oraz logi tekstowe dla każdego
-    modelu i wystawia je przez endpoint HTTP/WebSocket dla panelu admina.
-    """
     def __init__(self):
         self._lock = threading.Lock()
         # klucze: "cf" / "cb" — inicjalizowane od razu, żeby /admin/ws nie
@@ -20,7 +15,6 @@ class ProgressTracker:
         }
 
     def record_count(self, key, count):
-        """Zapisz liczbę zapisanych rekomendacji dla modelu (pokazana w liczniku)."""
         with self._lock:
             self.models[key]["count"] = count
 
@@ -30,7 +24,6 @@ class ProgressTracker:
         return self.models[key]
 
     def start(self, key, name, desc):
-        """Zaznaczenie rozpoczęcia budowania modelu."""
         with self._lock:
             m = self._model(key)
             m["count"] = 0
@@ -39,7 +32,6 @@ class ProgressTracker:
                 m["events"].append({"t": round(time.time()*1000), "level": "info", "event": "building", "model": key, "name": name, "message": desc})
 
     def finish(self, key, name, ok=True, message=None):
-        """Zaznaczenie zakończenia budowania modelu."""
         with self._lock:
             m = self._model(key)
             status = "ready" if ok else "error"
@@ -48,13 +40,11 @@ class ProgressTracker:
                 m["events"].append({"t": round(time.time()*1000), "level": "info", "event": "built", "model": key, "name": name, "ok": ok, "message": message or (f"Zbudowano model {name}" if ok else f"Błąd budowania modelu {name}")})
 
     def log(self, key, name, message, level="info"):
-        """Dodanie pojedynczego logu do modelu."""
         with self._lock:
             m = self._model(key)
             m["logs"].append({"t": round(time.time()*1000), "level": level, "model": key, "name": name, "message": message})
 
     def snapshot(self, key):
-        """Zwraca aktualny stan (kopię) dla danego modelu."""
         with self._lock:
             return {
                 "status": self._model(key)["status"],
@@ -67,7 +57,6 @@ class ProgressTracker:
 tracker = ProgressTracker()
 
 class RecommendationModelManager:
-    """Menedżer modeli rekomendacji hybrydowych"""
     
     def __init__(self):
         self.cf_model = None

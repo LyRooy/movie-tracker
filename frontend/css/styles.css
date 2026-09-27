@@ -4004,7 +4004,7 @@ body.transitions-enabled * {
 }
 
 /* ============================================================
-   MODAL PROFILU ZNAJOMEGO — nowy layout
+   MODAL PROFILU ZNAJOMEGO - nowy layout
    ============================================================ */
 .modal-content.profile-modal {
     width: 82vw;
@@ -4081,7 +4081,7 @@ body.transitions-enabled * {
     flex-shrink: 0;
 }
 
-/* STATYSTYKI — jeden rząd, 5 kafelków */
+/* STATYSTYKI - jeden rząd, 5 kafelków */
 .fpm-stats {
     display: flex;
     justify-content: space-around;
@@ -4150,7 +4150,7 @@ body.transitions-enabled * {
 }
 .fpm-section-title i { color: var(--secondary-color); }
 
-/* Odznaki poziomo — owija do następnej linii, ale nie scroluuje się */
+/* Odznaki poziomo - owija do następnej linii, ale nie scroluuje się */
 .fpm-badges-row {
     display: flex;
     flex-wrap: wrap;
@@ -4181,7 +4181,7 @@ body.transitions-enabled * {
 
 .fpm-badges-row .no-badges { color: var(--text-secondary); font-size: 0.9rem; }
 
-/* Aktywność — tylko ta kolumna scrolluje */
+/* Aktywność - tylko ta kolumna scrolluje */
 .fpm-activity-scroll {
     overflow-y: auto;
     flex: 1;
@@ -4238,7 +4238,7 @@ body.transitions-enabled * {
     .fpm-badges-col, .fpm-activity-col { padding: 1rem; }
 }
 
-/* Legacy — zachowaj dla innych miejsc używających .profile-header etc. */
+/* Legacy dla innych miejsc używających .profile-header etc. */
 .profile-header {
     display: flex;
     align-items: center;
@@ -4658,9 +4658,9 @@ body.transitions-enabled * {
     }
 }
 
-/*Responsywność dla dashboardu*/
+/* Responsywność dla dashboardu */
 @media (max-width: 768px) {
-    /* Wymuszenie ułożenia pionowego sekcji "Dla ciebie" i "Top filmy" (naprawa usterki) */
+    /* Wymuszenie ułożenia pionowego sekcji "Dla ciebie" i "Top filmy" */
     .dashboard-layout.for-you-right .for-you-carousel-wrap,
     .dashboard-layout.for-you-right .dashboard-top-movies {
         grid-column: 1; 
@@ -4675,7 +4675,7 @@ body.transitions-enabled * {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    /* Zmiana stylistyki statystyk w zaokrąglone pigułki (nawiązanie do filtrów) */
+    /* Zmiana stylistyki statystyk w zaokrąglone pigułki */
     .sidebar-stats-list {
         flex-direction: row;
         flex-wrap: wrap;
@@ -4688,13 +4688,13 @@ body.transitions-enabled * {
     .sidebar-stat-item {
         background-color: var(--surface-color);
         border: 1px solid var(--border-color);
-        border-radius: 25px; /* Duże zaokrąglenie w stylu przycisków filtrów */
+        border-radius: 25px;
         padding: 0.5rem 1rem;
         flex: 1 1 calc(50% - 0.5rem); /* Rozbija na dwa kafelki w wierszu */
         justify-content: center;
     }
 
-    /* Przywrócenie dolnej ramki dla ostatniego elementu (oryginalnie usuwanej w CSS) */
+    /* Przywrócenie dolnej ramki dla ostatniego elementu */
     .sidebar-stat-item:last-child {
         border-bottom: 1px solid var(--border-color);
     }

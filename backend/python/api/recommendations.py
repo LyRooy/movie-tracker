@@ -35,7 +35,6 @@ def compute_recommendations(user_id: int) -> dict:
         "content_based": {"source": "database_cache", "data": []}
     }
     
-    # 1. POBRANIE DANYCH Z BAZY
     user_ratings = db.fetch_user_ratings(user_id)
     watched_movie_ids = set(db.fetch_watched_movies(user_id))
     onboarding_movie_ids = set(db.fetch_onboarding_movies(user_id))

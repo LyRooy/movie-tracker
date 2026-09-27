@@ -7,7 +7,6 @@ router = APIRouter(prefix="/admin", tags=["Admin Panel"])
 
 @router.get("/status")
 async def status():
-    """Zwraca aktualny status obu modeli (cf, cb)."""
     models = {}
     for key in ("cf", "cb"):
         models[key] = tracker.snapshot(key)
@@ -16,7 +15,6 @@ async def status():
 
 @router.get("/model/{model}")
 async def model(model: str):
-    """Zwraca stan pojedynczego modelu (cf lub cb)."""
     if model not in ("cf", "cb"):
         raise HTTPException(status_code=400, detail=f"Nieznany model: {model}")
     return tracker.snapshot(model)
@@ -24,12 +22,6 @@ async def model(model: str):
 
 @router.websocket("/ws")
 async def admin_ws(websocket: WebSocket):
-    """WebSocket do live streamowania postępu modeli.
-
-    Wysyła tylko nowe zdarzenia/logi (od ostatnio wysłanego indeksu), zamiast
-    całej historii w kółko — inaczej strumień rósł w nieskończoność i zalewał
-    połączenie duplikatami przy każdej iteracji pętli.
-    """
     await websocket.accept()
     sent_events = {"cf": 0, "cb": 0}
     sent_logs = {"cf": 0, "cb": 0}

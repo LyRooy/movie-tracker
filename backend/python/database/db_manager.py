@@ -10,7 +10,6 @@ class DatabaseManager:
         self.database_id = os.getenv("DATABASE_ID")
         self.api_token = os.getenv("API_TOKEN")
         
-        # POPRAWKA 1: Prawidłowy adres API dla Cloudflare D1
         self.endpoint = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/d1/database/{self.database_id}/query"
         self.headers = {"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json"}
         
@@ -18,7 +17,6 @@ class DatabaseManager:
 
     def fetch_user_ratings(self, user_id: int):
         sql_query = "SELECT rating, movie_id FROM reviews WHERE user_id = ? ORDER BY created_at DESC"
-        # POPRAWKA 2: D1 wymaga klucza "sql", a nie "query"
         payload = {"sql": sql_query, "params": [user_id]}
         
         res = requests.post(self.endpoint, json=payload, headers=self.headers)
@@ -78,11 +76,6 @@ class DatabaseManager:
         print(f"DEBUG SAVE D1 Status: {res.status_code} | Body: {res.text}")
 
     def fetch_users(self):
-        """Zwraca listę użytkowników (id, nickname) z bazy.
-
-        Używane przez scheduler rekomendacji, żeby w logach postępu i wynikach
-        pokazywać dla jakiego użytkownika wyliczane są rekomendacje.
-        """
         sql_query = "SELECT id, nickname FROM users ORDER BY id"
         payload = {"sql": sql_query}
         res = requests.post(self.endpoint, json=payload, headers=self.headers)
